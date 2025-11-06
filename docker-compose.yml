@@ -25,6 +25,13 @@ services:
       - "3000:3000"
     environment:
       - NODE_ENV=production
+      - JWT_SECRET=CCISRUCOM
+      - JWT_EXPIRES_IN=7d
+      - DATABASE_HOST=db
+      - DATABASE_PORT=3306
+      - DATABASE_USER=helpdesk_user
+      - DATABASE_PASSWORD=your_strong_user_password
+      - DATABASE_NAME=helpdesk_db
     restart: unless-stopped
 
   frontend:
