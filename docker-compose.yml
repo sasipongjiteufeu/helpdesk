@@ -1,5 +1,21 @@
-version: "3.9"
+
 services:
+  db:
+    image: mysql:8.0
+    container_name: helpdesk-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: your_strong_root_password
+      MYSQL_DATABASE: helpdesk_db
+      MYSQL_USER: helpdesk_user
+      MYSQL_PASSWORD: your_strong_user_password
+    ports:
+      # Expose mysql port to host for debugging/management with a client like MySQL Workbench
+      # Format is <HOST_PORT>:<CONTAINER_PORT>
+      - "3306:3306"
+    volumes:
+      # This tells the service to USE the volume
+      - mysql-data:/var/lib/mysql
   backend:
     build:
       context: ./backend
@@ -25,3 +41,6 @@ services:
     depends_on:
       - backend
     restart: unless-stopped
+
+volumes:
+  mysql-data:
