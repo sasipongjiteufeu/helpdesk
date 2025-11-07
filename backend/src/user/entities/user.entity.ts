@@ -18,16 +18,20 @@ export class User {
   email: string;
 
   // OAuth fields (no passwords stored)
-  @Column({ length: 40, default: 'google' })
-  provider: 'google';
+  @Column({ type: 'varchar', length: 40, default: 'google' })
+  provider: string;
 
+  // 👇 important: force varchar, not inferred Object
   @Index({ unique: true })
-  @Column({ length: 128, nullable: true })
-  providerId?: string | null; // Google sub
+  @Column({ type: 'varchar', length: 128, nullable: true })
+  providerId?: string | null;
 
   @ManyToOne(() => Role, (r) => r.users, { eager: true, nullable: false })
   role: Role;
 
-  @CreateDateColumn({ type: 'timestamptz' })
-  createdAt: Date;
+  @CreateDateColumn({ type: 'timestamp',                // ✅ MySQL
+  precision: 3,                     // optional millis
+  default: () => 'CURRENT_TIMESTAMP(3)',
+})
+createdAt: Date;
 }

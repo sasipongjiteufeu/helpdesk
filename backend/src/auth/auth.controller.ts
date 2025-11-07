@@ -1,28 +1,23 @@
-import { Controller, Get, Req, UseGuards } from '@nestjs/common';
+// auth.controller.ts
+import { Controller, Get, Req, Res, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { AuthService } from './auth.service';
+import { UserService } from 'src/user/user.service';
 
-@Controller('auth')
+@Controller('auth/')
 export class AuthController {
-  constructor(private auth: AuthService) {}
-
-  // Test route
-  @Get('ping')
-  ping() {
-    return { ok: true };
-  }
-
-  // Step 1: redirect user to Google
+  constructor(private readonly user: UserService) {}
+  
+  // GET /auth/google  -> start OAuth
   @Get('google')
   @UseGuards(AuthGuard('google'))
-  async googleAuth() {
-    // Handled by passport
-  }
+  googleAuth() {}
 
-  // Step 2: Google callback
-  @Get('google/callback')
+  // GET /auth/google/redirect  -> callback from Google
+  @Get('google/redirect')
   @UseGuards(AuthGuard('google'))
-  async googleCallback(@Req() req: any) {
-    return { user: req.user }; // just return Google profile for now
+  async googleRedirect(@Req() req, @Res() res) {
+    const { email, providerId } = req.user ?? {};
+    const user = await this.user.findOrCreateGoogleUser(email, providerId);
+    return res.redirect(`${process.env.FRONTEND_URL}/logged-in`);
   }
 }

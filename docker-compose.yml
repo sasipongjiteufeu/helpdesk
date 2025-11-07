@@ -24,6 +24,9 @@ services:
     ports:
       - "3000:3000"
     environment:
+      - GOOGLE_CLIENT_ID=587858471059-3higpfbv1pnrdiok0ds0v0459n30btei.apps.googleusercontent.com
+      - GOOGLE_CLIENT_SECRET=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
+      - GOOGLE_CALLBACK_URL=http://localhost:3000/auth/google/callback
       - NODE_ENV=production
       - JWT_SECRET=CCISRUCOM
       - JWT_EXPIRES_IN=7d

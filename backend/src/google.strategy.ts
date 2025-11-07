@@ -12,6 +12,8 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
       callbackURL: process.env.GOOGLE_CALLBACK_URL!,
       scope: ['email','profile'],
     });
+    console.log('GOOGLE_CLIENT_ID', (process.env.GOOGLE_CLIENT_ID || '').slice(0, 8));
+    console.log('GOOGLE_CALLBACK_URL', process.env.GOOGLE_CALLBACK_URL);
   }
 
   async validate(
@@ -21,9 +23,8 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     done: VerifyCallback,
   ) {
     const email = profile.emails?.[0]?.value;
-    const providerId = profile.id;
+    const providerId = profile?.id;
 
-    const user = await this.users.findOrCreateGoogleUser(email, providerId);
-    done(user);
+    done(null, { email, providerId });
   }
 }

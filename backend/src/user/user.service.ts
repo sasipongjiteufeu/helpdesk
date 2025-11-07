@@ -5,6 +5,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { User } from './entities/user.entity';
 import { Role } from 'src/role/entities/role.entity';
 import { Repository } from 'typeorm';
+import { RoleEnum } from 'src/role/entities/role.enum';
 
 @Injectable()
 export class UserService {
@@ -32,19 +33,20 @@ export class UserService {
       } //this method is for check that user have user provider? if not servic will add provider
 
 
-      if (user.role) return user; //if user have role return user
-
-      if (!user) {
+      if (user.role) return user;//if user have role return user
+      else {
         user = this.usersRepository.create({
           email,
           provider: 'google',
           providerId,
         });
-      } // if don't have user in database get it from google 
+      }
 
-      let defaultRole = await this.rolesRepository.findOne({ where: { name: 'USER' } });
+     // if don't have user in database get it from google 
+
+      let defaultRole = await this.rolesRepository.findOne({ where: { name: RoleEnum.USER } });
       if (!defaultRole) {
-        defaultRole = await this.rolesRepository.save(this.rolesRepository.create({ name: 'USER' }));
+        defaultRole = await this.rolesRepository.save(this.rolesRepository.create({ name: RoleEnum.USER }));
       } // set default Role to User
       user.role = defaultRole;
       return await this.usersRepository.save(user);
