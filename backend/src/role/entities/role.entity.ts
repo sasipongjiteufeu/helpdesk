@@ -1,4 +1,4 @@
-import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, Entity, ManyToMany, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
 import { User } from 'src/user/entities/user.entity';
 import { RoleEnum } from './role.enum';
 
@@ -14,6 +14,6 @@ export class Role {
   })
   name: RoleEnum;
 
-  @OneToMany(() => User, (u) => u.role)
+  @ManyToMany(() => User, (u) => u.roles)
   users: User[];
 }

@@ -10,14 +10,15 @@ import { Role } from 'src/role/entities/role.entity';
 import { UserService } from 'src/user/user.service';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { UserModule } from 'src/user/user.module';
+import { SessionSerializer } from './sesion.serializer';
 
 @Module({
   imports: [
     UserModule,
-    PassportModule.register({ session: false }),
+    PassportModule.register({ session: true }),
     TypeOrmModule.forFeature([User, Role]),
   ],
   controllers: [AuthController],
-  providers: [AuthService, UserService, GoogleStrategy],
+  providers: [AuthService, UserService, GoogleStrategy,SessionSerializer],
 })
 export class AuthModule {}

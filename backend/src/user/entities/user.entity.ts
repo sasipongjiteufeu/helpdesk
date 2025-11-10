@@ -3,6 +3,8 @@ import {
   CreateDateColumn,
   Entity,
   Index,
+  JoinTable,
+  ManyToMany,
   ManyToOne,
   PrimaryGeneratedColumn,
 } from 'typeorm';
@@ -25,9 +27,14 @@ export class User {
   @Index({ unique: true })
   @Column({ type: 'varchar', length: 128, nullable: true })
   providerId?: string | null;
-
-  @ManyToOne(() => Role, (r) => r.users, { eager: true, nullable: false })
-  role: Role;
+  
+  @ManyToMany(() => Role, (r) => r.users, { eager: true })
+  @JoinTable({
+    name: 'user_roles',
+    joinColumn: { name: 'user_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'role_id', referencedColumnName: 'id' },
+  })
+  roles: Role[];
 
   @CreateDateColumn({ type: 'timestamp',                // ✅ MySQL
   precision: 3,                     // optional millis
