@@ -5,33 +5,33 @@ import {
   IsString,
   IsUUID,
   Length,
+  MaxLength,
 } from 'class-validator';
-import { TicketState } from '../entities/ticket-state.enum';
+import { TicketStatus } from '../entities/ticket-state.enum';
 export class CreateTicketDto {
-@IsString()
-@Length(1,200)
-title: string;
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  picture?: string[];          // URLs / keys
-
-  @IsUUID()
-  createdById: string;         // FK → users.id
-
-  @IsOptional()
-  @IsUUID()
-  assignedToId?: string;       // FK → users.id
-
-  @IsOptional()
+  
+  @IsString() 
+  @MaxLength(200) 
+  title: string;
+ 
   @IsString()
-  @Length(3, 20)               // adjust to your format
-  // If you want strict Thai numbers: use a regex or IsPhoneNumber('TH')
+  @MaxLength(1000) 
+  detail: string;
+
+  @IsOptional() 
+  @IsString() 
+  @MaxLength(20)
   telephone?: string;
 
+    // --- Assign Ticket fields ---
   @IsOptional()
-  @IsEnum(TicketState)
-  state?: TicketState;         // default WAITING if omitted
+  @IsUUID()
+  userId?: string; // the user (agent) assigned to handle the ticket
+
+  // --- Change Status fields ---
+  @IsOptional()
+  @IsEnum(TicketStatus)
+  status?: TicketStatus; // "OPEN" | "IN_PROGRESS" | "RESOLVED"
 }
 
 

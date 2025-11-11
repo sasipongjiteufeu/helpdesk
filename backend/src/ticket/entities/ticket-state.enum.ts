@@ -1,5 +1,5 @@
-export enum TicketState {
-  IN_PROGRESS = 'กำลังดำเนินการ',
-  DONE        = 'งานเสร็จสิน',
-  WAITING     = 'รอรับงาน',
+export enum TicketStatus {
+  OPEN = 'OPEN',
+  IN_PROGRESS = 'IN_PROGRESS',
+  RESOLVED = 'RESOLVED',
 }

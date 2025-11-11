@@ -41,4 +41,5 @@ export class User {
   default: () => 'CURRENT_TIMESTAMP(3)',
 })
 createdAt: Date;
+  //RoleEnum: any;
 }
