@@ -29,6 +29,7 @@ services:
       - GOOGLE_CLIENT_SECRET=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
       - GOOGLE_CALLBACK_URL=http://localhost:3000/auth/google/redirect
       - NODE_ENV=production
+      - COOKIE_SECURE=false 
       - JWT_SECRET=CCISRUCOM
       - JWT_EXPIRES_IN=7d
       - DATABASE_HOST=db

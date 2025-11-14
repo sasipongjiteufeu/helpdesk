@@ -13,4 +13,11 @@ export class RoleController {
     }
     return this.roleService.addRoleToUserByEmail(dto.email, dto.name);
   }
+  @Patch('removeRoleFromUserByEmail')
+  async removeRoleFromUserByEmail(@Body() dto:UpdateRoleDto){
+    if(!dto.email || !dto.name){
+      throw new Error('email and role name are required to Delete role from that email')
+    }
+    return this.roleService.removeRoleFromUserByEmail(dto.email, dto.name)
+  }
 }

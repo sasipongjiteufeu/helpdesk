@@ -32,7 +32,7 @@ export class Ticket {
   assignedTo: User | null;
 
   @Column({ name: 'Tal', type: 'varchar', length: 20, nullable: true })
-  tal: string | null;
+  tel: string | null;
 
   @Column({ name: 'Stat', type: 'enum', enum: TicketStatus, default: TicketStatus.OPEN })
   status: TicketStatus;

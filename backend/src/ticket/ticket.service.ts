@@ -19,7 +19,7 @@ export class TicketService {
     const t = this.repo.create({
       title: dto.title,
       detail: dto.detail,
-      tal: dto.telephone ?? null,
+      tel: dto.telephone ?? null,
       createdBy: creator,
       picture: file ? file.buffer : null,
       status: TicketStatus.OPEN,
@@ -67,7 +67,7 @@ export class TicketService {
 
     if (dto.title !== undefined) t.title = dto.title;
     if (dto.detail !== undefined) t.detail = dto.detail;
-    if (dto.telephone !== undefined) t.tal = dto.telephone ?? null;
+    if (dto.telephone !== undefined) t.tel = dto.telephone ?? null;
     if (file) t.picture = file.buffer;
 
     return this.repo.save(t);
