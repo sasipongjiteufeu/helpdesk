@@ -1,9 +1,10 @@
 import {
   Controller, Get, Post, Body, Param, Patch, Delete, Query, Req, Res,
-  UseGuards, UploadedFile, UseInterceptors
+  UseGuards, UploadedFile, UseInterceptors,
+  UploadedFiles
 } from '@nestjs/common';
 import express from 'express';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { TicketService } from './ticket.service';
 import { CreateTicketDto } from './dto/create-ticket.dto';
 import { AuthenticatedGuard } from 'src/auth/guards/authenticated.guard';
@@ -19,9 +20,13 @@ export class TicketController {
   // Create (multipart form: title, detail, tal?, picture?)
   @Post()
   @Roles(RoleEnum.USER, RoleEnum.AGENT, RoleEnum.ADMIN)
-  @UseInterceptors(FileInterceptor('picture'))
-  create(@Body() dto: CreateTicketDto, @UploadedFile() file: any, @Req() req: any) {
-    return this.svc.create(dto, req.user, file);
+  @UseInterceptors(FilesInterceptor('pictures', 10)) // 👈 matches form field "pictures"
+  create(
+    @Body() dto: CreateTicketDto,
+    @UploadedFiles() files: Express.Multer.File[],
+    @Req() req: any,
+  ) {
+    return this.svc.create(dto, req.user, files);
   }
 
   // List (mine for USER, all for staff)
@@ -42,21 +47,48 @@ export class TicketController {
   }
 
   // Get raw picture bytes (204 if none)
-  @Get(':id/picture')
+@Get(':id/picture')
+@Roles(RoleEnum.USER, RoleEnum.AGENT, RoleEnum.ADMIN)
+async getPicture(@Param('id') id: string, @Req() req: any, @Res() res: express.Response) {
+  const t = await this.svc.findOneFor(req.user, id); // now includes images
+  const firstImage = t.images?.[0];
+  if (!firstImage) return res.status(204).send();
+
+  res.setHeader('Content-Type', firstImage.mimeType || 'application/octet-stream');
+  res.end(firstImage.data);
+}
+  // === NEW: get one image's bytes ===
+  @Get(':id/images/:imageId')
   @Roles(RoleEnum.USER, RoleEnum.AGENT, RoleEnum.ADMIN)
-  async getPicture(@Param('id') id: string, @Req() req: any, @Res() res: express.Response) {
-    const t = await this.svc.findOneFor(req.user, id);
-    if (!t.picture) return res.status(204).send();
-    res.setHeader('Content-Type', 'application/octet-stream');
-    res.end(t.picture);
+  async getImage(
+    @Param('id') id: string,
+    @Param('imageId') imageId: string,
+    @Req() req: any,
+    @Res() res: express.Response,
+  ) {
+    const img = await this.svc.getImageFor(req.user, id, imageId);
+    res.setHeader('Content-Type', img.mimeType || 'application/octet-stream');
+    res.end(img.data);
   }
+  // === NEW: list all images metadata for a ticket ===
+  @Get(':id/images')
+  @Roles(RoleEnum.USER, RoleEnum.AGENT, RoleEnum.ADMIN)
+  getAllImages(@Param('id') id: string, @Req() req: any) {
+    return this.svc.getAllImagesFor(req.user, id);
+  }
+
 
   // Update content/tel/picture (owner or staff)
   @Patch(':id')
   @Roles(RoleEnum.USER, RoleEnum.AGENT, RoleEnum.ADMIN)
-  @UseInterceptors(FileInterceptor('picture'))
-  update(@Param('id') id: string, @Body() dto: CreateTicketDto, @UploadedFile() file: any, @Req() req: any) {
-    return this.svc.updateFor(req.user, id, dto, file);
+  @UseInterceptors(FilesInterceptor('pictures'))
+  update(
+    @Param('id') id: string,
+    @Body() dto: CreateTicketDto,
+    @UploadedFiles() files: Express.Multer.File[],
+    @Req() req: any,
+  ) {
+    return this.svc.updateFor(req.user, id, dto, files);
   }
 
   // Assign (staff only)

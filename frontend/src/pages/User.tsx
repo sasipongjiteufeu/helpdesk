@@ -1,40 +1,38 @@
-import { useEffect, useState, FormEvent } from 'react';
+// src/pages/User.tsx
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { API_BASE } from '../lib/api';
+import { useRequireAuth } from '../hooks/useRequireAuth';
 
 type TicketStatus = 'OPEN' | 'IN_PROGRESS' | 'RESOLVED';
 
 interface Ticket {
   id: string;
   title: string;
-  description: string;
+  detail: string;
+  tel?: string | null;
   status: TicketStatus;
   createdAt: string;
+  assignedTo?: { email?: string } | null;
 }
 
-export default function UserPage() {
+export default function UserTicketsPage() {
+  const { user, loading: authLoading } = useRequireAuth();
+  const nav = useNavigate();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [creating, setCreating] = useState(false);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-
-  // 1) load own tickets
   async function loadTickets() {
     try {
       setLoading(true);
-      setError(null);
-      const res = await fetch(`${API_BASE}/tickets/my`, {
+      const res = await fetch(`${API_BASE}/tickets?page=1&limit=50`, {
         credentials: 'include',
       });
-      if (!res.ok) throw new Error(`Failed to load tickets (${res.status})`);
       const data = await res.json();
-      setTickets(data as Ticket[]);
+      setTickets(data.items ?? []);
     } catch (e: any) {
-      console.error(e);
-      setError(e.message ?? 'Failed to load tickets');
+      setError(e.message || 'fetch error');
     } finally {
       setLoading(false);
     }
@@ -44,158 +42,120 @@ export default function UserPage() {
     loadTickets();
   }, []);
 
-  // 2) create ticket
-  async function handleCreate(e: FormEvent) {
-    e.preventDefault();
-    if (!title.trim()) return;
-
-    try {
-      setCreating(true);
-      setError(null);
-      const res = await fetch(`${API_BASE}/tickets`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, description }),
-      });
-      if (!res.ok) throw new Error(`Failed to create ticket (${res.status})`);
-
-      setTitle('');
-      setDescription('');
-      await loadTickets(); // reload list
-    } catch (e: any) {
-      console.error(e);
-      setError(e.message ?? 'Failed to create ticket');
-    } finally {
-      setCreating(false);
-    }
+  if (authLoading || !user) {
+    return <div style={{ padding: 40 }}>Checking your access…</div>;
   }
 
-  // 3) delete own ticket
   async function handleDelete(id: string) {
-    if (!confirm('Delete this ticket?')) return;
-    try {
-      setDeletingId(id);
-      setError(null);
-      const res = await fetch(`${API_BASE}/tickets/${id}`, {
-        method: 'DELETE',
-        credentials: 'include',
-      });
-      if (!res.ok) throw new Error(`Failed to delete ticket (${res.status})`);
-      // optimistic update
-      setTickets(prev => prev.filter(t => t.id !== id));
-    } catch (e: any) {
-      console.error(e);
-      setError(e.message ?? 'Failed to delete ticket');
-    } finally {
-      setDeletingId(null);
-    }
+    if (!confirm('Delete?')) return;
+    await fetch(`${API_BASE}/tickets/${id}`, {
+      method: 'DELETE',
+      credentials: 'include',
+    });
+    setTickets(prev => prev.filter(t => t.id !== id));
   }
+
+  // ====== UI ======
+  const pageStyle = {
+    minHeight: '100vh',
+    background: '#f3f4f6',
+    padding: '24px',
+    boxSizing: 'border-box',
+    fontFamily: 'system-ui',
+  } as const;
+
+  const shellStyle = {
+    maxWidth: '1200px',
+    margin: '0 auto',
+    background: '#fff',
+    borderRadius: '16px',
+    boxShadow: '0 18px 40px rgba(0,0,0,0.15)',
+    padding: '20px',
+  } as const;
+
+  const headerStyle = {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderBottom: '1px solid #e5e7eb',
+    paddingBottom: '12px',
+  } as const;
+
+  const logoRowStyle = {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+  } as const;
 
   return (
-    <div
-      style={{
-        minHeight: '100dvh',
-        padding: '2rem',
-        fontFamily: 'system-ui, -apple-system, Segoe UI, Roboto, Arial',
-        background: '#0f172a',
-        color: '#e2e8f0',
-      }}
-    >
-      <h1 style={{ fontSize: '2rem', marginBottom: '1.5rem' }}>User – Tickets</h1>
+    <div style={pageStyle}>
+      <div style={shellStyle}>
+        {/* Header */}
+        <div style={headerStyle}>
+          <div style={logoRowStyle}>
+            <img
+              src="/logo-sru-png.png"
+              alt="SRU Logo"
+              style={{
+                height: '58px', // โลโก้ใหญ่แบบเต็ม ไม่ crop
+                width: 'auto',
+              }}
+            />
+            <span style={{ fontSize: '1.7rem', fontWeight: 700 }}>HelpDesk</span>
+          </div>
 
-      {/* Create form */}
-      <section
-        style={{
-          background: '#020617',
-          padding: '1.5rem',
-          borderRadius: '0.75rem',
-          marginBottom: '2rem',
-          border: '1px solid #1f2937',
-        }}
-      >
-        <h2 style={{ fontSize: '1.2rem', marginBottom: '1rem' }}>Create Ticket</h2>
-        <form
-          onSubmit={handleCreate}
-          style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}
-        >
-          <input
-            placeholder="Title"
-            value={title}
-            onChange={e => setTitle(e.target.value)}
-            style={{
-              padding: '0.5rem 0.75rem',
-              borderRadius: '0.5rem',
-              border: '1px solid #4b5563',
-              background: '#020617',
-              color: 'inherit',
-            }}
-            required
-          />
-          <textarea
-            placeholder="Describe your problem…"
-            value={description}
-            onChange={e => setDescription(e.target.value)}
-            rows={4}
-            style={{
-              padding: '0.5rem 0.75rem',
-              borderRadius: '0.5rem',
-              border: '1px solid #4b5563',
-              background: '#020617',
-              color: 'inherit',
-              resize: 'vertical',
-            }}
-          />
-          <button
-            type="submit"
-            disabled={creating}
-            style={{
-              alignSelf: 'flex-start',
-              padding: '0.5rem 1.2rem',
-              borderRadius: '999px',
-              border: 'none',
-              background: creating ? '#4b5563' : '#22c55e',
-              color: '#020617',
-              fontWeight: 600,
-              cursor: creating ? 'default' : 'pointer',
-            }}
-          >
-            {creating ? 'Creating…' : 'Create'}
-          </button>
-        </form>
-      </section>
+          <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+            <span>{user.email}</span>
+            <button
+              onClick={() => (window.location.href = `${API_BASE}/auth/logout`)}
+              style={{
+                padding: '6px 14px',
+                borderRadius: '999px',
+                border: '1px solid #d1d5db',
+                background: '#fff',
+                cursor: 'pointer',
+              }}
+            >
+              Logout
+            </button>
+          </div>
+        </div>
 
-      {/* Error */}
-      {error && (
+        {/* Section Title */}
         <div
           style={{
-            marginBottom: '1rem',
-            padding: '0.75rem 1rem',
-            borderRadius: '0.5rem',
-            background: '#7f1d1d',
+            marginTop: 16,
+            display: 'flex',
+            justifyContent: 'space-between',
           }}
         >
-          {error}
+          <h2 style={{ margin: 0 }}>รายการคำร้องของฉัน</h2>
+
+          <button
+            onClick={() => nav('/user/create')}
+            style={{
+              padding: '7px 16px',
+              background: '#22c55e',
+              borderRadius: '999px',
+              fontWeight: 600,
+              border: 'none',
+              cursor: 'pointer',
+            }}
+          >
+            + Create Ticket
+          </button>
         </div>
-      )}
 
-      {/* Tickets table */}
-      <section
-        style={{
-          background: '#020617',
-          padding: '1.5rem',
-          borderRadius: '0.75rem',
-          border: '1px solid #1f2937',
-        }}
-      >
-        <h2 style={{ fontSize: '1.2rem', marginBottom: '1rem' }}>My Tickets</h2>
+        {/* Error */}
+        {error && <p style={{ color: 'red' }}>{error}</p>}
 
-        {loading ? (
-          <p>Loading…</p>
-        ) : tickets.length === 0 ? (
-          <p>No tickets yet.</p>
-        ) : (
-          <div style={{ overflowX: 'auto' }}>
+        {/* Ticket Table */}
+        <div style={{ marginTop: 12, overflowX: 'auto' }}>
+          {loading ? (
+            <p>Loading…</p>
+          ) : tickets.length === 0 ? (
+            <p>ยังไม่มีรายการคำร้อง</p>
+          ) : (
             <table
               style={{
                 width: '100%',
@@ -205,53 +165,81 @@ export default function UserPage() {
             >
               <thead>
                 <tr>
+                  <th style={th}>Ticket ID</th>
                   <th style={th}>Title</th>
+                  <th style={th}>Detail</th>
+                  <th style={th}>Tel</th>
                   <th style={th}>Status</th>
-                  <th style={th}>Created</th>
+                  <th style={th}>Commit by</th>
+                  <th style={th}>Created At</th>
                   <th style={th}>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {tickets.map(t => (
                   <tr key={t.id}>
+                    <td style={td}>{t.id}</td>
                     <td style={td}>{t.title}</td>
+                    <td style={td}>{t.detail}</td>
+                    <td style={td}>{t.tel ?? '-'}</td>
                     <td style={td}>{t.status}</td>
+                    <td style={td}>{t.assignedTo?.email ?? '-'}</td>
                     <td style={td}>{new Date(t.createdAt).toLocaleString()}</td>
                     <td style={td}>
-                      <button
-                        onClick={() => handleDelete(t.id)}
-                        disabled={deletingId === t.id}
+                      <div
                         style={{
-                          padding: '0.25rem 0.7rem',
-                          borderRadius: '999px',
-                          border: 'none',
-                          background: '#ef4444',
-                          color: '#f9fafb',
-                          fontSize: '0.8rem',
-                          cursor: deletingId === t.id ? 'default' : 'pointer',
+                          display: 'flex',
+                          gap: '0.5rem',
+                          justifyContent: 'flex-start',
                         }}
                       >
-                        {deletingId === t.id ? 'Deleting…' : 'Delete'}
-                      </button>
+                        <button
+                          onClick={() => nav(`/user/ticket/${t.id}`)}
+                          style={{
+                            padding: '4px 10px',
+                            borderRadius: '999px',
+                            border: '1px solid #d1d5db',
+                            background: '#ffffff',
+                            fontSize: '0.8rem',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          Info
+                        </button>
+                        <button
+                          onClick={() => handleDelete(t.id)}
+                          style={{
+                            padding: '4px 10px',
+                            borderRadius: '999px',
+                            border: 'none',
+                            background: '#ef4444',
+                            color: '#f9fafb',
+                            fontSize: '0.8rem',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-          </div>
-        )}
-      </section>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
 
-const th: React.CSSProperties = {
+const th = {
   textAlign: 'left',
-  padding: '0.5rem',
-  borderBottom: '1px solid #1f2937',
-};
+  padding: '8px',
+  borderBottom: '2px solid #1f2937',
+} as const;
 
-const td: React.CSSProperties = {
-  padding: '0.5rem',
-  borderBottom: '1px solid #111827',
-};
+const td = {
+  padding: '8px',
+  borderBottom: '1px solid #d1d5db',
+} as const;

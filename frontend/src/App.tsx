@@ -9,6 +9,8 @@ import Admin from './pages/Admin';
 import Agent from './pages/Agent';
 import User from './pages/User';
 import ChooseRole from './pages/ChooseRole';
+import UserCreateTicketPage from './pages/UserCreateTicketPage';
+import UserTicketInfoPage from './pages/UserTicketInfoPage';
 
 export default function App() {
   return (
@@ -21,7 +23,8 @@ export default function App() {
       <Route path="/admin" element={<Admin />} />
       <Route path="/agent" element={<Agent />} />
       <Route path="/user" element={<User />} />
-      
+      <Route path="/user/create" element={<UserCreateTicketPage />} />
+      <Route path="/user/ticket/:id" element={<UserTicketInfoPage />} />
 
       {/* multi-role choose page */}
       <Route path="/choose-role" element={<ChooseRole />} />

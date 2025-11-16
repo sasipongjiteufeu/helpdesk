@@ -1,11 +1,13 @@
+// ticket.entity.ts
 import {
   Column, CreateDateColumn, Entity, Index, JoinColumn, ManyToOne,
-  PrimaryGeneratedColumn, UpdateDateColumn
+  PrimaryGeneratedColumn, UpdateDateColumn, OneToMany   // 👈 add OneToMany
 } from 'typeorm';
 import { User } from 'src/user/entities/user.entity';
 import { TicketStatus } from './ticket-state.enum';
+import { TicketImage } from './ticket-image.entity';     // 👈 import
 
-@Entity('Ticket') // table name to match your diagram (optional)
+@Entity('Ticket')
 export class Ticket {
   @PrimaryGeneratedColumn('uuid', { name: 'Ticket_ID' })
   id: string;
@@ -17,16 +19,14 @@ export class Ticket {
   @Column({ name: 'Detail', type: 'text' })
   detail: string;
 
-  // single BLOB, as requested
-  @Column({ name: 'Picture', type: 'longblob', nullable: true })
-  picture: Buffer | null;
+  // ⛔️ you can delete the old single-picture column if you don't need it:
+  // @Column({ name: 'Picture', type: 'longblob', nullable: true })
+  // picture: Buffer | null;
 
-  // creator (ByUser)
   @ManyToOne(() => User, { eager: true, nullable: false })
   @JoinColumn({ name: 'ByUser' })
   createdBy: User;
 
-  // assignee (Commit_By)
   @ManyToOne(() => User, { eager: true, nullable: true })
   @JoinColumn({ name: 'Commit_By' })
   assignedTo: User | null;
@@ -52,6 +52,10 @@ export class Ticket {
     onUpdate: 'CURRENT_TIMESTAMP(3)',
   })
   updatedAt: Date;
-}
-export { TicketStatus };
 
+  // 👇 MULTI-IMAGE RELATION
+  @OneToMany(() => TicketImage, img => img.ticket, { cascade: true })
+  images: TicketImage[];
+}
+
+export { TicketStatus };

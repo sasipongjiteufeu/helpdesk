@@ -2,35 +2,87 @@
 import { useEffect, useState } from 'react';
 import { API_BASE } from '../lib/api';
 
-type RoleName = 'USER'|'AGENT'|'ADMIN';
+// โหลดโลโก้จาก public/
+const ARIT_LOGO = '/logo-ARIT.png';
+const SRU_LOGO = '/logo-sru-png.png';
+
+type RoleName = 'USER' | 'AGENT' | 'ADMIN';
+
+interface MeResponse {
+  email?: string;
+  roles?: { name?: RoleName }[];
+}
+
 export default function ChooseRole() {
   const [roles, setRoles] = useState<RoleName[]>([]);
+  const [email, setEmail] = useState('');
+  const [loading, setLoading] = useState(true);
+
   useEffect(() => {
     (async () => {
-      const res = await fetch(`${API_BASE}/auth/me`, { credentials:'include' });
-      const data = await res.json().catch(() => null);
-      const names = (data?.roles || []).map((r:any) => r?.name).filter(Boolean);
-      setRoles(names);
+      try {
+        const res = await fetch(`${API_BASE}/auth/me`, { credentials: 'include' });
+        const data: MeResponse = await res.json();
+
+        const names = (data?.roles || [])
+          .map((r) => r?.name)
+          .filter((n): n is RoleName => Boolean(n));
+
+        setEmail(data?.email || '');
+
+        // ถ้าผู้ใช้มีแค่ 1 role → ข้ามไปเลย
+        if (names.length === 1) {
+          const map: Record<RoleName, string> = {
+            ADMIN: '/admin',
+            AGENT: '/agent',
+            USER: '/user',
+          };
+          window.location.replace(map[names[0]]);
+          return;
+        }
+
+        setRoles(names);
+      } finally {
+        setLoading(false);
+      }
     })();
   }, []);
 
   const go = (r: RoleName) => {
-    const map: Record<RoleName,string> = { ADMIN:'/admin', AGENT:'/agent', USER:'/user' };
+    const map: Record<RoleName, string> = {
+      ADMIN: '/admin',
+      AGENT: '/agent',
+      USER: '/user',
+    };
     window.location.replace(map[r]);
   };
 
   return (
-    <div style={{minHeight:'100dvh',display:'grid',placeItems:'center',gap:'1rem',fontFamily:'system-ui'}}>
-      <div style={{display:'flex',gap:'1rem'}}>
-        {roles.length === 0 && <p>Loading roles…</p>}
-        {roles.map((r) => (
-          <button key={r}
-            onClick={() => go(r as RoleName)}
-            style={{padding:'1rem 1.2rem',borderRadius:'0.7rem',border:'1px solid #cbd5e1',fontWeight:700,cursor:'pointer'}}
-          >
-            {r}
-          </button>
-        ))}
+    <div className="role-page">
+      <div className="role-card">
+        
+        {/* โลโก้สองตัวตรงกลาง */}
+        <div className="login-logos" style={{ marginBottom: '16px' }}>
+          <img src={ARIT_LOGO} alt="ARIT Logo" style={{ height: '70px' }} />
+          <img src={SRU_LOGO} alt="SRU Logo" style={{ height: '90px' }} />
+        </div>
+
+        <div className="role-welcome">
+          <p className="role-greeting">Welcome!</p>
+          {email && <p className="role-email">{email}</p>}
+          <p className="role-subtext">กรุณาเลือกรูปแบบการเข้าใช้งานระบบ</p>
+        </div>
+
+        <div className="role-buttons">
+          {loading && <p className="role-loading">กำลังโหลดสิทธิ์การใช้งาน…</p>}
+
+          {!loading &&
+            roles.map((r) => (
+              <button key={r} className="role-button" onClick={() => go(r)}>
+                {r}
+              </button>
+            ))}
+        </div>
       </div>
     </div>
   );

@@ -6,10 +6,11 @@ import { Ticket } from './entities/ticket.entity';
 import { User } from 'src/user/entities/user.entity';
 import { TicketService } from './ticket.service';
 import { TicketController } from './ticket.controller';
+import { TicketImage } from './entities/ticket-image.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Ticket, User]),
+    TypeOrmModule.forFeature([Ticket, User, TicketImage]),
     MulterModule.register({
       storage: memoryStorage(),          // file.buffer available
       limits: { fileSize: 5 * 1024 * 1024 }, // 5MB max; adjust as needed
