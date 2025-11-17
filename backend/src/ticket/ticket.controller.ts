@@ -42,14 +42,14 @@ export class TicketController {
   // Get one (owner or staff)
   @Get(':id')
   @Roles(RoleEnum.USER, RoleEnum.AGENT, RoleEnum.ADMIN)
-  findOne(@Param('id') id: string, @Req() req: any) {
+  findOne(@Param('id') id: number, @Req() req: any) {
     return this.svc.findOneFor(req.user, id);
   }
 
   // Get raw picture bytes (204 if none)
 @Get(':id/picture')
 @Roles(RoleEnum.USER, RoleEnum.AGENT, RoleEnum.ADMIN)
-async getPicture(@Param('id') id: string, @Req() req: any, @Res() res: express.Response) {
+async getPicture(@Param('id') id: number, @Req() req: any, @Res() res: express.Response) {
   const t = await this.svc.findOneFor(req.user, id); // now includes images
   const firstImage = t.images?.[0];
   if (!firstImage) return res.status(204).send();
@@ -61,7 +61,7 @@ async getPicture(@Param('id') id: string, @Req() req: any, @Res() res: express.R
   @Get(':id/images/:imageId')
   @Roles(RoleEnum.USER, RoleEnum.AGENT, RoleEnum.ADMIN)
   async getImage(
-    @Param('id') id: string,
+    @Param('id') id: number,
     @Param('imageId') imageId: string,
     @Req() req: any,
     @Res() res: express.Response,
@@ -73,7 +73,7 @@ async getPicture(@Param('id') id: string, @Req() req: any, @Res() res: express.R
   // === NEW: list all images metadata for a ticket ===
   @Get(':id/images')
   @Roles(RoleEnum.USER, RoleEnum.AGENT, RoleEnum.ADMIN)
-  getAllImages(@Param('id') id: string, @Req() req: any) {
+  getAllImages(@Param('id') id: number, @Req() req: any) {
     return this.svc.getAllImagesFor(req.user, id);
   }
 
@@ -83,7 +83,7 @@ async getPicture(@Param('id') id: string, @Req() req: any, @Res() res: express.R
   @Roles(RoleEnum.USER, RoleEnum.AGENT, RoleEnum.ADMIN)
   @UseInterceptors(FilesInterceptor('pictures'))
   update(
-    @Param('id') id: string,
+    @Param('id') id: number,
     @Body() dto: CreateTicketDto,
     @UploadedFiles() files: Express.Multer.File[],
     @Req() req: any,
@@ -94,21 +94,21 @@ async getPicture(@Param('id') id: string, @Req() req: any, @Res() res: express.R
   // Assign (staff only)
   @Patch(':id/assign')
   @Roles(RoleEnum.AGENT, RoleEnum.ADMIN)
-  assign(@Param('id') id: string, @Body() dto: CreateTicketDto) {
+  assign(@Param('id') id: number, @Body() dto: CreateTicketDto) {
     return this.svc.assign(id, dto);
   }
 
   // Change status (staff only)
   @Patch(':id/status')
   @Roles(RoleEnum.AGENT, RoleEnum.ADMIN)
-  changeStatus(@Param('id') id: string, @Body() dto: CreateTicketDto) {
+  changeStatus(@Param('id') id: number, @Body() dto: CreateTicketDto) {
     return this.svc.changeStatus(id, dto);
   }
 
   // Delete (admin; or owner if OPEN & unassigned)
   @Delete(':id')
   @Roles(RoleEnum.USER, RoleEnum.ADMIN)
-  remove(@Param('id') id: string, @Req() req: any) {
+  remove(@Param('id') id: number, @Req() req: any) {
     return this.svc.removeFor(req.user, id);
   }
 }

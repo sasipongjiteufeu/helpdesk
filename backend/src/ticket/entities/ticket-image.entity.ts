@@ -3,6 +3,7 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  Generated,
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
@@ -13,7 +14,7 @@ import { Ticket } from './ticket.entity';
 export class TicketImage {
   @PrimaryGeneratedColumn('uuid', { name: 'Picture_ID' })
   id: string;
-
+  
   @ManyToOne(() => Ticket, t => t.images, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'Ticket_ID' })
   ticket: Ticket;

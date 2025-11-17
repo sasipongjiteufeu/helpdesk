@@ -7,7 +7,7 @@ import { useRequireAuth } from '../hooks/useRequireAuth';
 type TicketStatus = 'OPEN' | 'IN_PROGRESS' | 'RESOLVED';
 
 interface Ticket {
-  id: string;
+  id: number;
   title: string;
   detail: string;
   tel?: string | null;
@@ -185,7 +185,7 @@ export default function UserTicketInfoPage() {
           )}
 
           {loading || !ticket ? (
-            <p>Loading…</p>
+            <p>กำลังดาวโหลด...</p>
           ) : (
             <section
               style={{
@@ -211,7 +211,7 @@ export default function UserTicketInfoPage() {
               >
                 {images.length === 0 ? (
                   <div style={imageBoxStyle}>
-                    <span>No image</span>
+                    <span>ไม่มีรูป</span>
                   </div>
                 ) : (
                   images.map(img => (
@@ -238,17 +238,24 @@ export default function UserTicketInfoPage() {
                   gap: '0.75rem',
                 }}
               >
-                <Field label="Ticket ID" value={ticket.id} />
-                <Field label="Title" value={ticket.title} />
-                <Field label="Detail" value={ticket.detail} />
-                <Field label="Tel" value={ticket.tel || '-'} />
-                <Field label="Status" value={ticket.status} />
+                <Field label="Ticket ID" value={String(ticket.id).padStart(7, '0')} />
+                <Field label="หัวข้อ" value={ticket.title} />
+                <Field label="รายระเอียดคำร้อง" value={ticket.detail} />
+                <Field label="เบอร์ติดต่อ" value={ticket.tel || '-'} />
+                <div>
+                  <div style={{ fontSize: '0.8rem', opacity: 0.7 }}>สถานะคำร้อง</div>
+                  <div>
+                    <span style={getStatusStyle(ticket.status)}>
+                      {ticket.status}
+                    </span>
+                  </div>
+                </div>
                 <Field
-                  label="Commit by"
-                  value={ticket.assignedTo?.email || 'waiting'}
+                  label="รับงานโดย"
+                  value={ticket.assignedTo?.email || 'ยังไม่พนันงานรับงาน ต้องขออภัย'}
                 />
                 <Field
-                  label="Created at"
+                  label="สร้าง ณ วันที่"
                   value={new Date(ticket.createdAt).toLocaleString()}
                 />
 
@@ -266,7 +273,7 @@ export default function UserTicketInfoPage() {
                       cursor: 'pointer',
                     }}
                   >
-                    Exit
+                    ออกจากหน้านี้
                   </button>
                 </div>
               </div>
@@ -300,3 +307,23 @@ const imageBoxStyle: React.CSSProperties = {
   fontSize: '0.9rem',
   color: '#6b7280',
 };
+function getStatusStyle(status: TicketStatus): React.CSSProperties {
+  const base: React.CSSProperties = {
+    padding: '4px 10px',
+    borderRadius: '999px',
+    fontWeight: 600,
+    fontSize: '0.8rem',
+    display: 'inline-block',
+  };
+  switch (status) {
+    case 'OPEN':
+      return { ...base, background: '#facc15', color: '#000000' }; // เหลือง
+    case 'IN_PROGRESS':
+      return { ...base, background: '#3b82f6', color: '#f8f8f8ff' }; // น้ำเงิน
+    case 'RESOLVED':
+      return { ...base, background: '#22c55e', color: '#f8f8f8ff' }; // เขียว
+    default:
+      return base;
+  }
+}
+

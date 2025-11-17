@@ -17,7 +17,7 @@ export class TicketService {
     @InjectRepository(User) private readonly users: Repository<User>,
   ) {}
 
-    async getAllImagesFor(user: User, id: string) {
+    async getAllImagesFor(user: User, id: number) {
     const t = await this.repo.findOne({
       where: { id },
       relations: ['images', 'createdBy', 'assignedTo'],
@@ -41,7 +41,7 @@ export class TicketService {
       base64: img.data.toString('base64'),
     }));
   }
-    async listImagesFor(user: User, ticketId: string) {
+    async listImagesFor(user: User, ticketId: number) {
     // Re-use your existing permission logic
     const ticket = await this.findOneFor(user, ticketId);
 
@@ -56,7 +56,7 @@ export class TicketService {
       },
     });
   }
-   async getImageFor(user: User, ticketId: string, imageId: string) {
+   async getImageFor(user: User, ticketId: number, imageId: string) {
     // ensure user can see this ticket
     const ticket = await this.findOneFor(user, ticketId);
 
@@ -121,7 +121,7 @@ export class TicketService {
 }
 
 
-async findOneFor(user: User, id: string) {
+async findOneFor(user: User, id: number) {
   const t = await this.repo.findOne({
     where: { id },
     relations: ['createdBy', 'assignedTo', 'images'],  // 👈 important
@@ -138,7 +138,7 @@ async findOneFor(user: User, id: string) {
 
   async updateFor(
   user: User,
-  id: string,
+  id: number,
   dto: CreateTicketDto,
   files?: Express.Multer.File[],
 ) {
@@ -177,7 +177,7 @@ async findOneFor(user: User, id: string) {
   return this.repo.save(t);
 }
 
-  async assign(id: string, dto: CreateTicketDto) {
+  async assign(id: number, dto: CreateTicketDto) {
     const t = await this.repo.findOne({ where: { id } });
     if (!t) throw new NotFoundException('Ticket not found');
 
@@ -189,7 +189,7 @@ async findOneFor(user: User, id: string) {
     return this.repo.save(t);
   }
 
-  async changeStatus(id: string, dto: CreateTicketDto) {
+  async changeStatus(id: number, dto: CreateTicketDto) {
     const t = await this.repo.findOne({ where: { id } });
     if (!t) throw new NotFoundException('Ticket not found');
     if (!dto.status) throw new NotFoundException('status is required');
@@ -198,7 +198,7 @@ async findOneFor(user: User, id: string) {
     return this.repo.save(t);
   }
 
-  async removeFor(user: User, id: string) {
+  async removeFor(user: User, id: number) {
     const t = await this.repo.findOne({ where: { id } });
     if (!t) throw new NotFoundException('Ticket not found');
 

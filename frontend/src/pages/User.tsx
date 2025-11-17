@@ -7,7 +7,7 @@ import { useRequireAuth } from '../hooks/useRequireAuth';
 type TicketStatus = 'OPEN' | 'IN_PROGRESS' | 'RESOLVED';
 
 interface Ticket {
-  id: string;
+  id: number;
   title: string;
   detail: string;
   tel?: string | null;
@@ -46,7 +46,7 @@ export default function UserTicketsPage() {
     return <div style={{ padding: 40 }}>Checking your access…</div>;
   }
 
-  async function handleDelete(id: string) {
+  async function handleDelete(id: number) {
     if (!confirm('Delete?')) return;
     await fetch(`${API_BASE}/tickets/${id}`, {
       method: 'DELETE',
@@ -165,24 +165,26 @@ export default function UserTicketsPage() {
             >
               <thead>
                 <tr>
+                  <th style={th}>สถานะคำร้อง</th>
+                  <th style={th}>หัวข้อ</th>
+                  <th style={th}>รายระเอียดคำร้อง</th>
+                  <th style={th}>เบอร์ติดต่อ</th>
                   <th style={th}>Ticket ID</th>
-                  <th style={th}>Title</th>
-                  <th style={th}>Detail</th>
-                  <th style={th}>Tel</th>
-                  <th style={th}>Status</th>
-                  <th style={th}>Commit by</th>
-                  <th style={th}>Created At</th>
-                  <th style={th}>Actions</th>
+                  <th style={th}>รับงานโดย</th>
+                  <th style={th}>สร้าง ณ วันที่</th>
+                  <th style={th}>ตัวเลือก</th>
                 </tr>
               </thead>
               <tbody>
                 {tickets.map(t => (
                   <tr key={t.id}>
-                    <td style={td}>{t.id}</td>
+                    <td style={td}>
+                      <span style={getStatusStyle(t.status)}>{t.status}</span>
+                    </td>
                     <td style={td}>{t.title}</td>
                     <td style={td}>{t.detail}</td>
                     <td style={td}>{t.tel ?? '-'}</td>
-                    <td style={td}>{t.status}</td>
+                    <td style={td}>{String(t.id).padStart(7, '0')}</td>
                     <td style={td}>{t.assignedTo?.email ?? '-'}</td>
                     <td style={td}>{new Date(t.createdAt).toLocaleString()}</td>
                     <td style={td}>
@@ -243,3 +245,23 @@ const td = {
   padding: '8px',
   borderBottom: '1px solid #d1d5db',
 } as const;
+function getStatusStyle(status: string): React.CSSProperties {
+  const base = {
+    padding: '4px 10px',
+    borderRadius: '999px',
+    fontWeight: 600,
+    fontSize: '0.8rem',
+    display: 'inline-block',
+  } as React.CSSProperties;
+
+  switch (status) {
+    case 'OPEN':
+      return { ...base, background: '#facc15', color: '#000' }; // เหลือง
+    case 'IN_PROGRESS':
+      return { ...base, background: '#3b82f6', color: '#fff' }; // น้ำเงิน
+    case 'RESOLVED':
+      return { ...base, background: '#22c55e', color: '#fff' }; // เขียว
+    default:
+      return base;
+  }
+}

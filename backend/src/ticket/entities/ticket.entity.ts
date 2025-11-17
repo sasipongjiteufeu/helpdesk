@@ -1,7 +1,8 @@
 // ticket.entity.ts
 import {
   Column, CreateDateColumn, Entity, Index, JoinColumn, ManyToOne,
-  PrimaryGeneratedColumn, UpdateDateColumn, OneToMany   // 👈 add OneToMany
+  PrimaryGeneratedColumn, UpdateDateColumn, OneToMany,   // 👈 add OneToMany
+  Generated
 } from 'typeorm';
 import { User } from 'src/user/entities/user.entity';
 import { TicketStatus } from './ticket-state.enum';
@@ -9,8 +10,12 @@ import { TicketImage } from './ticket-image.entity';     // 👈 import
 
 @Entity('Ticket')
 export class Ticket {
-  @PrimaryGeneratedColumn('uuid', { name: 'Ticket_ID' })
-  id: string;
+   @PrimaryGeneratedColumn({
+    name: 'Ticket_ID',
+    type: 'int',
+    unsigned: true,
+  })
+  id: number;  
 
   @Index()
   @Column({ name: 'Title', type: 'varchar', length: 200 })
