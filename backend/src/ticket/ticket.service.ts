@@ -114,7 +114,7 @@ export class TicketService {
     order: { createdAt: 'DESC' },
     take: limit,
     skip: (page - 1) * limit,
-    relations: ['assignedTo'],  // 👈 so t.assignedTo?.email works
+    relations: ['assignedTo', 'createdBy'],  
   });
 
   return { items, total, page, limit };
@@ -124,7 +124,7 @@ export class TicketService {
 async findOneFor(user: User, id: number) {
   const t = await this.repo.findOne({
     where: { id },
-    relations: ['createdBy', 'assignedTo', 'images'],  // 👈 important
+    relations: ['createdBy', 'assignedTo', 'images'],  
   });
   if (!t) throw new NotFoundException('Ticket not found');
 
@@ -189,12 +189,13 @@ async findOneFor(user: User, id: number) {
     return this.repo.save(t);
   }
 
-  async changeStatus(id: number, dto: CreateTicketDto) {
+  async changeStatus(id: number, dto: CreateTicketDto,user: User) {
     const t = await this.repo.findOne({ where: { id } });
     if (!t) throw new NotFoundException('Ticket not found');
     if (!dto.status) throw new NotFoundException('status is required');
 
     t.status = dto.status;
+    t.lastStatusChangedBy = user;
     return this.repo.save(t);
   }
 

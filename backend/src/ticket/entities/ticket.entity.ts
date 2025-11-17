@@ -57,6 +57,9 @@ export class Ticket {
     onUpdate: 'CURRENT_TIMESTAMP(3)',
   })
   updatedAt: Date;
+  @ManyToOne(() => User, { eager: true, nullable: true })
+@JoinColumn({ name: 'LastStatusChangedBy' })
+lastStatusChangedBy?: User | null;
 
   // 👇 MULTI-IMAGE RELATION
   @OneToMany(() => TicketImage, img => img.ticket, { cascade: true })

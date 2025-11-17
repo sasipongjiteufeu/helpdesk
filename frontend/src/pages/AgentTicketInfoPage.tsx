@@ -1,4 +1,4 @@
-// src/pages/UserTicketInfoPage.tsx
+// src/pages/AgentTicketInfoPage.tsx
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { API_BASE } from '../lib/api';
@@ -24,7 +24,78 @@ interface TicketImageDto {
   base64: string;
 }
 
-export default function UserTicketInfoPage() {
+// 👇 helper: render image / video / download
+function MediaPreview({ file }: { file: TicketImageDto }) {
+  const { mimeType, base64, filename } = file;
+  const safeMime = mimeType || 'application/octet-stream';
+  const src = `data:${safeMime};base64,${base64}`;
+
+  // image/*
+  if (safeMime.startsWith('image/')) {
+    return (
+      <img
+        src={src}
+        alt={filename || 'Ticket image'}
+        style={{
+          width: '100%',
+          height: '100%',
+          objectFit: 'cover',
+        }}
+      />
+    );
+  }
+
+  // video/*
+  if (safeMime.startsWith('video/')) {
+    return (
+      <video
+        controls
+        style={{
+          width: '100%',
+          height: '100%',
+          objectFit: 'cover',
+        }}
+      >
+        <source src={src} type={safeMime} />
+        Your browser does not support the video tag.
+      </video>
+    );
+  }
+
+  // others (pdf, doc, etc.) -> download button
+  return (
+    <div
+      style={{
+        padding: '12px',
+        textAlign: 'center',
+        fontSize: '0.9rem',
+      }}
+    >
+      <div style={{ marginBottom: 8 }}>
+        {filename || 'แนบไฟล์'}
+      </div>
+      <a
+        href={src}
+        download={filename || 'attachment'}
+        style={{
+          display: 'inline-block',
+          padding: '6px 12px',
+          borderRadius: '999px',
+          border: '1px solid #4b5563',
+          textDecoration: 'none',
+          background: '#111827',
+          color: '#f9fafb',
+          fontSize: '0.85rem',
+          fontWeight: 600,
+        }}
+      >
+        Download
+      </a>
+    </div>
+  );
+}
+
+export default function AgentTicketInfoPage() {
   const { user, loading: authLoading } = useRequireAuth();
   const { id } = useParams<{ id: string }>();
   const nav = useNavigate();
@@ -34,7 +105,6 @@ export default function UserTicketInfoPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // โหลดข้อมูล ticket + รูป
   useEffect(() => {
     if (!id) return;
 
@@ -94,110 +164,7 @@ export default function UserTicketInfoPage() {
   }
 
   function handleExit() {
-    nav('/user');
-  }
-
-  // แสดงกล่องไฟล์ แนบ (รูป / วิดีโอ / เอกสาร)
-  function renderFileBox(file: TicketImageDto) {
-    const mime = file.mimeType || '';
-    const dataUrl = `data:${mime || 'application/octet-stream'};base64,${file.base64}`;
-    const displayName = file.filename || 'ไฟล์แนบ';
-
-    // --- 1) รูปภาพ ---
-    if (mime.startsWith('image/')) {
-      return (
-        <div key={file.id} style={imageBoxStyle}>
-          <img
-            src={dataUrl}
-            alt={displayName}
-            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-          />
-        </div>
-      );
-    }
-
-    // --- 2) วิดีโอ ---
-    if (mime.startsWith('video/')) {
-      return (
-        <div key={file.id} style={imageBoxStyle}>
-          <video
-            controls
-            src={dataUrl}
-            style={{
-              width: '100%',
-              height: '100%',
-              objectFit: 'cover',
-              background: '#000000',
-            }}
-          />
-        </div>
-      );
-    }
-
-    // --- 3) เอกสาร / อื่น ๆ: ปุ่มดาวน์โหลด ---
-    const lowerName = displayName.toLowerCase();
-    const isPdf =
-      mime === 'application/pdf' || lowerName.endsWith('.pdf');
-    const isWord =
-      mime === 'application/msword' ||
-      mime ===
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
-      /\.(doc|docx)$/i.test(lowerName);
-
-    const buttonLabel = isPdf
-      ? 'เปิด / ดาวน์โหลด PDF'
-      : isWord
-      ? 'ดาวน์โหลดเอกสาร Word'
-      : 'ดาวน์โหลดไฟล์แนบ';
-
-    return (
-      <div key={file.id} style={imageBoxStyle}>
-        <div style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>
-          <div
-            style={{
-              fontWeight: 600,
-              marginBottom: 4,
-              fontSize: '0.9rem',
-              wordBreak: 'break-all',
-            }}
-          >
-            {displayName}
-          </div>
-
-          {file.size != null && (
-            <div
-              style={{
-                fontSize: '0.8rem',
-                marginBottom: 8,
-                opacity: 0.7,
-              }}
-            >
-              {(file.size / 1024).toFixed(1)} KB
-            </div>
-          )}
-
-          <a
-            href={dataUrl}
-            download={file.filename || undefined}
-            target="_blank"
-            rel="noreferrer"
-            style={{
-              display: 'inline-block',
-              padding: '0.35rem 0.9rem',
-              borderRadius: '999px',
-              border: '1px solid #0ea5e9',
-              background: '#e0f2fe',
-              color: '#0369a1',
-              fontSize: '0.85rem',
-              fontWeight: 600,
-              textDecoration: 'none',
-            }}
-          >
-            {buttonLabel}
-          </a>
-        </div>
-      </div>
-    );
+    nav('/agent');
   }
 
   // ===== style เหมือน User =====
@@ -247,7 +214,9 @@ export default function UserTicketInfoPage() {
               alt="SRU Logo"
               style={{ height: 58, width: 'auto' }}
             />
-            <span style={{ fontSize: '1.7rem', fontWeight: 700 }}>HelpDesk</span>
+            <span style={{ fontSize: '1.7rem', fontWeight: 700 }}>
+              HelpDesk – Agent
+            </span>
           </div>
 
           <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
@@ -301,7 +270,7 @@ export default function UserTicketInfoPage() {
                 gap: '1.5rem',
               }}
             >
-              {/* LEFT: attachments */}
+              {/* LEFT: all attachments */}
               <div
                 style={{
                   display: 'flex',
@@ -317,7 +286,11 @@ export default function UserTicketInfoPage() {
                     <span>ไม่มีไฟล์แนบ</span>
                   </div>
                 ) : (
-                  images.map(renderFileBox)
+                  images.map(img => (
+                    <div key={img.id} style={imageBoxStyle}>
+                      <MediaPreview file={img} />
+                    </div>
+                  ))
                 )}
               </div>
 
@@ -343,7 +316,7 @@ export default function UserTicketInfoPage() {
                 </div>
                 <Field
                   label="รับงานโดย"
-                  value={ticket.assignedTo?.email || 'ยังไม่พนันงานรับงาน ต้องขออภัย'}
+                  value={ticket.assignedTo?.email || 'ยังไม่มีเจ้าหน้าที่รับงาน'}
                 />
                 <Field
                   label="สร้าง ณ วันที่"
@@ -364,7 +337,7 @@ export default function UserTicketInfoPage() {
                       cursor: 'pointer',
                     }}
                   >
-                    ออกจากหน้านี้
+                    กลับไปหน้า Agent
                   </button>
                 </div>
               </div>
@@ -409,11 +382,11 @@ function getStatusStyle(status: TicketStatus): React.CSSProperties {
   };
   switch (status) {
     case 'OPEN':
-      return { ...base, background: '#facc15', color: '#000000' }; // เหลือง
+      return { ...base, background: '#facc15', color: '#000000' };
     case 'IN_PROGRESS':
-      return { ...base, background: '#3b82f6', color: '#f8f8f8ff' }; // น้ำเงิน
+      return { ...base, background: '#3b82f6', color: '#f8f8f8ff' };
     case 'RESOLVED':
-      return { ...base, background: '#22c55e', color: '#f8f8f8ff' }; // เขียว
+      return { ...base, background: '#22c55e', color: '#f8f8f8ff' };
     default:
       return base;
   }

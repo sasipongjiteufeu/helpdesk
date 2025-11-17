@@ -1,12 +1,11 @@
 import { Routes, Route } from 'react-router-dom';
 
 import Login from './pages/Login';
-
+import AgentTicketInfoPage from './pages/AgentTicketInfoPage';
 import Welcome from './pages/Welcome';
 import Forbidden from './pages/Forbidden';
-
+import AgentTicketsPage from './pages/AgentTicketPage';
 import Admin from './pages/Admin';
-import Agent from './pages/Agent';
 import User from './pages/User';
 import ChooseRole from './pages/ChooseRole';
 import UserCreateTicketPage from './pages/UserCreateTicketPage';
@@ -21,11 +20,11 @@ export default function App() {
 
       {/* role pages */}
       <Route path="/admin" element={<Admin />} />
-      <Route path="/agent" element={<Agent />} />
       <Route path="/user" element={<User />} />
       <Route path="/user/create" element={<UserCreateTicketPage />} />
       <Route path="/user/ticket/:id" element={<UserTicketInfoPage />} />
-
+      <Route path="/agent" element={<AgentTicketsPage />} />
+      <Route path="/agent/ticket/:id" element={<AgentTicketInfoPage />} />
       {/* multi-role choose page */}
       <Route path="/choose-role" element={<ChooseRole />} />
     </Routes>

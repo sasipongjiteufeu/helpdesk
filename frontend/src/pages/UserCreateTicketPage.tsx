@@ -80,7 +80,16 @@ export default function UserCreateTicketPage() {
         credentials: 'include',
         body: form,
       });
-      if (!res.ok) throw new Error(`Failed to create ticket (${res.status})`);
+      if (!res.ok) {
+        if (res.status === 413) {
+          // Get max size from server header if available
+          const max = res.headers.get('X-Max-File-Size') || '10MB';
+          setError(`413 ไฟล์ใหญ่เกินไป ส่งได้ไม่เกิน ${max}`);
+        } else {
+          setError(`Failed to create ticket (${res.status})`);
+        }
+        return;
+      }
 
       nav('/user', { replace: true });
     } catch (e: any) {
@@ -235,7 +244,7 @@ export default function UserCreateTicketPage() {
 
             {/* Upload */}
             <div style={{ marginBottom: '1rem' }}>
-              <label style={labelStyle}>แนบรูปภาพ (ถ้ามี)</label>
+              <label style={labelStyle}>แนบไฟล์ (ถ้ามี เช่น รูป, วิดีโอ, PDF, Word)</label>
               <input
                 type="file"
                 multiple
@@ -282,7 +291,7 @@ export default function UserCreateTicketPage() {
                         }}
                         title="Remove file"
                       >
-                        ×
+                        x
                       </button>
                       <span
                         style={{

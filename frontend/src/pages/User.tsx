@@ -13,7 +13,12 @@ interface Ticket {
   tel?: string | null;
   status: TicketStatus;
   createdAt: string;
-  assignedTo?: { email?: string } | null;
+
+  // from old design
+  assignedTo?: { email?: string | null } | null;
+
+  // ✅ NEW: who changed status last (Option A)
+  lastStatusChangedBy?: { email?: string | null } | null;
 }
 
 export default function UserTicketsPage() {
@@ -47,12 +52,20 @@ export default function UserTicketsPage() {
   }
 
   async function handleDelete(id: number) {
-    if (!confirm('Delete?')) return;
-    await fetch(`${API_BASE}/tickets/${id}`, {
-      method: 'DELETE',
-      credentials: 'include',
-    });
-    setTickets(prev => prev.filter(t => t.id !== id));
+    if (!confirm('ต้องการลบคำร้องนี้หรือไม่?')) return;
+    try {
+      const res = await fetch(`${API_BASE}/tickets/${id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        alert(`ไม่สามารถลบคำร้องได้ (status code ${res.status})`);
+        return;
+      }
+      setTickets(prev => prev.filter(t => t.id !== id));
+    } catch (e: any) {
+      alert(e.message ?? 'ลบคำร้องไม่สำเร็จ');
+    }
   }
 
   // ====== UI ======
@@ -97,7 +110,7 @@ export default function UserTicketsPage() {
               src="/logo-sru-png.png"
               alt="SRU Logo"
               style={{
-                height: '58px', // โลโก้ใหญ่แบบเต็ม ไม่ crop
+                height: '58px',
                 width: 'auto',
               }}
             />
@@ -166,66 +179,84 @@ export default function UserTicketsPage() {
               <thead>
                 <tr>
                   <th style={th}>สถานะคำร้อง</th>
+                  <th style={th}>Ticket ID</th>
                   <th style={th}>หัวข้อ</th>
                   <th style={th}>รายระเอียดคำร้อง</th>
                   <th style={th}>เบอร์ติดต่อ</th>
-                  <th style={th}>Ticket ID</th>
-                  <th style={th}>รับงานโดย</th>
+                  {/* 👇 still same column, but now shows lastStatusChangedBy */}
+                  <th style={th}>รับงาน / แก้ไขสถานะโดย</th>
                   <th style={th}>สร้าง ณ วันที่</th>
                   <th style={th}>ตัวเลือก</th>
                 </tr>
               </thead>
               <tbody>
-                {tickets.map(t => (
-                  <tr key={t.id}>
-                    <td style={td}>
-                      <span style={getStatusStyle(t.status)}>{t.status}</span>
-                    </td>
-                    <td style={td}>{t.title}</td>
-                    <td style={td}>{t.detail}</td>
-                    <td style={td}>{t.tel ?? '-'}</td>
-                    <td style={td}>{String(t.id).padStart(7, '0')}</td>
-                    <td style={td}>{t.assignedTo?.email ?? '-'}</td>
-                    <td style={td}>{new Date(t.createdAt).toLocaleString()}</td>
-                    <td style={td}>
-                      <div
-                        style={{
-                          display: 'flex',
-                          gap: '0.5rem',
-                          justifyContent: 'flex-start',
-                        }}
-                      >
-                        <button
-                          onClick={() => nav(`/user/ticket/${t.id}`)}
+                {tickets.map(t => {
+                  // delete rule: only when still OPEN and no one assigned
+                  const canDelete = t.status === 'OPEN' && !t.assignedTo;
+
+                  // show who changed status, fallback to assignedTo if needed
+                  const statusChangerEmail =
+                    t.lastStatusChangedBy?.email || t.assignedTo?.email || '-';
+
+                  return (
+                    <tr key={t.id}>
+                      <td style={td}>
+                        <span style={getStatusStyle(t.status)}>{t.status}</span>
+                      </td>
+                      <td style={td}>{String(t.id).padStart(7, '0')}</td>
+                      <td style={td}>{t.title}</td>
+                      <td style={td}>{t.detail}</td>
+                      <td style={td}>{t.tel ?? '-'}</td>
+                      <td style={td}>{statusChangerEmail}</td>
+                      <td style={td}>{new Date(t.createdAt).toLocaleString()}</td>
+                      <td style={td}>
+                        <div
                           style={{
-                            padding: '4px 10px',
-                            borderRadius: '999px',
-                            border: '1px solid #d1d5db',
-                            background: '#ffffff',
-                            fontSize: '0.8rem',
-                            cursor: 'pointer',
+                            display: 'flex',
+                            gap: '0.5rem',
+                            justifyContent: 'flex-start',
                           }}
                         >
-                          Info
-                        </button>
-                        <button
-                          onClick={() => handleDelete(t.id)}
-                          style={{
-                            padding: '4px 10px',
-                            borderRadius: '999px',
-                            border: 'none',
-                            background: '#ef4444',
-                            color: '#f9fafb',
-                            fontSize: '0.8rem',
-                            cursor: 'pointer',
-                          }}
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                          <button
+                            onClick={() => nav(`/user/ticket/${t.id}`)}
+                            style={{
+                              padding: '4px 10px',
+                              borderRadius: '999px',
+                              border: '1px solid #d1d5db',
+                              background: '#ffffff',
+                              fontSize: '0.8rem',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            Info
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={canDelete ? () => handleDelete(t.id) : undefined}
+                            disabled={!canDelete}
+                            style={{
+                              padding: '4px 10px',
+                              borderRadius: '999px',
+                              border: 'none',
+                              background: canDelete ? '#ef4444' : '#e5e7eb',
+                              color: canDelete ? '#f9fafb' : '#9ca3af',
+                              fontSize: '0.8rem',
+                              cursor: canDelete ? 'pointer' : 'not-allowed',
+                            }}
+                            title={
+                              canDelete
+                                ? 'ลบคำร้อง'
+                                : 'ไม่สามารถลบได้เมื่อคำร้องกำลังดำเนินการหรือปิดแล้ว หรือมีเจ้าหน้าที่รับงานแล้ว'
+                            }
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           )}
@@ -245,6 +276,7 @@ const td = {
   padding: '8px',
   borderBottom: '1px solid #d1d5db',
 } as const;
+
 function getStatusStyle(status: string): React.CSSProperties {
   const base = {
     padding: '4px 10px',
