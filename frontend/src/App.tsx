@@ -5,11 +5,14 @@ import AgentTicketInfoPage from './pages/AgentTicketInfoPage';
 import Welcome from './pages/Welcome';
 import Forbidden from './pages/Forbidden';
 import AgentTicketsPage from './pages/AgentTicketPage';
-import Admin from './pages/Admin';
+
 import User from './pages/User';
 import ChooseRole from './pages/ChooseRole';
 import UserCreateTicketPage from './pages/UserCreateTicketPage';
 import UserTicketInfoPage from './pages/UserTicketInfoPage';
+import AdminPage from './pages/Admin';
+import AdminAssignRolesPage from './pages/AdminAssignRolesPage';
+import AdminStatsPage from './pages/AdminStatsPage';
 
 export default function App() {
   return (
@@ -19,7 +22,9 @@ export default function App() {
       <Route path="/forbidden" element={<Forbidden />} />
 
       {/* role pages */}
-      <Route path="/admin" element={<Admin />} />
+      <Route path="/admin" element={<AdminPage />} />
+      <Route path="/admin/roles" element={<AdminAssignRolesPage />} />
+      <Route path="/admin/stats" element={<AdminStatsPage />} />
       <Route path="/user" element={<User />} />
       <Route path="/user/create" element={<UserCreateTicketPage />} />
       <Route path="/user/ticket/:id" element={<UserTicketInfoPage />} />

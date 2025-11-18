@@ -13,8 +13,9 @@ interface Ticket {
   tel?: string | null;
   status: TicketStatus;
   createdAt: string;
-  createdBy?: { email?: string | null } | null;   // 👈 NEW
+  createdBy?: { email?: string | null } | null;
   assignedTo?: { email?: string | null } | null;
+  lastStatusChangedBy?: { email?: string | null } | null; // optional
 }
 
 type Filter = 'ALL' | TicketStatus;
@@ -28,6 +29,7 @@ export default function AgentTicketsPage() {
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>('ALL');
   const [savingId, setSavingId] = useState<number | null>(null);
+  const [searchId, setSearchId] = useState(''); // 👈 search box state
 
   useEffect(() => {
     (async () => {
@@ -72,10 +74,9 @@ export default function AgentTicketsPage() {
     window.location.href = `${API_BASE}/auth/logout`;
   }
 
-function handleInfo(id: number) {
-  nav(`/agent/ticket/${id}`); 
-}
-
+  function handleInfo(id: number) {
+    nav(`/agent/ticket/${id}`);
+  }
 
   async function handleStatusChange(id: number, next: TicketStatus) {
     try {
@@ -91,7 +92,6 @@ function handleInfo(id: number) {
       }
       const updated = await res.json();
 
-      // update local state
       setTickets(prev =>
         prev.map(t =>
           t.id === id ? { ...t, status: updated.status as TicketStatus } : t,
@@ -105,9 +105,26 @@ function handleInfo(id: number) {
     }
   }
 
-  const filteredTickets = tickets.filter(t =>
-    filter === 'ALL' ? true : t.status === filter,
-  );
+  // 🔎 handle search input (digits only, because it’s Ticket ID)
+  function handleSearchChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const raw = e.target.value;
+    const digitsOnly = raw.replace(/\D/g, ''); // keep only numbers
+    setSearchId(digitsOnly);
+  }
+
+  const normalizedSearch = searchId.trim();
+
+  // 🎯 combine status filter + search by ID
+  const filteredTickets = tickets.filter(t => {
+    // status filter
+    const matchStatus = filter === 'ALL' || t.status === filter;
+    if (!matchStatus) return false;
+
+    // search filter (ticket id padded to 7 digits)
+    if (!normalizedSearch) return true;
+    const paddedId = String(t.id).padStart(7, '0');
+    return paddedId.includes(normalizedSearch);
+  });
 
   // ====== styles ======
   const pageStyle: React.CSSProperties = {
@@ -155,6 +172,15 @@ function handleInfo(id: number) {
     background: '#f9fafb',
     padding: '12px',
     overflowX: 'auto',
+  };
+
+  const searchInputStyle: React.CSSProperties = {
+    padding: '6px 10px',
+    borderRadius: '999px',
+    border: '1px solid #d1d5db',
+    fontSize: '0.85rem',
+    minWidth: '180px',
+    background: '#ffffff',
   };
 
   return (
@@ -210,24 +236,48 @@ function handleInfo(id: number) {
             </div>
           )}
 
-          {/* Filter buttons */}
+          {/* Filter buttons + Search bar */}
           <div style={filterBarStyle}>
-            <FilterButton label="All" active={filter === 'ALL'} onClick={() => setFilter('ALL')} />
-            <FilterButton
-              label="OPEN"
-              active={filter === 'OPEN'}
-              onClick={() => setFilter('OPEN')}
-            />
-            <FilterButton
-              label="IN_PROGRESS"
-              active={filter === 'IN_PROGRESS'}
-              onClick={() => setFilter('IN_PROGRESS')}
-            />
-            <FilterButton
-              label="RESOLVED"
-              active={filter === 'RESOLVED'}
-              onClick={() => setFilter('RESOLVED')}
-            />
+            <div
+              style={{
+                display: 'flex',
+                gap: '8px',
+                flexWrap: 'wrap',
+              }}
+            >
+              <FilterButton
+                label="All"
+                active={filter === 'ALL'}
+                onClick={() => setFilter('ALL')}
+              />
+              <FilterButton
+                label="OPEN"
+                active={filter === 'OPEN'}
+                onClick={() => setFilter('OPEN')}
+              />
+              <FilterButton
+                label="IN_PROGRESS"
+                active={filter === 'IN_PROGRESS'}
+                onClick={() => setFilter('IN_PROGRESS')}
+              />
+              <FilterButton
+                label="RESOLVED"
+                active={filter === 'RESOLVED'}
+                onClick={() => setFilter('RESOLVED')}
+              />
+            </div>
+
+            {/* search bar on the right */}
+            <div style={{ marginLeft: 'auto' }}>
+              <input
+                type="text"
+                value={searchId}
+                onChange={handleSearchChange}
+                placeholder="ค้นหา Ticket โดยใช้ ID"
+                inputMode="numeric"
+                style={searchInputStyle}
+              />
+            </div>
           </div>
 
           {/* Table */}
@@ -251,9 +301,9 @@ function handleInfo(id: number) {
                     <Th>หัวข้อ</Th>
                     <Th>รายละเอียดคำร้อง</Th>
                     <Th>เบอร์ติดต่อ</Th>
-                    <Th>ผู้ร้องขอ</Th>        {/* 👈 show ByUser */}
+                    <Th>ผู้ร้องขอ</Th>
                     <Th>สร้าง ณ วันที่</Th>
-                    <Th>เปลี่ยนสถานะ</Th>    {/* 👈 change status */}
+                    <Th>เปลี่ยนสถานะ</Th>
                     <Th>ตัวเลือก</Th>
                   </tr>
                 </thead>
@@ -288,7 +338,7 @@ function handleInfo(id: number) {
                           }}
                         >
                           <option value="OPEN">OPEN</option>
-                          <option value="IN_PROGRESS">IN PROGRESS</option>
+                          <option value="IN_PROGRESS">IN_PROGRESS</option>
                           <option value="RESOLVED">RESOLVED</option>
                         </select>
                       </Td>

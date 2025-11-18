@@ -7,6 +7,7 @@ import { UserModule } from './user/user.module';
 import { AuthModule } from './auth/auth.module';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [ConfigModule.forRoot({
@@ -23,7 +24,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
       // entities: [User, Role],
       entities: [__dirname + '/**/*.entity.{js,ts}'],
       synchronize: true, // dev only
-    }), TicketModule, RoleModule, UserModule, AuthModule],
+    }), TicketModule, RoleModule, UserModule, AuthModule, AdminModule],
   controllers: [AppController],
   providers: [AppService],
 })
