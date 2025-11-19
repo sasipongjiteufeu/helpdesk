@@ -265,6 +265,7 @@ export default function AgentTicketsPage() {
                 active={filter === 'RESOLVED'}
                 onClick={() => setFilter('RESOLVED')}
               />
+              
             </div>
 
             {/* search bar on the right */}
