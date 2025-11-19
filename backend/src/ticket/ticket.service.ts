@@ -8,6 +8,7 @@ import { User } from 'src/user/entities/user.entity';
 import { RoleEnum } from 'src/role/entities/role.enum';
 import { hasAnyRole, hasRole } from 'src/auth/role.utile';  // 👈 add
 import { TicketImage } from './entities/ticket-image.entity';
+import { EmailService } from 'src/email/email.service';
 
 @Injectable()
 export class TicketService {
@@ -15,6 +16,7 @@ export class TicketService {
     @InjectRepository(Ticket) private readonly repo: Repository<Ticket>,
     @InjectRepository(TicketImage) private readonly images: Repository<TicketImage>,
     @InjectRepository(User) private readonly users: Repository<User>,
+    private readonly email: EmailService,
   ) {}
 
     async getAllImagesFor(user: User, id: number) {
@@ -94,11 +96,28 @@ export class TicketService {
       await this.images.save(imgs);
       savedTicket.images = imgs;
     }
-
+    await this.notifyAgentsAboutNewTicket(savedTicket);
     return savedTicket;
   
   }
+  private async notifyAgentsAboutNewTicket(ticket: Ticket) {
+    // ดึง AGENT ทั้งหมดจากฐานข้อมูล
+    const agents = await this.users
+      .createQueryBuilder('u')
+      .innerJoin('u.roles', 'r')
+      .where('r.name = :role', { role: RoleEnum.AGENT })
+      .getMany();
 
+    const emails = agents
+      .map(a => a.email)
+      .filter((e): e is string => !!e);
+
+    if (!emails.length) {
+      return;
+    }
+
+    await this.email.notifyAgentsNewTicket(emails, ticket);
+  }
   async findAllFor(user: User, opts?: { page?: number; limit?: number }) {
   const page = Math.max(1, opts?.page ?? 1);
   const limit = Math.min(100, Math.max(1, opts?.limit ?? 20));
@@ -114,7 +133,7 @@ export class TicketService {
     order: { createdAt: 'DESC' },
     take: limit,
     skip: (page - 1) * limit,
-    relations: ['assignedTo', 'createdBy'],  
+    relations: ['assignedTo', 'createdBy', 'lastStatusChangedBy'],  
   });
 
   return { items, total, page, limit };
@@ -124,7 +143,7 @@ export class TicketService {
 async findOneFor(user: User, id: number) {
   const t = await this.repo.findOne({
     where: { id },
-    relations: ['createdBy', 'assignedTo', 'images'],  
+    relations: ['createdBy', 'assignedTo', 'images', 'lastStatusChangedBy'],  
   });
   if (!t) throw new NotFoundException('Ticket not found');
 
@@ -189,13 +208,34 @@ async findOneFor(user: User, id: number) {
     return this.repo.save(t);
   }
 
-  async changeStatus(id: number, dto: CreateTicketDto,user: User) {
-    const t = await this.repo.findOne({ where: { id } });
+   async changeStatusFor(
+    id: number,
+    user: User,
+    dto: CreateTicketDto,
+  ) {
+    const t = await this.repo.findOne({
+      where: { id },
+      relations: ['assignedTo'],
+    });
+
     if (!t) throw new NotFoundException('Ticket not found');
     if (!dto.status) throw new NotFoundException('status is required');
 
-    t.status = dto.status;
+    // only AGENT / ADMIN can change status
+    const isStaff = hasAnyRole(user, [RoleEnum.AGENT, RoleEnum.ADMIN]);
+    if (!isStaff) {
+      throw new ForbiddenException('Only staff can change status');
+    }
+
+    const nextStatus = dto.status;
+
+    // 💡 first time someone moves it away from OPEN → remember that person
+    const isLeavingOpen = t.status === TicketStatus.OPEN && nextStatus !== TicketStatus.OPEN;
+    if (isLeavingOpen && !t.assignedTo) {
+      t.assignedTo = user;
+    }
     t.lastStatusChangedBy = user;
+    t.status = nextStatus;
     return this.repo.save(t);
   }
 

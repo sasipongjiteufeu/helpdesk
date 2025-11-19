@@ -37,6 +37,11 @@ services:
       - DATABASE_USER=helpdesk_user
       - DATABASE_PASSWORD=your_strong_user_password
       - DATABASE_NAME=helpdesk_db
+      - SMTP_HOST=smtp.gmail.com
+      - SMTP_PORT=465
+      - SMTP_USER=beermini991@gmail.com
+      - SMTP_PASS=djasuhdowsxcoevb   
+      - SMTP_FROM=beermini991@gmail.com
     restart: unless-stopped
 
   frontend:

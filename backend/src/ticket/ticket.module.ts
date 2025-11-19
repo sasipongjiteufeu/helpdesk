@@ -7,6 +7,7 @@ import { User } from 'src/user/entities/user.entity';
 import { TicketService } from './ticket.service';
 import { TicketController } from './ticket.controller';
 import { TicketImage } from './entities/ticket-image.entity';
+import { EmailService } from 'src/email/email.service';
 
 @Module({
   imports: [
@@ -17,6 +18,6 @@ import { TicketImage } from './entities/ticket-image.entity';
     }),
   ],
   controllers: [TicketController],
-  providers: [TicketService],
+  providers: [TicketService, EmailService],
 })
 export class TicketModule {}

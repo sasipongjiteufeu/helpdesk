@@ -15,34 +15,24 @@ export class UserService {
     @InjectRepository(Role) private rolesRepository: Repository<Role>,
   ) { }
 
-  async findByIdWithRoles(id : string){
+  async findByIdWithRoles(id: string) {
     return this.usersRepository.findOne({
-    where: { id },
-    relations: ['roles'],
-  })
+      where: { id },
+      relations: ['roles'],
+    })
   }
   async findByEmail(email: string) {
     return this.usersRepository.findOne({ where: { email } });
   }
 
-    async findByEmailWithRoles(email: string) {
+  async findByEmailWithRoles(email: string) {
     return this.usersRepository.findOne({
       where: { email },
       relations: ['roles'], // IMPORTANT: many-to-many
     });
   }
-  private async getDefaultUserRole(): Promise<Role> {
-    const role = await this.rolesRepository.findOne({ where: { name: RoleEnum.USER } });
-    if (!role) {
-      // If this throws, run your roles migration (or init SQL) to insert USER/AGENT/ADMIN.
-      throw new NotFoundException(
-        'Default role USER not found. Run DB migration/seed to create fixed roles.',
-      );
-    }
-    return role;
-  }
 
-    private async getOrCreateDefaultRole(): Promise<Role> {
+  private async getOrCreateDefaultRole(): Promise<Role> {
     let role = await this.rolesRepository.findOne({ where: { name: RoleEnum.USER } });
     if (!role) {
       role = this.rolesRepository.create({ name: RoleEnum.USER });
@@ -51,7 +41,12 @@ export class UserService {
     return role;
   }
 
-  async findOrCreateGoogleUser(email: string, providerId: string) {
+  async findOrCreateGoogleUser(
+    email: string,
+    providerId: string,
+    name?: string | null,
+    avatarUrl?: string | null,
+  ) {
     if (!email?.endsWith('@sru.ac.th')) {
       throw new Error('Unauthorized domain');
     } //check if that use @sru.ac.th Doman?
@@ -64,23 +59,32 @@ export class UserService {
 
       } //this method is for check that user have user provider? if not servic will add provider
 
+      if (name && user.name !== name) {
+        user.name = name;
+      }
+      if (avatarUrl && user.avatarUrl !== avatarUrl) {
+        user.avatarUrl = avatarUrl;
+      }
 
-       if (!user.roles|| user.roles.length === 0) {
+      // ensure USER role at least
+      if (!user.roles || user.roles.length === 0) {
         const defaultRole = await this.getOrCreateDefaultRole();
         user.roles = [defaultRole];
       }
+
       return await this.usersRepository.save(user);
     }
-     // if don't have user in database get it from google 
 
+    // no user yet → create from Google info
     const defaultRole = await this.getOrCreateDefaultRole();
     const newUser = this.usersRepository.create({
       email,
       provider: 'google',
       providerId,
+      name: name ?? null,          // 👈 NEW
+      avatarUrl: avatarUrl ?? null, // 👈 NEW
       roles: [defaultRole],
     });
     return await this.usersRepository.save(newUser);
-    
   }
 }

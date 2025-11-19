@@ -99,10 +99,11 @@ async getPicture(@Param('id') id: number, @Req() req: any, @Res() res: express.R
   }
 
   // Change status (staff only)
+  @UseGuards(AuthenticatedGuard, RolesGuard)
   @Patch(':id/status')
   @Roles(RoleEnum.AGENT, RoleEnum.ADMIN)
   changeStatus(@Param('id') id: number, @Body() dto: CreateTicketDto, @Req() req,) {
-    return this.svc.changeStatus(id, dto, req.user);
+    return this.svc.changeStatusFor(id,req.user,dto);
   }
 
   // Delete (admin; or owner if OPEN & unassigned)

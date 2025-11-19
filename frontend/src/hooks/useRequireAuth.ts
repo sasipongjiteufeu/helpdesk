@@ -1,20 +1,34 @@
 // src/hooks/useRequireAuth.ts
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { API_BASE, RoleEnum } from '../lib/api';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { API_BASE } from '../lib/api';
+
+type RoleName = 'USER' | 'AGENT' | 'ADMIN';
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  name?: string | null;
+  avatarUrl?: string | null;
+  roles?: { name?: RoleName }[];
+}
 
 interface MeResponse {
   authenticated: boolean;
-  id: string;
-  email: string;
-  roles?: { name?: RoleEnum }[];
+  id?: string;
+  email?: string;
+  name?: string | null;
+  avatarUrl?: string | null;
+  roles?: { name?: RoleName }[];
 }
 
 export function useRequireAuth() {
-  const nav = useNavigate();
-  const [user, setUser] = useState<MeResponse | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
-  const [authError, setAuthError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     let cancelled = false;
@@ -22,52 +36,58 @@ export function useRequireAuth() {
     (async () => {
       try {
         setLoading(true);
-        setAuthError(null);
+        setError(null);
 
         const res = await fetch(`${API_BASE}/auth/me`, {
           credentials: 'include',
         });
 
-        console.log('[useRequireAuth] /auth/me status', res.status);
-
         if (!res.ok) {
+          throw new Error(`Failed to load auth (${res.status})`);
+        }
+
+        const data: MeResponse = await res.json();
+
+        // ❌ ไม่ authenticate → เคลียร์ user + redirect ไปหน้า login (`/`)
+        if (!data.authenticated || !data.email) {
           if (!cancelled) {
-            // not logged in -> go to login
-            nav('/', { replace: true });
+            setUser(null);
+          }
+
+          // อย่า loop redirect ตัวเอง (เผื่อหน้า login ใช้ hook ด้วย)
+          const isOnPublicPage =
+            location.pathname === '/' ||
+            location.pathname === '/login' ||
+            location.pathname === '/forbidden';
+
+          if (!isOnPublicPage) {
+            navigate('/', { replace: true });
           }
           return;
         }
 
-        const data = (await res.json()) as MeResponse;
-        console.log('[useRequireAuth] /auth/me data', data);
-
-        if (!data.authenticated) {
-          if (!cancelled) {
-            nav('/', { replace: true });
-          }
-          return;
-        }
-
+        // ✅ login แล้ว
         if (!cancelled) {
-          setUser(data);
+          setUser({
+            id: data.id!,
+            email: data.email,
+            name: data.name ?? null,
+            avatarUrl: data.avatarUrl ?? null,
+            roles: data.roles ?? [],
+          });
         }
       } catch (e: any) {
-        console.error('[useRequireAuth] error', e);
-        if (!cancelled) {
-          setAuthError(e.message ?? 'auth error');
-          nav('/', { replace: true });
-        }
+        console.error(e);
+        if (!cancelled) setError(e.message ?? 'Auth error');
       } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+        if (!cancelled) setLoading(false);
       }
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [nav]);
+  }, [navigate, location.pathname]);
 
-  return { user, loading, authError };
+  return { user, loading, error };
 }
