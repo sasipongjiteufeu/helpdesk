@@ -54,7 +54,7 @@ export class EmailService {
       `Ticket ID: #${paddedId}`,
       `หัวข้อ: ${ticket.title}`,
       `ผู้ร้องขอ: ${ticket.createdBy?.email ?? '-'}`,
-      ``,
+      `รายละเอียด: ${ticket.detail}`,
       `กรุณาเข้าระบบเพื่อดำเนินการ`,
     ].join('\n');
 
