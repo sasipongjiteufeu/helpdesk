@@ -1,5 +1,5 @@
 // src/pages/Login.tsx
-
+import 'animate.css';
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
 
 export default function Login() {
@@ -115,20 +115,28 @@ export default function Login() {
   };
 
   return (
-    <div style={pageStyle}>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center p-4">
+      {/* Background Decorations */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-20 left-20 w-72 h-72 bg-blue-400 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob"></div>
+        <div className="absolute top-40 right-20 w-72 h-72 bg-purple-400 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-2000"></div>
+        <div className="absolute -bottom-8 left-1/2 w-72 h-72 bg-pink-400 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-4000"></div>
+      </div>
+
       <div style={cardStyle}>
         {/* โลโก้ ARIT + SRU */}
         <div style={logosRowStyle}>
-          <img src="/logo-ARIT.png" alt="ARIT Logo" style={aritLogoStyle} />
+          <img src="/logo-ARIT.png" alt="ARIT Logo" style={aritLogoStyle} className='animate__animated animate__fadeInUp animate__fast' />
           <img
             src="/logo-sru-png.png"
             alt="Suratthani Rajabhat University Logo"
             style={sruLogoStyle}
+            className='animate__animated animate__fadeInUp  animate__fast'
           />
         </div>
 
         {/* ข้อความชื่อระบบ */}
-        <div>
+        <div className='animate__animated animate__fadeInUp '>
           <h1 style={titleStyle}>ระบบบริการ Helpdesk</h1>
           <p style={textStyle}>สำนักงานวิทยบริการและเทคโนโลยีสารสนเทศ</p>
           <p style={textStyle}>มหาวิทยาลัยราชภัฏสุราษฎร์ธานี</p>
@@ -141,16 +149,42 @@ export default function Login() {
           onClick={handleLogin}
           onMouseEnter={onMouseEnterBtn}
           onMouseLeave={onMouseLeaveBtn}
+          className='animate__animated animate__fadeInUp '
         >
           <span style={googleIconStyle}>G</span>
           <span>เข้าสู่ระบบด้วยบัญชี Google (@sru.ac.th)</span>
         </button>
 
         {/* Note */}
-        <p style={noteStyle}>
+        <p style={noteStyle} className='animate__animated animate__fadeInUp animate__delay-1s'>
           * ระบบนี้รองรับเฉพาะบัญชี Google ของมหาวิทยาลัย (@sru.ac.th)
         </p>
       </div>
+
+       <style>{`
+        @keyframes blob {
+          0%, 100% { transform: translate(0, 0) scale(1); }
+          25% { transform: translate(20px, -50px) scale(1.1); }
+          50% { transform: translate(-20px, 20px) scale(0.9); }
+          75% { transform: translate(50px, 10px) scale(1.05); }
+        }
+        .animate-blob {
+          animation: blob 7s infinite;
+        }
+        .animation-delay-2000 {
+          animation-delay: 2s;
+        }
+        .animation-delay-4000 {
+          animation-delay: 4s;
+        }
+        @keyframes fade-in {
+          from { opacity: 0; transform: translateY(-10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in {
+          animation: fade-in 0.3s ease-out;
+        }
+      `}</style>
     </div>
   );
 }

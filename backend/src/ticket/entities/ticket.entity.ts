@@ -8,20 +8,20 @@ import { User } from 'src/user/entities/user.entity';
 import { TicketStatus } from './ticket-state.enum';
 import { TicketImage } from './ticket-image.entity';     // 👈 import
 
-@Entity('Ticket')
+@Entity('ticket')
 export class Ticket {
    @PrimaryGeneratedColumn({
-    name: 'Ticket_ID',
+    name: 'ticket_ID',
     type: 'int',
     unsigned: true,
   })
   id: number;  
 
   @Index()
-  @Column({ name: 'Title', type: 'varchar', length: 200 })
+  @Column({ name: 'title', type: 'varchar', length: 200 })
   title: string;
 
-  @Column({ name: 'Detail', type: 'text' })
+  @Column({ name: 'detail', type: 'text' })
   detail: string;
 
   // ⛔️ you can delete the old single-picture column if you don't need it:
@@ -29,21 +29,21 @@ export class Ticket {
   // picture: Buffer | null;
 
   @ManyToOne(() => User, { eager: true, nullable: false })
-  @JoinColumn({ name: 'ByUser' })
+  @JoinColumn({ name: 'byUser' })
   createdBy: User;
 
   @ManyToOne(() => User, { eager: true, nullable: true })
-  @JoinColumn({ name: 'Commit_By' })
+  @JoinColumn({ name: 'commit_By' })
   assignedTo: User | null;
 
-  @Column({ name: 'Tal', type: 'varchar', length: 20, nullable: true })
+  @Column({ name: 'tal', type: 'varchar', length: 20, nullable: true })
   tel: string | null;
 
-  @Column({ name: 'Stat', type: 'enum', enum: TicketStatus, default: TicketStatus.OPEN })
+  @Column({ name: 'stat', type: 'enum', enum: TicketStatus, default: TicketStatus.OPEN })
   status: TicketStatus;
 
   @CreateDateColumn({
-    name: 'Create_at',
+    name: 'create_at',
     type: 'timestamp',
     precision: 3,
     default: () => 'CURRENT_TIMESTAMP(3)',
@@ -58,7 +58,7 @@ export class Ticket {
   })
   updatedAt: Date;
   @ManyToOne(() => User, { eager: true, nullable: true })
-@JoinColumn({ name: 'LastStatusChangedBy' })
+@JoinColumn({ name: 'lastStatusChangedBy' })
 lastStatusChangedBy?: User | null;
 
   // 👇 MULTI-IMAGE RELATION
