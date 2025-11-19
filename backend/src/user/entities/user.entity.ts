@@ -27,6 +27,13 @@ export class User {
   @Index({ unique: true })
   @Column({ type: 'varchar', length: 128, nullable: true })
   providerId?: string | null;
+    // 👇 NEW: Google display name
+  @Column({ name: 'FullName', type: 'varchar', length: 255, nullable: true })
+  name: string | null;
+
+  // 👇 NEW: Google profile picture url
+  @Column({ name: 'AvatarUrl', type: 'varchar', length: 512, nullable: true })
+  avatarUrl: string | null;
   
   @ManyToMany(() => Role, (r) => r.users, { eager: true })
   @JoinTable({

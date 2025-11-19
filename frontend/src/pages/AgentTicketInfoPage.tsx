@@ -6,6 +6,10 @@ import { useRequireAuth } from '../hooks/useRequireAuth';
 
 type TicketStatus = 'OPEN' | 'IN_PROGRESS' | 'RESOLVED';
 
+interface TicketUserRef {
+  email?: string | null;
+}
+
 interface Ticket {
   id: number;
   title: string;
@@ -13,7 +17,10 @@ interface Ticket {
   tel?: string | null;
   status: TicketStatus;
   createdAt: string;
-  assignedTo?: { email?: string | null } | null;
+  updatedAt?: string;
+  createdBy?: TicketUserRef | null;
+  assignedTo?: TicketUserRef | null;
+  lastStatusChangedBy?: TicketUserRef | null;
 }
 
 interface TicketImageDto {
@@ -24,37 +31,27 @@ interface TicketImageDto {
   base64: string;
 }
 
-// 👇 helper: render image / video / download
+// ----- helper: preview attachment (image / video / download) -----
 function MediaPreview({ file }: { file: TicketImageDto }) {
   const { mimeType, base64, filename } = file;
   const safeMime = mimeType || 'application/octet-stream';
   const src = `data:${safeMime};base64,${base64}`;
 
-  // image/*
   if (safeMime.startsWith('image/')) {
     return (
       <img
         src={src}
         alt={filename || 'Ticket image'}
-        style={{
-          width: '100%',
-          height: '100%',
-          objectFit: 'cover',
-        }}
+        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
       />
     );
   }
 
-  // video/*
   if (safeMime.startsWith('video/')) {
     return (
       <video
         controls
-        style={{
-          width: '100%',
-          height: '100%',
-          objectFit: 'cover',
-        }}
+        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
       >
         <source src={src} type={safeMime} />
         Your browser does not support the video tag.
@@ -62,18 +59,10 @@ function MediaPreview({ file }: { file: TicketImageDto }) {
     );
   }
 
-  // others (pdf, doc, etc.) -> download button
+  // pdf / doc / etc. → download button
   return (
-    <div
-      style={{
-        padding: '12px',
-        textAlign: 'center',
-        fontSize: '0.9rem',
-      }}
-    >
-      <div style={{ marginBottom: 8 }}>
-        {filename || 'แนบไฟล์'}
-      </div>
+    <div style={{ padding: 12, textAlign: 'center', fontSize: '0.9rem' }}>
+      <div style={{ marginBottom: 8 }}>{filename || 'แนบไฟล์'}</div>
       <a
         href={src}
         download={filename || 'attachment'}
@@ -101,7 +90,7 @@ export default function AgentTicketInfoPage() {
   const nav = useNavigate();
 
   const [ticket, setTicket] = useState<Ticket | null>(null);
-  const [images, setImages] = useState<TicketImageDto[]>([]);
+  const [attachments, setAttachments] = useState<TicketImageDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -115,6 +104,7 @@ export default function AgentTicketInfoPage() {
         setLoading(true);
         setError(null);
 
+        // Ticket info
         const ticketRes = await fetch(`${API_BASE}/tickets/${id}`, {
           credentials: 'include',
         });
@@ -124,14 +114,15 @@ export default function AgentTicketInfoPage() {
         const ticketData = (await ticketRes.json()) as Ticket;
         if (!cancelled) setTicket(ticketData);
 
+        // Attachments
         const imgRes = await fetch(`${API_BASE}/tickets/${id}/images`, {
           credentials: 'include',
         });
         if (!imgRes.ok) {
-          if (!cancelled) setImages([]);
+          if (!cancelled) setAttachments([]);
         } else {
           const imgs = (await imgRes.json()) as TicketImageDto[];
-          if (!cancelled) setImages(imgs);
+          if (!cancelled) setAttachments(imgs);
         }
       } catch (e: any) {
         console.error(e);
@@ -167,7 +158,7 @@ export default function AgentTicketInfoPage() {
     nav('/agent');
   }
 
-  // ===== style เหมือน User =====
+  // ===== styling =====
   const pageStyle: React.CSSProperties = {
     minHeight: '100vh',
     background: '#f3f4f6',
@@ -270,7 +261,7 @@ export default function AgentTicketInfoPage() {
                 gap: '1.5rem',
               }}
             >
-              {/* LEFT: all attachments */}
+              {/* LEFT: attachments */}
               <div
                 style={{
                   display: 'flex',
@@ -281,20 +272,20 @@ export default function AgentTicketInfoPage() {
                   paddingRight: '0.25rem',
                 }}
               >
-                {images.length === 0 ? (
-                  <div style={imageBoxStyle}>
+                {attachments.length === 0 ? (
+                  <div style={attachmentBoxStyle}>
                     <span>ไม่มีไฟล์แนบ</span>
                   </div>
                 ) : (
-                  images.map(img => (
-                    <div key={img.id} style={imageBoxStyle}>
-                      <MediaPreview file={img} />
+                  attachments.map(file => (
+                    <div key={file.id} style={attachmentBoxStyle}>
+                      <MediaPreview file={file} />
                     </div>
                   ))
                 )}
               </div>
 
-              {/* RIGHT: text info */}
+              {/* RIGHT: all ticket info */}
               <div
                 style={{
                   display: 'flex',
@@ -304,8 +295,9 @@ export default function AgentTicketInfoPage() {
               >
                 <Field label="Ticket ID" value={String(ticket.id).padStart(7, '0')} />
                 <Field label="หัวข้อ" value={ticket.title} />
-                <Field label="รายระเอียดคำร้อง" value={ticket.detail} />
+                <Field label="รายละเอียดคำร้อง" value={ticket.detail} />
                 <Field label="เบอร์ติดต่อ" value={ticket.tel || '-'} />
+
                 <div>
                   <div style={{ fontSize: '0.8rem', opacity: 0.7 }}>สถานะคำร้อง</div>
                   <div>
@@ -314,13 +306,34 @@ export default function AgentTicketInfoPage() {
                     </span>
                   </div>
                 </div>
+
+                <Field
+                  label="ผู้ร้องขอ"
+                  value={ticket.createdBy?.email || '-'}
+                />
                 <Field
                   label="รับงานโดย"
-                  value={ticket.assignedTo?.email || 'ยังไม่มีเจ้าหน้าที่รับงาน'}
+                  value={
+                    ticket.assignedTo?.email
+                      ? ticket.assignedTo.email
+                      : 'ยังไม่มีเจ้าหน้าที่รับงาน'
+                  }
+                />
+                <Field
+                  label="เปลี่ยนสถานะล่าสุดโดย"
+                  value={ticket.lastStatusChangedBy?.email || 'ยังไม่มีเจ้าหน้าที่รับงาน'}
                 />
                 <Field
                   label="สร้าง ณ วันที่"
                   value={new Date(ticket.createdAt).toLocaleString()}
+                />
+                <Field
+                  label="แก้ไขล่าสุด"
+                  value={
+                    ticket.updatedAt
+                      ? new Date(ticket.updatedAt).toLocaleString()
+                      : '-'
+                  }
                 />
 
                 <div style={{ marginTop: '1.5rem' }}>
@@ -358,7 +371,7 @@ function Field({ label, value }: { label: string; value: string }) {
   );
 }
 
-const imageBoxStyle: React.CSSProperties = {
+const attachmentBoxStyle: React.CSSProperties = {
   width: '100%',
   aspectRatio: '4 / 3',
   borderRadius: '0.75rem',

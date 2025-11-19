@@ -11,14 +11,26 @@ export class AuthController {
   @Get('google')
   @UseGuards(AuthGuard('google'))
   googleAuth() { }
+  
+  
   @Get('me')
-  getMe(@Req() req) {
-    // If you’re using sessions + passport, req.user should be populated
-    // Return only safe fields
-    if (!req.user) return { authenticated: false };
-    const { id, email, roles } = req.user;
-    return { authenticated: true, id, email, roles };
+  getMe(@Req() req: any) {
+    if (!req.user) {
+      return { authenticated: false };
+    }
+
+    const { id, email, roles, name, avatarUrl } = req.user;
+
+    return {
+      authenticated: true,
+      id,
+      email,
+      name: name ?? null,
+      avatarUrl: avatarUrl ?? null,
+      roles,
+    };
   }
+
   @Get('debug/session')
   debugSession(@Req() req) {
     return {

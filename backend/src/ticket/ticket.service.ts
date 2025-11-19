@@ -114,7 +114,7 @@ export class TicketService {
     order: { createdAt: 'DESC' },
     take: limit,
     skip: (page - 1) * limit,
-    relations: ['assignedTo', 'createdBy'],  
+    relations: ['assignedTo', 'createdBy', 'lastStatusChangedBy'],  
   });
 
   return { items, total, page, limit };
@@ -124,7 +124,7 @@ export class TicketService {
 async findOneFor(user: User, id: number) {
   const t = await this.repo.findOne({
     where: { id },
-    relations: ['createdBy', 'assignedTo', 'images'],  
+    relations: ['createdBy', 'assignedTo', 'images', 'lastStatusChangedBy'],  
   });
   if (!t) throw new NotFoundException('Ticket not found');
 
@@ -189,13 +189,34 @@ async findOneFor(user: User, id: number) {
     return this.repo.save(t);
   }
 
-  async changeStatus(id: number, dto: CreateTicketDto,user: User) {
-    const t = await this.repo.findOne({ where: { id } });
+   async changeStatusFor(
+    id: number,
+    user: User,
+    dto: CreateTicketDto,
+  ) {
+    const t = await this.repo.findOne({
+      where: { id },
+      relations: ['assignedTo'],
+    });
+
     if (!t) throw new NotFoundException('Ticket not found');
     if (!dto.status) throw new NotFoundException('status is required');
 
-    t.status = dto.status;
+    // only AGENT / ADMIN can change status
+    const isStaff = hasAnyRole(user, [RoleEnum.AGENT, RoleEnum.ADMIN]);
+    if (!isStaff) {
+      throw new ForbiddenException('Only staff can change status');
+    }
+
+    const nextStatus = dto.status;
+
+    // 💡 first time someone moves it away from OPEN → remember that person
+    const isLeavingOpen = t.status === TicketStatus.OPEN && nextStatus !== TicketStatus.OPEN;
+    if (isLeavingOpen && !t.assignedTo) {
+      t.assignedTo = user;
+    }
     t.lastStatusChangedBy = user;
+    t.status = nextStatus;
     return this.repo.save(t);
   }
 

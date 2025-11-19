@@ -6,6 +6,10 @@ import { useRequireAuth } from '../hooks/useRequireAuth';
 
 type TicketStatus = 'OPEN' | 'IN_PROGRESS' | 'RESOLVED';
 
+interface TicketUserRef {
+  email?: string | null;
+}
+
 interface Ticket {
   id: number;
   title: string;
@@ -13,7 +17,10 @@ interface Ticket {
   tel?: string | null;
   status: TicketStatus;
   createdAt: string;
-  assignedTo?: { email?: string | null } | null;
+  updatedAt?: string;
+  createdBy?: TicketUserRef | null;
+  assignedTo?: TicketUserRef | null;
+  lastStatusChangedBy?: TicketUserRef | null;
 }
 
 interface TicketImageDto {
@@ -24,17 +31,67 @@ interface TicketImageDto {
   base64: string;
 }
 
+function MediaPreview({ file }: { file: TicketImageDto }) {
+  const { mimeType, base64, filename } = file;
+  const safeMime = mimeType || 'application/octet-stream';
+  const src = `data:${safeMime};base64,${base64}`;
+
+  if (safeMime.startsWith('image/')) {
+    return (
+      <img
+        src={src}
+        alt={filename || 'Ticket image'}
+        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+      />
+    );
+  }
+
+  if (safeMime.startsWith('video/')) {
+    return (
+      <video
+        controls
+        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+      >
+        <source src={src} type={safeMime} />
+        Your browser does not support the video tag.
+      </video>
+    );
+  }
+
+  return (
+    <div style={{ padding: 12, textAlign: 'center', fontSize: '0.9rem' }}>
+      <div style={{ marginBottom: 8 }}>{filename || 'แนบไฟล์'}</div>
+      <a
+        href={src}
+        download={filename || 'attachment'}
+        style={{
+          display: 'inline-block',
+          padding: '6px 12px',
+          borderRadius: '999px',
+          border: '1px solid #4b5563',
+          textDecoration: 'none',
+          background: '#111827',
+          color: '#f9fafb',
+          fontSize: '0.85rem',
+          fontWeight: 600,
+        }}
+      >
+        Download
+      </a>
+    </div>
+  );
+}
+
 export default function UserTicketInfoPage() {
   const { user, loading: authLoading } = useRequireAuth();
   const { id } = useParams<{ id: string }>();
   const nav = useNavigate();
 
   const [ticket, setTicket] = useState<Ticket | null>(null);
-  const [images, setImages] = useState<TicketImageDto[]>([]);
+  const [attachments, setAttachments] = useState<TicketImageDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // โหลดข้อมูล ticket + รูป
   useEffect(() => {
     if (!id) return;
 
@@ -58,10 +115,10 @@ export default function UserTicketInfoPage() {
           credentials: 'include',
         });
         if (!imgRes.ok) {
-          if (!cancelled) setImages([]);
+          if (!cancelled) setAttachments([]);
         } else {
           const imgs = (await imgRes.json()) as TicketImageDto[];
-          if (!cancelled) setImages(imgs);
+          if (!cancelled) setAttachments(imgs);
         }
       } catch (e: any) {
         console.error(e);
@@ -97,110 +154,6 @@ export default function UserTicketInfoPage() {
     nav('/user');
   }
 
-  // แสดงกล่องไฟล์ แนบ (รูป / วิดีโอ / เอกสาร)
-  function renderFileBox(file: TicketImageDto) {
-    const mime = file.mimeType || '';
-    const dataUrl = `data:${mime || 'application/octet-stream'};base64,${file.base64}`;
-    const displayName = file.filename || 'ไฟล์แนบ';
-
-    // --- 1) รูปภาพ ---
-    if (mime.startsWith('image/')) {
-      return (
-        <div key={file.id} style={imageBoxStyle}>
-          <img
-            src={dataUrl}
-            alt={displayName}
-            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-          />
-        </div>
-      );
-    }
-
-    // --- 2) วิดีโอ ---
-    if (mime.startsWith('video/')) {
-      return (
-        <div key={file.id} style={imageBoxStyle}>
-          <video
-            controls
-            src={dataUrl}
-            style={{
-              width: '100%',
-              height: '100%',
-              objectFit: 'cover',
-              background: '#000000',
-            }}
-          />
-        </div>
-      );
-    }
-
-    // --- 3) เอกสาร / อื่น ๆ: ปุ่มดาวน์โหลด ---
-    const lowerName = displayName.toLowerCase();
-    const isPdf =
-      mime === 'application/pdf' || lowerName.endsWith('.pdf');
-    const isWord =
-      mime === 'application/msword' ||
-      mime ===
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
-      /\.(doc|docx)$/i.test(lowerName);
-
-    const buttonLabel = isPdf
-      ? 'เปิด / ดาวน์โหลด PDF'
-      : isWord
-      ? 'ดาวน์โหลดเอกสาร Word'
-      : 'ดาวน์โหลดไฟล์แนบ';
-
-    return (
-      <div key={file.id} style={imageBoxStyle}>
-        <div style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>
-          <div
-            style={{
-              fontWeight: 600,
-              marginBottom: 4,
-              fontSize: '0.9rem',
-              wordBreak: 'break-all',
-            }}
-          >
-            {displayName}
-          </div>
-
-          {file.size != null && (
-            <div
-              style={{
-                fontSize: '0.8rem',
-                marginBottom: 8,
-                opacity: 0.7,
-              }}
-            >
-              {(file.size / 1024).toFixed(1)} KB
-            </div>
-          )}
-
-          <a
-            href={dataUrl}
-            download={file.filename || undefined}
-            target="_blank"
-            rel="noreferrer"
-            style={{
-              display: 'inline-block',
-              padding: '0.35rem 0.9rem',
-              borderRadius: '999px',
-              border: '1px solid #0ea5e9',
-              background: '#e0f2fe',
-              color: '#0369a1',
-              fontSize: '0.85rem',
-              fontWeight: 600,
-              textDecoration: 'none',
-            }}
-          >
-            {buttonLabel}
-          </a>
-        </div>
-      </div>
-    );
-  }
-
-  // ===== style เหมือน User =====
   const pageStyle: React.CSSProperties = {
     minHeight: '100vh',
     background: '#f3f4f6',
@@ -312,16 +265,20 @@ export default function UserTicketInfoPage() {
                   paddingRight: '0.25rem',
                 }}
               >
-                {images.length === 0 ? (
-                  <div style={imageBoxStyle}>
+                {attachments.length === 0 ? (
+                  <div style={attachmentBoxStyle}>
                     <span>ไม่มีไฟล์แนบ</span>
                   </div>
                 ) : (
-                  images.map(renderFileBox)
+                  attachments.map(file => (
+                    <div key={file.id} style={attachmentBoxStyle}>
+                      <MediaPreview file={file} />
+                    </div>
+                  ))
                 )}
               </div>
 
-              {/* RIGHT: text info */}
+              {/* RIGHT: all info */}
               <div
                 style={{
                   display: 'flex',
@@ -331,8 +288,9 @@ export default function UserTicketInfoPage() {
               >
                 <Field label="Ticket ID" value={String(ticket.id).padStart(7, '0')} />
                 <Field label="หัวข้อ" value={ticket.title} />
-                <Field label="รายระเอียดคำร้อง" value={ticket.detail} />
+                <Field label="รายละเอียดคำร้อง" value={ticket.detail} />
                 <Field label="เบอร์ติดต่อ" value={ticket.tel || '-'} />
+
                 <div>
                   <div style={{ fontSize: '0.8rem', opacity: 0.7 }}>สถานะคำร้อง</div>
                   <div>
@@ -341,13 +299,34 @@ export default function UserTicketInfoPage() {
                     </span>
                   </div>
                 </div>
+
+                <Field
+                  label="ผู้ร้องขอ"
+                  value={ticket.createdBy?.email || user.email || '-'}
+                />
                 <Field
                   label="รับงานโดย"
-                  value={ticket.assignedTo?.email || 'ยังไม่พนันงานรับงาน ต้องขออภัย'}
+                  value={
+                    ticket.assignedTo?.email
+                      ? ticket.assignedTo.email
+                      : 'ยังไม่มีเจ้าหน้าที่รับงาน'
+                  }
+                />
+                <Field
+                  label="เปลี่ยนสถานะล่าสุดโดย"
+                  value={ticket.lastStatusChangedBy?.email || 'ยังไม่มีเจ้าหน้าที่รับงาน'}
                 />
                 <Field
                   label="สร้าง ณ วันที่"
                   value={new Date(ticket.createdAt).toLocaleString()}
+                />
+                <Field
+                  label="แก้ไขล่าสุด"
+                  value={
+                    ticket.updatedAt
+                      ? new Date(ticket.updatedAt).toLocaleString()
+                      : '-'
+                  }
                 />
 
                 <div style={{ marginTop: '1.5rem' }}>
@@ -385,7 +364,7 @@ function Field({ label, value }: { label: string; value: string }) {
   );
 }
 
-const imageBoxStyle: React.CSSProperties = {
+const attachmentBoxStyle: React.CSSProperties = {
   width: '100%',
   aspectRatio: '4 / 3',
   borderRadius: '0.75rem',
@@ -409,11 +388,11 @@ function getStatusStyle(status: TicketStatus): React.CSSProperties {
   };
   switch (status) {
     case 'OPEN':
-      return { ...base, background: '#facc15', color: '#000000' }; // เหลือง
+      return { ...base, background: '#facc15', color: '#000000' };
     case 'IN_PROGRESS':
-      return { ...base, background: '#3b82f6', color: '#f8f8f8ff' }; // น้ำเงิน
+      return { ...base, background: '#3b82f6', color: '#f8f8f8ff' };
     case 'RESOLVED':
-      return { ...base, background: '#22c55e', color: '#f8f8f8ff' }; // เขียว
+      return { ...base, background: '#22c55e', color: '#f8f8f8ff' };
     default:
       return base;
   }
