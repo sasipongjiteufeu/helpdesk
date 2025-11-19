@@ -1,117 +1,11 @@
 // src/pages/Login.tsx
-import 'animate.css';
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+import "animate.css";
+
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
 
 export default function Login() {
   const handleLogin = () => {
     window.location.href = `${API_BASE}/auth/google`;
-  };
-
-  // --- inline styles แยกเฉพาะหน้านี้ ---
-  const pageStyle: React.CSSProperties = {
-    minHeight: '100vh',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: '24px',
-    background:
-      'radial-gradient(circle at top, #e3f2fd 0, #f3f4f6 45%, #eef2ff 100%)',
-  };
-
-  const cardStyle: React.CSSProperties = {
-    width: '100%',
-    maxWidth: '480px',
-    background: '#ffffff',
-    borderRadius: '16px',
-    padding: '32px 32px 24px',
-    boxShadow: '0 20px 45px rgba(15, 23, 42, 0.12)',
-    textAlign: 'center',
-  };
-
-  const logosRowStyle: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '24px',
-    marginBottom: '20px',
-  };
-
-  const aritLogoStyle: React.CSSProperties = {
-    height: '70px',
-    objectFit: 'contain',
-  };
-
-  const sruLogoStyle: React.CSSProperties = {
-    height: '110px', // ทำให้ตรามอใหญ่ขึ้นหน่อย
-    objectFit: 'contain',
-  };
-
-  const titleStyle: React.CSSProperties = {
-    fontSize: '1.4rem',
-    margin: '0 0 4px',
-    color: '#111827',
-  };
-
-  const textStyle: React.CSSProperties = {
-    margin: 0,
-    fontSize: '0.9rem',
-    color: '#4b5563',
-  };
-
-  const googleBtnStyle: React.CSSProperties = {
-    marginTop: '24px',
-    width: '100%',
-    height: '48px',
-    borderRadius: '999px',
-    border: '1px solid #d1d5db',
-    backgroundColor: '#ffffff',
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '10px',
-    fontSize: '0.95rem',
-    fontWeight: 500,
-    color: '#374151',
-    cursor: 'pointer',
-    transition:
-      'box-shadow 150ms ease, transform 150ms ease, border-color 150ms ease, background-color 150ms ease',
-  };
-
-  const googleIconStyle: React.CSSProperties = {
-    width: '22px',
-    height: '22px',
-    borderRadius: '50%',
-    border: '1px solid #d1d5db',
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontWeight: 700,
-    fontSize: '0.9rem',
-  };
-
-  const noteStyle: React.CSSProperties = {
-    marginTop: '12px',
-    fontSize: '0.75rem',
-    color: '#6b7280',
-  };
-
-  // --- hover effect ด้วย onMouseEnter/Leave แทน CSS ---
-  const onMouseEnterBtn = (
-    e: React.MouseEvent<HTMLButtonElement, MouseEvent>,
-  ) => {
-    e.currentTarget.style.borderColor = '#9ca3af';
-    e.currentTarget.style.boxShadow = '0 8px 20px rgba(0,0,0,0.08)';
-    e.currentTarget.style.transform = 'translateY(-1px)';
-    e.currentTarget.style.backgroundColor = '#f9fafb';
-  };
-
-  const onMouseLeaveBtn = (
-    e: React.MouseEvent<HTMLButtonElement, MouseEvent>,
-  ) => {
-    e.currentTarget.style.borderColor = '#d1d5db';
-    e.currentTarget.style.boxShadow = 'none';
-    e.currentTarget.style.transform = 'translateY(0)';
-    e.currentTarget.style.backgroundColor = '#ffffff';
   };
 
   return (
@@ -123,45 +17,54 @@ export default function Login() {
         <div className="absolute -bottom-8 left-1/2 w-72 h-72 bg-pink-400 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-4000"></div>
       </div>
 
-      <div style={cardStyle}>
+      {/* Card */}
+      <div className="w-full max-w-[480px] bg-white rounded-2xl px-8 pt-8 pb-6 shadow-[0_20px_45px_rgba(15,23,42,0.12)] text-center">
         {/* โลโก้ ARIT + SRU */}
-        <div style={logosRowStyle}>
-          <img src="/logo-ARIT.png" alt="ARIT Logo" style={aritLogoStyle} className='animate__animated animate__fadeInUp animate__fast' />
+        <div className="flex items-center justify-center gap-6 mb-5">
+          <img
+            src="/logo-ARIT.png"
+            alt="ARIT Logo"
+            className="h-[70px] object-contain animate__animated animate__fadeInUp animate__fast"
+          />
           <img
             src="/logo-sru-png.png"
             alt="Suratthani Rajabhat University Logo"
-            style={sruLogoStyle}
-            className='animate__animated animate__fadeInUp  animate__fast'
+            className="h-[110px] object-contain animate__animated animate__fadeInUp animate__fast"
           />
         </div>
 
         {/* ข้อความชื่อระบบ */}
-        <div className='animate__animated animate__fadeInUp '>
-          <h1 style={titleStyle}>ระบบบริการ Helpdesk</h1>
-          <p style={textStyle}>สำนักงานวิทยบริการและเทคโนโลยีสารสนเทศ</p>
-          <p style={textStyle}>มหาวิทยาลัยราชภัฏสุราษฎร์ธานี</p>
+        <div className="animate__animated animate__fadeInUp">
+          <h1 className="text-2xl m-0 mb-1 text-gray-900">
+            ระบบบริการ Helpdesk
+          </h1>
+          <p className="m-0 text-sm text-gray-600">
+            สำนักงานวิทยบริการและเทคโนโลยีสารสนเทศ
+          </p>
+          <p className="m-0 text-sm text-gray-600">
+            มหาวิทยาลัยราชภัฏสุราษฎร์ธานี
+          </p>
         </div>
 
         {/* ปุ่ม Google */}
         <button
           type="button"
-          style={googleBtnStyle}
           onClick={handleLogin}
-          onMouseEnter={onMouseEnterBtn}
-          onMouseLeave={onMouseLeaveBtn}
-          className='animate__animated animate__fadeInUp '
+          className="mt-6 w-full h-12 rounded-full border border-gray-300 bg-white inline-flex items-center justify-center gap-2.5 text-[0.95rem] font-medium text-gray-700 cursor-pointer transition-all duration-150 ease-in-out hover:border-gray-400 hover:shadow-[0_8px_20px_rgba(0,0,0,0.08)] hover:-translate-y-px hover:bg-gray-50 animate__animated animate__fadeInUp"
         >
-          <span style={googleIconStyle}>G</span>
+          <span className="w-[22px] h-[22px] rounded-full border border-gray-300 inline-flex items-center justify-center font-bold text-sm">
+            G
+          </span>
           <span>เข้าสู่ระบบด้วยบัญชี Google (@sru.ac.th)</span>
         </button>
 
         {/* Note */}
-        <p style={noteStyle} className='animate__animated animate__fadeInUp animate__delay-1s'>
+        <p className="mt-3 text-xs text-gray-500 animate__animated animate__fadeInUp animate__delay-1s">
           * ระบบนี้รองรับเฉพาะบัญชี Google ของมหาวิทยาลัย (@sru.ac.th)
         </p>
       </div>
 
-       <style>{`
+      <style>{`
         @keyframes blob {
           0%, 100% { transform: translate(0, 0) scale(1); }
           25% { transform: translate(20px, -50px) scale(1.1); }
@@ -176,13 +79,6 @@ export default function Login() {
         }
         .animation-delay-4000 {
           animation-delay: 4s;
-        }
-        @keyframes fade-in {
-          from { opacity: 0; transform: translateY(-10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-fade-in {
-          animation: fade-in 0.3s ease-out;
         }
       `}</style>
     </div>
