@@ -12,7 +12,10 @@ interface AppHeaderBackendProps {
   user: User | null;
 }
 
-export default function AppHeaderBackend({ user }: AppHeaderBackendProps) {
+export default function AppHeaderBackend({
+  user,
+  title,
+}: AppHeaderBackendProps) {
   const navigate = useNavigate();
 
   const logout = async () => {
@@ -31,7 +34,7 @@ export default function AppHeaderBackend({ user }: AppHeaderBackendProps) {
     <div className="flex flex-col md:flex-row justify-between items-center border-b border-gray-200 pb-3">
       <div className="flex items-center gap-3">
         <img src={logoSRU} alt="SRU Logo" className="h-14 w-auto" />
-        <span className="text-3xl font-bold">HelpDesk</span>
+        <span className="text-3xl font-bold">HelpDesk {title}</span>
       </div>
 
       <div className="flex flex-col md:flex-row gap-4 items-center">
