@@ -6,6 +6,7 @@ import { useRequireAuth } from "../hooks/useRequireAuth";
 
 import AppHeaderBackend from "../components/AppHeaderBackend";
 import { MdOutlineAddCircle } from "react-icons/md";
+import Swal from "sweetalert2";
 
 type TicketStatus = "OPEN" | "IN_PROGRESS" | "RESOLVED";
 
@@ -51,17 +52,38 @@ export default function UserTicketsPage() {
   }
 
   async function handleDelete(id: number) {
-    if (!confirm("ต้องการลบคำร้องนี้หรือไม่?")) return;
+    // if (!confirm("ต้องการลบคำร้องนี้หรือไม่?")) return;
     try {
-      const res = await fetch(`${API_BASE}/tickets/${id}`, {
-        method: "DELETE",
-        credentials: "include",
+      const result = await Swal.fire({
+        title: "คุรแน่ใจใช่ไหม?",
+        text: "คุณจะลบข้อมูล! รหัส " + id + " นี้",
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonColor: "#3085d6",
+        cancelButtonColor: "#d33",
+        confirmButtonText: "ใช่!",
+        cancelButtonText: "ยกเลิก!",
       });
-      if (!res.ok) {
-        alert(`ไม่สามารถลบคำร้องได้ (status code ${res.status})`);
-        return;
+
+      if (result.isConfirmed) {
+        const res = await fetch(`${API_BASE}/tickets/${id}`, {
+          method: "DELETE",
+          credentials: "include",
+        });
+        if (!res.ok) {
+          alert(`ไม่สามารถลบคำร้องได้ (status code ${res.status})`);
+          return;
+        }
+        setTickets((prev) => prev.filter((t) => t.id !== id));
+        
+        await Swal.fire({
+          title: "ลบ!",
+          text: "ลบข้อมูลสำเร็จ",
+          icon: "success",
+          showConfirmButton: false,
+          timer: 1500,
+        });
       }
-      setTickets((prev) => prev.filter((t) => t.id !== id));
     } catch (e: any) {
       alert(e.message ?? "ลบคำร้องไม่สำเร็จ");
     }

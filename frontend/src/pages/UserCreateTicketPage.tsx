@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { API_BASE } from "../lib/api";
 import { useRequireAuth } from "../hooks/useRequireAuth";
 import AppHeaderBackend from "../components/AppHeaderBackend";
+import Swal from "sweetalert2";
 
 export default function UserCreateTicketPage() {
   const { user, loading: authLoading } = useRequireAuth();
@@ -84,6 +85,14 @@ export default function UserCreateTicketPage() {
         return;
       }
 
+      await Swal.fire({
+        position: "top-end",
+        icon: "success",
+        title: "เพิ่มข้อมูลสำเร็จ",
+        showConfirmButton: false,
+        timer: 1500,
+      });
+
       navigate("/user", { replace: true });
     } catch (e: any) {
       console.error(e);
@@ -133,7 +142,9 @@ export default function UserCreateTicketPage() {
 
             {/* Detail */}
             <div className="mb-4">
-              <label className="block mb-1 text-sm font-semibold">รายละอียด</label>
+              <label className="block mb-1 text-sm font-semibold">
+                รายละอียด
+              </label>
               <textarea
                 value={detail}
                 onChange={(e) => setDetail(e.target.value)}
@@ -164,9 +175,9 @@ export default function UserCreateTicketPage() {
               <label className="block mb-1 text-sm font-semibold">
                 แนบไฟล์ (ถ้ามี เช่น รูป, วิดีโอ, PDF, Word)
               </label>
-              <button 
+              <button
                 type="button"
-                className="px-2 py-2 bg-amber-500 rounded-2xl text-white cursor-pointer hover:bg-amber-600" 
+                className="px-2 py-2 bg-amber-500 rounded-2xl text-white cursor-pointer hover:bg-amber-600"
                 onClick={uploadFile}
               >
                 อัพโหลดไฟล์
