@@ -227,14 +227,27 @@ async findOneFor(user: User, id: number) {
       throw new ForbiddenException('Only staff can change status');
     }
 
+    
+    // ✅ If ticket already has an assigned agent,
+    //    ONLY that agent (or ADMIN) can change status.
+    if (t.assignedTo && t.assignedTo.id !== user.id) {
+      throw new ForbiddenException('Only the assigned agent can change status');
+    }
+
     const nextStatus = dto.status;
 
+    if (t.status !== 'OPEN' && nextStatus === 'OPEN') {
+    throw new ForbiddenException('Cannot move ticket back to OPEN');
+    } 
+    
     // 💡 first time someone moves it away from OPEN → remember that person
     const isLeavingOpen = t.status === TicketStatus.OPEN && nextStatus !== TicketStatus.OPEN;
+
     if (isLeavingOpen && !t.assignedTo) {
       t.assignedTo = user;
     }
     t.lastStatusChangedBy = user;
+
     t.status = nextStatus;
     return this.repo.save(t);
   }
