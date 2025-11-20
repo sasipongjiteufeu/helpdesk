@@ -1,18 +1,18 @@
 // auth.controller.ts
 import { Controller, Get, Req, Res, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { Domain } from 'domain';
 import { UserService } from 'src/user/user.service';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly user: UserService) { }
+  constructor(private readonly user: UserService) {}
 
   // GET /auth/google  -> start OAuth
   @Get('google')
   @UseGuards(AuthGuard('google'))
-  googleAuth() { }
-  
-  
+  googleAuth() {}
+
   @Get('me')
   getMe(@Req() req: any) {
     if (!req.user) {
@@ -46,18 +46,18 @@ export class AuthController {
   async googleRedirect(@Req() req, @Res() res) {
     try {
       const { email, providerId } = req.user ?? {};
-      const user = await this.user.findOrCreateGoogleUser(email, providerId);  // Will throw on non-@sru.ac.th (your service already enforces)
+      const user = await this.user.findOrCreateGoogleUser(email, providerId); // Will throw on non-@sru.ac.th (your service already enforces)
       if (!email || !providerId) {
         // If Google didn’t give us what we need
-        return res.redirect(`${process.env.FRONTEND_URL}/forbidden?reason=missing_profile`);
+        return res.redirect(
+          `${process.env.FRONTEND_URL}/forbidden?reason=missing_profile`,
+        );
       }
-
-
 
       // If you're using sessions, make sure the user is logged into the session:
       // (Only needed if your Google strategy didn't already call req.logIn)
       await new Promise<void>((resolve, reject) =>
-        req.logIn(user, (err) => (err ? reject(err) : resolve()))
+        req.logIn(user, (err) => (err ? reject(err) : resolve())),
       );
 
       const roleToPath = {
@@ -66,10 +66,12 @@ export class AuthController {
         USER: '/user',
       } as const;
 
-      const names = (user.roles || []).map(r => r.name).filter(Boolean);
+      const names = (user.roles || []).map((r) => r.name).filter(Boolean);
 
       if (names.length === 0) {
-        return res.redirect(`${process.env.FRONTEND_URL}/forbidden?reason=no-role`);
+        return res.redirect(
+          `${process.env.FRONTEND_URL}/forbidden?reason=no-role`,
+        );
       }
 
       // if multiple roles → let user choose
@@ -82,15 +84,24 @@ export class AuthController {
       const path = roleToPath[only] ?? '/user';
       return res.redirect(`${process.env.FRONTEND_URL}${path}`);
     } catch (e) {
-      return res.redirect(`${process.env.FRONTEND_URL}/forbidden?reason=unauthorized`);
+      return res.redirect(
+        `${process.env.FRONTEND_URL}/forbidden?reason=unauthorized`,
+      );
     }
   }
+
   @Get('logout')
   logout(@Req() req, @Res() res) {
-    req.logout?.(() => { });
-    req.session?.destroy?.(() => { });
-    res.clearCookie('__host.sid');
-    return res.redirect(process.env.FRONTEND_URL + '/');
-  }
+    req.logout((err) => {
+      if (err) {
+        return res.status(500).json({ error: err.message });
+      }
 
+      req.session.destroy(() => {
+        res.clearCookie('__host.sid');
+
+        return res.json({ message: 'ออกจากระบบ' });
+      });
+    });
+  }
 }

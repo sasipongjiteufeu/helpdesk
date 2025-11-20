@@ -1,137 +1,52 @@
 // src/pages/AdminPage.tsx
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
-import { API_BASE } from '../lib/api';
-import { useRequireAuth } from '../hooks/useRequireAuth';
+import { useNavigate } from "react-router-dom";
+import { useRequireAuth } from "../hooks/useRequireAuth";
+import AppHeaderBackend from "../components/AppHeaderBackend";
 
 export default function AdminPage() {
   const { user, loading } = useRequireAuth();
   const nav = useNavigate();
 
   if (loading || !user) {
-    return <div style={{ padding: 40 }}>Checking your access…</div>;
+    return <div className="p-10">Checking your access…</div>;
   }
 
-  const pageStyle: React.CSSProperties = {
-    minHeight: '100vh',
-    background: '#f3f4f6',
-    padding: '24px',
-    boxSizing: 'border-box',
-    fontFamily: 'system-ui',
-  };
-
-  const shellStyle: React.CSSProperties = {
-    maxWidth: '1200px',
-    margin: '0 auto',
-    background: '#fff',
-    borderRadius: '16px',
-    boxShadow: '0 18px 40px rgba(0,0,0,0.15)',
-    padding: '20px',
-  };
-
-  const headerStyle: React.CSSProperties = {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderBottom: '1px solid #e5e7eb',
-    paddingBottom: '12px',
-  };
-
-  const logoRowStyle: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-  };
-
-  const cardStyle: React.CSSProperties = {
-    marginTop: 20,
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-    gap: '16px',
-  };
-
-  const buttonCard: React.CSSProperties = {
-    borderRadius: 16,
-    border: '1px solid #e5e7eb',
-    padding: '18px',
-    background: '#f9fafb',
-    display: 'flex',
-    flexDirection: 'column',
-    justifyContent: 'space-between',
-  };
-
-  const mainBtn: React.CSSProperties = {
-    marginTop: 12,
-    padding: '10px 16px',
-    borderRadius: '999px',
-    border: 'none',
-    background: '#22c55e',
-    color: '#020617',
-    fontWeight: 600,
-    cursor: 'pointer',
-  };
-
   return (
-    <div style={pageStyle}>
-      <div style={shellStyle}>
-        <div style={headerStyle}>
-          <div style={logoRowStyle}>
-            <img
-              src="/logo-sru-png.png"
-              alt="SRU Logo"
-              style={{ height: 58, width: 'auto' }}
-            />
-            <span style={{ fontSize: '1.7rem', fontWeight: 700 }}>
-              HelpDesk – Admin
-            </span>
-          </div>
+    <div className="min-h-screen bg-gray-100 p-6 box-border font-sans">
+      <div className="max-w-7xl mx-auto bg-white rounded-2xl shadow-2xl p-5">
+        <AppHeaderBackend user={user} title={"Admin"} />
 
-          <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
-            <span>{user.email}</span>
-            <button
-              onClick={() => (window.location.href = `${API_BASE}/auth/logout`)}
-              style={{
-                padding: '6px 14px',
-                borderRadius: '999px',
-                border: '1px solid #d1d5db',
-                background: '#fff',
-                cursor: 'pointer',
-              }}
-            >
-              Logout
-            </button>
-          </div>
-        </div>
+        <div className="mt-4">
+          <h2 className="mt-0 text-center md:text-start font-bold">เมนูผู้ดูแลระบบ</h2>
 
-        <div style={{ marginTop: 16 }}>
-          <h2 style={{ marginTop: 0 }}>เมนูผู้ดูแลระบบ</h2>
-
-          <div style={cardStyle}>
-            <div style={buttonCard}>
+          <div className="mt-5 grid  grid-cols-1  md:grid-cols-2 gap-4">
+            <div className="rounded-2xl border border-gray-200 p-[18px] bg-gray-50 hover:bg-gray-200 flex flex-col justify-between">
               <div>
-                <h3 style={{ marginTop: 0, marginBottom: 4 }}>มอบหมายสิทธิ์การเข้าถึง</h3>
-                <p style={{ margin: 0, fontSize: '0.9rem', color: '#4b5563' }}>
-                  ดูรายชื่อผู้ใช้ทั้งหมด จำนวนคำร้องของแต่ละคน และกำหนดสิทธิ์ USER / AGENT / ADMIN
+                <h3 className="mt-0 mb-1">มอบหมายสิทธิ์การเข้าถึง</h3>
+                <p className="m-0 text-sm text-gray-600">
+                  ดูรายชื่อผู้ใช้ทั้งหมด จำนวนคำร้องของแต่ละคน และกำหนดสิทธิ์
+                  USER / AGENT / ADMIN
                 </p>
               </div>
               <button
-                style={mainBtn}
-                onClick={() => nav('/admin/roles')}
+                className="mt-3 py-2.5 px-4 rounded-full border-none bg-green-500 text-white font-semibold cursor-pointer hover:bg-green-600 transition-colors"
+                onClick={() => nav("/admin/roles")}
               >
                 เปิดหน้ามอบหมายสิทธิ์
               </button>
             </div>
 
-            <div style={buttonCard}>
+            <div className="rounded-2xl border border-gray-200 p-[18px] bg-gray-50 hover:bg-gray-200 flex flex-col justify-between">
               <div>
-                <h3 style={{ marginTop: 0, marginBottom: 4 }}>แสดงผล</h3>
-                <p style={{ margin: 0, fontSize: '0.9rem', color: '#4b5563' }}>
-                  ดูสถิติคำร้องเป็นกราฟ แยกตามเดือนและสถานะ OPEN / IN_PROGRESS / RESOLVED
+                <h3 className="mt-0 mb-1">แสดงผล</h3>
+                <p className="m-0 text-sm text-gray-600">
+                  ดูสถิติคำร้องเป็นกราฟ แยกตามเดือนและสถานะ OPEN / IN_PROGRESS /
+                  RESOLVED
                 </p>
               </div>
               <button
-                style={mainBtn}
-                onClick={() => nav('/admin/stats')}
+                className="mt-3 py-2.5 px-4 rounded-full border-none bg-green-500 text-white font-semibold cursor-pointer hover:bg-green-600 transition-colors"
+                onClick={() => nav("/admin/stats")}
               >
                 เปิดหน้าแสดงผล
               </button>

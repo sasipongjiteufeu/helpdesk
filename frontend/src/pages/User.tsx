@@ -1,10 +1,12 @@
 // src/pages/User.tsx
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { API_BASE } from '../lib/api';
-import { useRequireAuth } from '../hooks/useRequireAuth';
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { API_BASE } from "../lib/api";
+import { useRequireAuth } from "../hooks/useRequireAuth";
 
-type TicketStatus = 'OPEN' | 'IN_PROGRESS' | 'RESOLVED';
+import AppHeaderBackend from "../components/AppHeaderBackend";
+
+type TicketStatus = "OPEN" | "IN_PROGRESS" | "RESOLVED";
 
 interface Ticket {
   id: number;
@@ -13,17 +15,13 @@ interface Ticket {
   tel?: string | null;
   status: TicketStatus;
   createdAt: string;
-
-  // from old design
-  assignedTo?: { email?: string | null } | null;
-
-  // ✅ NEW: who changed status last (Option A)
+  assignedTo?: { email?: string | null; name: string } | null;
   lastStatusChangedBy?: { email?: string | null } | null;
 }
 
 export default function UserTicketsPage() {
   const { user, loading: authLoading } = useRequireAuth();
-  const nav = useNavigate();
+  const navigate = useNavigate();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -32,12 +30,12 @@ export default function UserTicketsPage() {
     try {
       setLoading(true);
       const res = await fetch(`${API_BASE}/tickets?page=1&limit=50`, {
-        credentials: 'include',
+        credentials: "include",
       });
       const data = await res.json();
       setTickets(data.items ?? []);
     } catch (e: any) {
-      setError(e.message || 'fetch error');
+      setError(e.message || "fetch error");
     } finally {
       setLoading(false);
     }
@@ -48,206 +46,162 @@ export default function UserTicketsPage() {
   }, []);
 
   if (authLoading || !user) {
-    return <div style={{ padding: 40 }}>Checking your access…</div>;
+    return <div className="p-10">Checking your access…</div>;
   }
 
   async function handleDelete(id: number) {
-    if (!confirm('ต้องการลบคำร้องนี้หรือไม่?')) return;
+    if (!confirm("ต้องการลบคำร้องนี้หรือไม่?")) return;
     try {
       const res = await fetch(`${API_BASE}/tickets/${id}`, {
-        method: 'DELETE',
-        credentials: 'include',
+        method: "DELETE",
+        credentials: "include",
       });
       if (!res.ok) {
         alert(`ไม่สามารถลบคำร้องได้ (status code ${res.status})`);
         return;
       }
-      setTickets(prev => prev.filter(t => t.id !== id));
+      setTickets((prev) => prev.filter((t) => t.id !== id));
     } catch (e: any) {
-      alert(e.message ?? 'ลบคำร้องไม่สำเร็จ');
+      alert(e.message ?? "ลบคำร้องไม่สำเร็จ");
     }
   }
 
-  // ====== UI ======
-  const pageStyle = {
-    minHeight: '100vh',
-    background: '#f3f4f6',
-    padding: '24px',
-    boxSizing: 'border-box',
-    fontFamily: 'system-ui',
-  } as const;
+  function StatusBadge({ status }: { status: TicketStatus }) {
+    const baseClasses =
+      "px-2.5 py-1 rounded-full font-semibold text-xs inline-block";
 
-  const shellStyle = {
-    maxWidth: '1200px',
-    margin: '0 auto',
-    background: '#fff',
-    borderRadius: '16px',
-    boxShadow: '0 18px 40px rgba(0,0,0,0.15)',
-    padding: '20px',
-  } as const;
-
-  const headerStyle = {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderBottom: '1px solid #e5e7eb',
-    paddingBottom: '12px',
-  } as const;
-
-  const logoRowStyle = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-  } as const;
+    switch (status) {
+      case "OPEN":
+        return (
+          <span className={`${baseClasses} bg-yellow-400 text-black`}>
+            {status}
+          </span>
+        );
+      case "IN_PROGRESS":
+        return (
+          <span className={`${baseClasses} bg-blue-500 text-white`}>
+            {status}
+          </span>
+        );
+      case "RESOLVED":
+        return (
+          <span className={`${baseClasses} bg-green-500 text-white`}>
+            {status}
+          </span>
+        );
+      default:
+        return <span className={baseClasses}>{status}</span>;
+    }
+  }
 
   return (
-    <div style={pageStyle}>
-      <div style={shellStyle}>
+    <div className="min-h-screen bg-gray-100 p-6">
+      <div className="max-w-7xl mx-auto bg-white rounded-2xl shadow-2xl p-5">
         {/* Header */}
-        <div style={headerStyle}>
-          <div style={logoRowStyle}>
-            <img
-              src="/logo-sru-png.png"
-              alt="SRU Logo"
-              style={{
-                height: '58px',
-                width: 'auto',
-              }}
-            />
-            <span style={{ fontSize: '1.7rem', fontWeight: 700 }}>HelpDesk</span>
-          </div>
 
-          <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-            <span>{user.email}</span>
-            <button
-              onClick={() => (window.location.href = `${API_BASE}/auth/logout`)}
-              style={{
-                padding: '6px 14px',
-                borderRadius: '999px',
-                border: '1px solid #d1d5db',
-                background: '#fff',
-                cursor: 'pointer',
-              }}
-            >
-              Logout
-            </button>
-          </div>
-        </div>
+        <AppHeaderBackend user={user} title={"User"} />
 
         {/* Section Title */}
-        <div
-          style={{
-            marginTop: 16,
-            display: 'flex',
-            justifyContent: 'space-between',
-          }}
-        >
-          <h2 style={{ margin: 0 }}>รายการคำร้องของฉัน</h2>
+        <div className="mt-4 flex  flex-col-reverse md:flex-row justify-between">
+          <h2 className="text-2xl font-semibold m-0">รายการคำร้องของฉัน</h2>
 
           <button
-            onClick={() => nav('/user/create')}
-            style={{
-              padding: '7px 16px',
-              background: '#22c55e',
-              borderRadius: '999px',
-              fontWeight: 600,
-              border: 'none',
-              cursor: 'pointer',
-            }}
+            onClick={() => navigate("/user/create")}
+            className="px-4 py-1.5 mb-4 bg-green-500 hover:bg-green-600 text-white rounded-full font-semibold border-none cursor-pointer"
           >
             + Create Ticket
           </button>
         </div>
 
         {/* Error */}
-        {error && <p style={{ color: 'red' }}>{error}</p>}
+        {error && <p className="text-red-500 mt-2">{error}</p>}
 
         {/* Ticket Table */}
-        <div style={{ marginTop: 12, overflowX: 'auto' }}>
+        <div className="mt-3 overflow-x-auto">
           {loading ? (
             <p>Loading…</p>
           ) : tickets.length === 0 ? (
             <p>ยังไม่มีรายการคำร้อง</p>
           ) : (
-            <table
-              style={{
-                width: '100%',
-                borderCollapse: 'collapse',
-                fontSize: '0.9rem',
-              }}
-            >
+            <table className="w-full border-collapse text-sm">
               <thead>
                 <tr>
-                  <th style={th}>สถานะคำร้อง</th>
-                  <th style={th}>Ticket ID</th>
-                  <th style={th}>หัวข้อ</th>
-                  <th style={th}>รายระเอียดคำร้อง</th>
-                  <th style={th}>เบอร์ติดต่อ</th>
-                  {/* 👇 still same column, but now shows lastStatusChangedBy */}
-                  <th style={th}>รับงาน / แก้ไขสถานะโดย</th>
-                  <th style={th}>สร้าง ณ วันที่</th>
-                  <th style={th}>ตัวเลือก</th>
+                  <th className="text-left p-2 border-b-2 border-gray-800">
+                    สถานะคำร้อง
+                  </th>
+                  <th className="text-left p-2 border-b-2 border-gray-800">
+                    Ticket ID
+                  </th>
+                  <th className="text-left p-2 border-b-2 border-gray-800">
+                    หัวข้อ
+                  </th>
+                  <th className="text-left p-2 border-b-2 border-gray-800">
+                    รายระเอียดคำร้อง
+                  </th>
+                  <th className="text-left p-2 border-b-2 border-gray-800">
+                    เบอร์ติดต่อ
+                  </th>
+                  <th className="text-left p-2 border-b-2 border-gray-800">
+                    รับงาน / แก้ไขสถานะโดย
+                  </th>
+                  <th className="text-left p-2 border-b-2 border-gray-800">
+                    สร้าง ณ วันที่
+                  </th>
+                  <th className="text-left p-2 border-b-2 border-gray-800">
+                    ตัวเลือก
+                  </th>
                 </tr>
               </thead>
               <tbody>
-                {tickets.map(t => {
-                  // delete rule: only when still OPEN and no one assigned
-                  const canDelete = t.status === 'OPEN' && !t.assignedTo;
-
-                  // show who changed status, fallback to assignedTo if needed
-                  const statusChangerEmail =
-                    t.lastStatusChangedBy?.email || t.assignedTo?.email || '-';
-
+                {tickets.map((t) => {
+                  const canDelete = t.status === "OPEN" ? true : false;
                   return (
                     <tr key={t.id}>
-                      <td style={td}>
-                        <span style={getStatusStyle(t.status)}>{t.status}</span>
+                      <td className="p-2 border-b border-gray-300">
+                        <StatusBadge status={t.status} />
                       </td>
-                      <td style={td}>{String(t.id).padStart(7, '0')}</td>
-                      <td style={td}>{t.title}</td>
-                      <td style={td}>{t.detail}</td>
-                      <td style={td}>{t.tel ?? '-'}</td>
-                      <td style={td}>{statusChangerEmail}</td>
-                      <td style={td}>{new Date(t.createdAt).toLocaleString()}</td>
-                      <td style={td}>
-                        <div
-                          style={{
-                            display: 'flex',
-                            gap: '0.5rem',
-                            justifyContent: 'flex-start',
-                          }}
-                        >
+                      <td className="p-2 border-b border-gray-300">
+                        {String(t.id).padStart(7, "0")}
+                      </td>
+                      <td className="p-2 border-b border-gray-300">
+                        {t.title}
+                      </td>
+                      <td className="p-2 border-b border-gray-300">
+                        {t.detail}
+                      </td>
+                      <td className="p-2 border-b border-gray-300">
+                        {t.tel ?? "-"}
+                      </td>
+                      <td className="p-2 border-b border-gray-300">
+                        {t.assignedTo?.name ?? "-"}
+                      </td>
+                      <td className="p-2 border-b border-gray-300">
+                        {new Date(t.createdAt).toLocaleString()}
+                      </td>
+                      <td className="p-2 border-b border-gray-300">
+                        <div className="flex gap-2">
                           <button
-                            onClick={() => nav(`/user/ticket/${t.id}`)}
-                            style={{
-                              padding: '4px 10px',
-                              borderRadius: '999px',
-                              border: '1px solid #d1d5db',
-                              background: '#ffffff',
-                              fontSize: '0.8rem',
-                              cursor: 'pointer',
-                            }}
+                            onClick={() => navigate(`/user/ticket/${t.id}`)}
+                            className="px-2.5 py-1 rounded-full border border-gray-300 bg-white hover:bg-gray-50 text-xs cursor-pointer"
                           >
                             Info
                           </button>
 
                           <button
                             type="button"
-                            onClick={canDelete ? () => handleDelete(t.id) : undefined}
+                            onClick={
+                              canDelete ? () => handleDelete(t.id) : undefined
+                            }
                             disabled={!canDelete}
-                            style={{
-                              padding: '4px 10px',
-                              borderRadius: '999px',
-                              border: 'none',
-                              background: canDelete ? '#ef4444' : '#e5e7eb',
-                              color: canDelete ? '#f9fafb' : '#9ca3af',
-                              fontSize: '0.8rem',
-                              cursor: canDelete ? 'pointer' : 'not-allowed',
-                            }}
+                            className={`px-2.5 py-1 rounded-full border-none text-xs ${
+                              canDelete
+                                ? "bg-red-500 text-white hover:bg-red-600 cursor-pointer"
+                                : "bg-gray-200 text-gray-400 cursor-not-allowed"
+                            }`}
                             title={
                               canDelete
-                                ? 'ลบคำร้อง'
-                                : 'ไม่สามารถลบได้เมื่อคำร้องกำลังดำเนินการหรือปิดแล้ว หรือมีเจ้าหน้าที่รับงานแล้ว'
+                                ? "ลบคำร้อง"
+                                : "ไม่สามารถลบได้เมื่อคำร้องกำลังดำเนินการหรือปิดแล้ว หรือมีเจ้าหน้าที่รับงานแล้ว"
                             }
                           >
                             Delete
@@ -264,36 +218,4 @@ export default function UserTicketsPage() {
       </div>
     </div>
   );
-}
-
-const th = {
-  textAlign: 'left',
-  padding: '8px',
-  borderBottom: '2px solid #1f2937',
-} as const;
-
-const td = {
-  padding: '8px',
-  borderBottom: '1px solid #d1d5db',
-} as const;
-
-function getStatusStyle(status: string): React.CSSProperties {
-  const base = {
-    padding: '4px 10px',
-    borderRadius: '999px',
-    fontWeight: 600,
-    fontSize: '0.8rem',
-    display: 'inline-block',
-  } as React.CSSProperties;
-
-  switch (status) {
-    case 'OPEN':
-      return { ...base, background: '#facc15', color: '#000' }; // เหลือง
-    case 'IN_PROGRESS':
-      return { ...base, background: '#3b82f6', color: '#fff' }; // น้ำเงิน
-    case 'RESOLVED':
-      return { ...base, background: '#22c55e', color: '#fff' }; // เขียว
-    default:
-      return base;
-  }
 }

@@ -1,10 +1,11 @@
 // src/pages/AgentTicketsPage.tsx
-import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { API_BASE } from '../lib/api';
-import { useRequireAuth } from '../hooks/useRequireAuth';
+import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { API_BASE } from "../lib/api";
+import { useRequireAuth } from "../hooks/useRequireAuth";
+import AppHeaderBackend from "../components/AppHeaderBackend";
 
-type TicketStatus = 'OPEN' | 'IN_PROGRESS' | 'RESOLVED';
+type TicketStatus = "OPEN" | "IN_PROGRESS" | "RESOLVED" | "COMMIT";
 
 interface Ticket {
   id: number;
@@ -13,12 +14,17 @@ interface Ticket {
   tel?: string | null;
   status: TicketStatus;
   createdAt: string;
-  createdBy?: { email?: string | null } | null;
-  assignedTo?: { email?: string | null } | null;
-  lastStatusChangedBy?: { email?: string | null } | null; // optional
+  createdBy?: { email?: string | null; name?: string | null } | null; // Added name
+  assignedTo?: {
+    email?: string | null;
+    name?: string | null;
+    id: string;
+  } | null; // Added name and made nullable
+  lastStatusChangedBy?: { email?: string | null } | null;
+  commit_By?: number | null;
 }
 
-type Filter = 'ALL' | TicketStatus;
+type Filter = "ALL" | TicketStatus;
 
 export default function AgentTicketsPage() {
   const { user, loading: authLoading } = useRequireAuth();
@@ -27,9 +33,11 @@ export default function AgentTicketsPage() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<Filter>('ALL');
+  const [filter, setFilter] = useState<Filter>("ALL");
   const [savingId, setSavingId] = useState<number | null>(null);
-  const [searchId, setSearchId] = useState(''); // 👈 search box state
+  const [searchId, setSearchId] = useState("");
+
+  console.log("tickets :", tickets);
 
   useEffect(() => {
     (async () => {
@@ -38,7 +46,7 @@ export default function AgentTicketsPage() {
         setError(null);
 
         const res = await fetch(`${API_BASE}/tickets?page=1&limit=100`, {
-          credentials: 'include',
+          credentials: "include",
         });
         if (!res.ok) throw new Error(`Failed to load tickets (${res.status})`);
 
@@ -46,7 +54,7 @@ export default function AgentTicketsPage() {
         setTickets(data.items ?? data);
       } catch (e: any) {
         console.error(e);
-        setError(e.message ?? 'Failed to load tickets');
+        setError(e.message ?? "Failed to load tickets");
       } finally {
         setLoading(false);
       }
@@ -57,21 +65,17 @@ export default function AgentTicketsPage() {
     return (
       <div
         style={{
-          minHeight: '100dvh',
-          display: 'grid',
-          placeItems: 'center',
-          fontFamily: 'system-ui, -apple-system, Segoe UI, Roboto, Arial',
-          background: '#f3f4f6',
-          color: '#111827',
+          minHeight: "100dvh",
+          display: "grid",
+          placeItems: "center",
+          fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, Arial",
+          background: "#f3f4f6",
+          color: "#111827",
         }}
       >
         Checking your access…
       </div>
     );
-  }
-
-  function handleLogout() {
-    window.location.href = `${API_BASE}/auth/logout`;
   }
 
   function handleInfo(id: number) {
@@ -82,9 +86,9 @@ export default function AgentTicketsPage() {
     try {
       setSavingId(id);
       const res = await fetch(`${API_BASE}/tickets/${id}/status`, {
-        method: 'PATCH',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: next }),
       });
       if (!res.ok) {
@@ -92,184 +96,153 @@ export default function AgentTicketsPage() {
       }
       const updated = await res.json();
 
-      setTickets(prev =>
-        prev.map(t =>
-          t.id === id ? { ...t, status: updated.status as TicketStatus } : t,
-        ),
+      setTickets((prev) =>
+        prev.map((t) =>
+          t.id === id ? { ...t, status: updated.status as TicketStatus } : t
+        )
       );
     } catch (e: any) {
-      alert(e.message ?? 'เปลี่ยนสถานะไม่สำเร็จ');
+      alert(e.message ?? "เปลี่ยนสถานะไม่สำเร็จ");
       console.error(e);
     } finally {
       setSavingId(null);
     }
   }
 
-  // 🔎 handle search input (digits only, because it’s Ticket ID)
   function handleSearchChange(e: React.ChangeEvent<HTMLInputElement>) {
     const raw = e.target.value;
-    const digitsOnly = raw.replace(/\D/g, ''); // keep only numbers
+    const digitsOnly = raw.replace(/\D/g, "");
     setSearchId(digitsOnly);
   }
 
   const normalizedSearch = searchId.trim();
 
-  // 🎯 combine status filter + search by ID
-  const filteredTickets = tickets.filter(t => {
-    // status filter
-    const matchStatus = filter === 'ALL' || t.status === filter;
-    if (!matchStatus) return false;
+  // 🐛 FIX: Fixed the filter logic
+  const filteredTickets = tickets.filter((t) => {
+    // Status filter
+    let statusMatch = false;
+    if (filter === "ALL") {
+      statusMatch = true;
+    } else if (filter === "COMMIT") {
+      // Fixed: Check if assignedTo exists and compare numbers properly
+      statusMatch = t.assignedTo?.id === user.id;
+    } else {
+      statusMatch = t.status === filter;
+    }
 
-    // search filter (ticket id padded to 7 digits)
-    if (!normalizedSearch) return true;
-    const paddedId = String(t.id).padStart(7, '0');
-    return paddedId.includes(normalizedSearch);
+    // Search filter (ticket id padded to 7 digits)
+    let searchMatch = true;
+    if (normalizedSearch) {
+      const paddedId = String(t.id).padStart(7, "0");
+      searchMatch = paddedId.includes(normalizedSearch);
+    }
+
+    return statusMatch && searchMatch;
   });
 
-  // ====== styles ======
   const pageStyle: React.CSSProperties = {
-    minHeight: '100vh',
-    background: '#f3f4f6',
-    padding: '24px',
-    boxSizing: 'border-box',
-    fontFamily: 'system-ui',
+    minHeight: "100vh",
+    background: "#f3f4f6",
+    padding: "24px",
+    boxSizing: "border-box",
+    fontFamily: "system-ui",
   };
 
   const shellStyle: React.CSSProperties = {
-    maxWidth: '1200px',
-    margin: '0 auto',
-    background: '#fff',
-    borderRadius: '16px',
-    boxShadow: '0 18px 40px rgba(0,0,0,0.15)',
-    padding: '20px',
-  };
-
-  const headerStyle: React.CSSProperties = {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderBottom: '1px solid #e5e7eb',
-    paddingBottom: '12px',
-  };
-
-  const logoRowStyle: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
+    maxWidth: "1200px",
+    margin: "0 auto",
+    background: "#fff",
+    borderRadius: "16px",
+    boxShadow: "0 18px 40px rgba(0,0,0,0.15)",
+    padding: "20px",
   };
 
   const filterBarStyle: React.CSSProperties = {
-    display: 'flex',
-    gap: '8px',
-    marginBottom: '12px',
-    alignItems: 'center',
-    flexWrap: 'wrap',
+    display: "flex",
+    gap: "8px",
+    marginBottom: "12px",
+    alignItems: "center",
+    flexWrap: "wrap",
   };
 
   const tableWrapperStyle: React.CSSProperties = {
     borderRadius: 12,
-    border: '1px solid #e5e7eb',
-    background: '#f9fafb',
-    padding: '12px',
-    overflowX: 'auto',
+    border: "1px solid #e5e7eb",
+    background: "#f9fafb",
+    padding: "12px",
+    overflowX: "auto",
   };
 
   const searchInputStyle: React.CSSProperties = {
-    padding: '6px 10px',
-    borderRadius: '999px',
-    border: '1px solid #d1d5db',
-    fontSize: '0.85rem',
-    minWidth: '180px',
-    background: '#ffffff',
+    padding: "6px 10px",
+    borderRadius: "999px",
+    border: "1px solid #d1d5db",
+    fontSize: "0.85rem",
+    minWidth: "180px",
+    background: "#ffffff",
   };
 
   return (
     <div style={pageStyle}>
       <div style={shellStyle}>
-        {/* Header */}
-        <div style={headerStyle}>
-          <div style={logoRowStyle}>
-            <img
-              src="/logo-sru-png.png"
-              alt="SRU Logo"
-              style={{ height: 58, width: 'auto' }}
-            />
-            <span style={{ fontSize: '1.7rem', fontWeight: 700 }}>
-              HelpDesk – Agent
-            </span>
-          </div>
+        <AppHeaderBackend user={user} title={"AGENT"} />
 
-          <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
-            <span>{user.email}</span>
-            <button
-              type="button"
-              onClick={handleLogout}
-              style={{
-                padding: '6px 14px',
-                borderRadius: '999px',
-                border: '1px solid #d1d5db',
-                background: '#fff',
-                cursor: 'pointer',
-              }}
-            >
-              Logout
-            </button>
-          </div>
-        </div>
-
-        {/* Content */}
         <div style={{ marginTop: 16 }}>
-          <h2 style={{ marginTop: 0, marginBottom: 12 }}>รายการคำร้องทั้งหมด</h2>
+          <h2 style={{ marginTop: 0, marginBottom: 12 }}>
+            รายการคำร้องทั้งหมด
+          </h2>
 
           {error && (
             <div
               style={{
-                marginBottom: '1rem',
-                padding: '0.75rem 1rem',
-                borderRadius: '0.5rem',
-                background: '#fee2e2',
-                color: '#7f1d1d',
-                fontSize: '0.9rem',
+                marginBottom: "1rem",
+                padding: "0.75rem 1rem",
+                borderRadius: "0.5rem",
+                background: "#fee2e2",
+                color: "#7f1d1d",
+                fontSize: "0.9rem",
               }}
             >
               {error}
             </div>
           )}
 
-          {/* Filter buttons + Search bar */}
           <div style={filterBarStyle}>
             <div
               style={{
-                display: 'flex',
-                gap: '8px',
-                flexWrap: 'wrap',
+                display: "flex",
+                gap: "8px",
+                flexWrap: "wrap",
               }}
             >
               <FilterButton
                 label="All"
-                active={filter === 'ALL'}
-                onClick={() => setFilter('ALL')}
+                active={filter === "ALL"}
+                onClick={() => setFilter("ALL")}
               />
               <FilterButton
                 label="OPEN"
-                active={filter === 'OPEN'}
-                onClick={() => setFilter('OPEN')}
+                active={filter === "OPEN"}
+                onClick={() => setFilter("OPEN")}
               />
               <FilterButton
                 label="IN_PROGRESS"
-                active={filter === 'IN_PROGRESS'}
-                onClick={() => setFilter('IN_PROGRESS')}
+                active={filter === "IN_PROGRESS"}
+                onClick={() => setFilter("IN_PROGRESS")}
               />
               <FilterButton
                 label="RESOLVED"
-                active={filter === 'RESOLVED'}
-                onClick={() => setFilter('RESOLVED')}
+                active={filter === "RESOLVED"}
+                onClick={() => setFilter("RESOLVED")}
               />
-              
+              <FilterButton
+                label="COMMIT"
+                active={filter === "COMMIT"}
+                onClick={() => setFilter("COMMIT")}
+              />
             </div>
 
-            {/* search bar on the right */}
-            <div style={{ marginLeft: 'auto' }}>
+            <div style={{ marginLeft: "auto" }}>
               <input
                 type="text"
                 value={searchId}
@@ -281,7 +254,6 @@ export default function AgentTicketsPage() {
             </div>
           </div>
 
-          {/* Table */}
           <div style={tableWrapperStyle}>
             {loading ? (
               <p>กำลังดาวโหลด...</p>
@@ -290,52 +262,54 @@ export default function AgentTicketsPage() {
             ) : (
               <table
                 style={{
-                  width: '100%',
-                  borderCollapse: 'collapse',
-                  fontSize: '0.9rem',
+                  width: "100%",
+                  borderCollapse: "collapse",
+                  fontSize: "0.9rem",
                 }}
               >
                 <thead>
-                  <tr style={{ background: '#e5e7eb' }}>
+                  <tr style={{ background: "#e5e7eb" }}>
                     <Th>สถานะคำร้อง</Th>
                     <Th>Ticket ID</Th>
                     <Th>หัวข้อ</Th>
                     <Th>รายละเอียดคำร้อง</Th>
                     <Th>เบอร์ติดต่อ</Th>
                     <Th>ผู้ร้องขอ</Th>
+                    <Th>ผู้รับ</Th>
                     <Th>สร้าง ณ วันที่</Th>
                     <Th>เปลี่ยนสถานะ</Th>
                     <Th>ตัวเลือก</Th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredTickets.map(t => (
-                    <tr key={t.id} style={{ borderTop: '1px solid #e5e7eb' }}>
+                  {filteredTickets.map((t) => (
+                    <tr key={t.id} style={{ borderTop: "1px solid #e5e7eb" }}>
                       <Td>
                         <span style={getStatusStyle(t.status)}>{t.status}</span>
                       </Td>
-                      <Td>{String(t.id).padStart(7, '0')}</Td>
+                      <Td>{String(t.id).padStart(7, "0")}</Td>
                       <Td>{t.title}</Td>
                       <Td>{t.detail}</Td>
-                      <Td>{t.tel || '-'}</Td>
-                      <Td>{t.createdBy?.email || '-'}</Td>
+                      <Td>{t.tel || "-"}</Td>
+                      <Td>{t.createdBy?.name || "-"}</Td>
+                      <Td>{t.assignedTo?.name || "-"}</Td>
                       <Td>{new Date(t.createdAt).toLocaleString()}</Td>
                       <Td>
                         <select
                           value={t.status}
-                          onChange={e =>
+                          onChange={(e) =>
                             handleStatusChange(
                               t.id,
-                              e.target.value as TicketStatus,
+                              e.target.value as TicketStatus
                             )
                           }
                           disabled={savingId === t.id}
                           style={{
-                            padding: '4px 8px',
-                            borderRadius: '999px',
-                            border: '1px solid #d1d5db',
-                            fontSize: '0.8rem',
-                            background: '#ffffff',
+                            padding: "4px 8px",
+                            borderRadius: "999px",
+                            border: "1px solid #d1d5db",
+                            fontSize: "0.8rem",
+                            background: "#ffffff",
                           }}
                         >
                           <option value="OPEN">OPEN</option>
@@ -348,12 +322,12 @@ export default function AgentTicketsPage() {
                           type="button"
                           onClick={() => handleInfo(t.id)}
                           style={{
-                            padding: '4px 10px',
-                            borderRadius: '999px',
-                            border: '1px solid #d1d5db',
-                            background: '#ffffff',
-                            cursor: 'pointer',
-                            fontSize: '0.8rem',
+                            padding: "4px 10px",
+                            borderRadius: "999px",
+                            border: "1px solid #d1d5db",
+                            background: "#ffffff",
+                            cursor: "pointer",
+                            fontSize: "0.8rem",
                           }}
                         >
                           Info
@@ -382,14 +356,14 @@ function FilterButton(props: {
       type="button"
       onClick={onClick}
       style={{
-        padding: '6px 14px',
-        borderRadius: '999px',
-        border: active ? '1px solid #16a34a' : '1px solid #d1d5db',
-        background: active ? '#22c55e' : '#ffffff',
-        color: active ? '#020617' : '#111827',
-        fontSize: '0.85rem',
+        padding: "6px 14px",
+        borderRadius: "999px",
+        border: active ? "1px solid #16a34a" : "1px solid #d1d5db",
+        background: active ? "#22c55e" : "#ffffff",
+        color: active ? "#020617" : "#111827",
+        fontSize: "0.85rem",
         fontWeight: 600,
-        cursor: 'pointer',
+        cursor: "pointer",
       }}
     >
       {label}
@@ -401,10 +375,10 @@ function Th({ children }: { children: React.ReactNode }) {
   return (
     <th
       style={{
-        textAlign: 'left',
-        padding: '8px',
-        borderBottom: '1px solid #d1d5db',
-        whiteSpace: 'nowrap',
+        textAlign: "left",
+        padding: "8px",
+        borderBottom: "1px solid #d1d5db",
+        whiteSpace: "nowrap",
       }}
     >
       {children}
@@ -416,8 +390,8 @@ function Td({ children }: { children: React.ReactNode }) {
   return (
     <td
       style={{
-        padding: '6px 8px',
-        verticalAlign: 'top',
+        padding: "6px 8px",
+        verticalAlign: "top",
       }}
     >
       {children}
@@ -427,19 +401,19 @@ function Td({ children }: { children: React.ReactNode }) {
 
 function getStatusStyle(status: TicketStatus): React.CSSProperties {
   const base: React.CSSProperties = {
-    padding: '4px 10px',
-    borderRadius: '999px',
+    padding: "4px 10px",
+    borderRadius: "999px",
     fontWeight: 600,
-    fontSize: '0.8rem',
-    display: 'inline-block',
+    fontSize: "0.8rem",
+    display: "inline-block",
   };
   switch (status) {
-    case 'OPEN':
-      return { ...base, background: '#facc15', color: '#000000' };
-    case 'IN_PROGRESS':
-      return { ...base, background: '#3b82f6', color: '#f8f8f8ff' };
-    case 'RESOLVED':
-      return { ...base, background: '#22c55e', color: '#f8f8f8ff' };
+    case "OPEN":
+      return { ...base, background: "#facc15", color: "#000000" };
+    case "IN_PROGRESS":
+      return { ...base, background: "#3b82f6", color: "#f8f8f8ff" };
+    case "RESOLVED":
+      return { ...base, background: "#22c55e", color: "#f8f8f8ff" };
     default:
       return base;
   }
