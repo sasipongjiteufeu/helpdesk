@@ -198,11 +198,15 @@ export default function AgentTicketInfoPage() {
                 <Field label="รายละเอียดคำร้อง" value={ticket.detail} />
                 <Field label="เบอร์ติดต่อ" value={ticket.tel || "-"} />
 
-                <div className="">
+                <div className="space-y-1">
                   <div className="text-xs opacity-70">สถานะคำร้อง</div>
                   <div>
                     <span className={getStatusClassName(ticket.status)}>
-                      {ticket.status}
+                      {ticket.status === "OPEN"
+                        ? "เปิด"
+                        : ticket.status === "IN_PROGRESS"
+                        ? "กำลังดำเนินการ"
+                        : "ได้รับการแก้ไข"}
                     </span>
                   </div>
                 </div>
