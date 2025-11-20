@@ -2,6 +2,7 @@ import axios from "axios";
 import { API_BASE } from "../lib/api";
 import { useNavigate } from "react-router-dom";
 import logoSRU from "../assets/logo-sru-png.png";
+import Swal from "sweetalert2";
 
 interface User {
   email: string;
@@ -20,13 +21,30 @@ export default function AppHeaderBackend({
   const navigate = useNavigate();
 
   const logout = async () => {
-    alert("ออกจากระบบ");
     try {
-      const response = await axios.get(`${API_BASE}/auth/logout`, {
-        withCredentials: true,
+      const result = await Swal.fire({
+        title: "แน่ใจใช่ไหม?",
+        text: "ว่าคุณจะออกจากระบบ!",
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonColor: "#3085d6",
+        cancelButtonColor: "#d33",
+        confirmButtonText: "ใช่!",
+        cancelButtonText: "ไม่ใช่!",
       });
-      console.log(response)
-      navigate("/");
+      if (result.isConfirmed) {
+        Swal.fire({
+          title: "ออกจากระบบ!",
+          text: "คุณออกจากระบบสำเร็จ.",
+          icon: "success",
+          confirmButtonText: "ตกลง",
+        });
+        const response = await axios.get(`${API_BASE}/auth/logout`, {
+          withCredentials: true,
+        });
+        console.log(response);
+        navigate("/");
+      }
     } catch (error) {
       console.error(error);
     }
