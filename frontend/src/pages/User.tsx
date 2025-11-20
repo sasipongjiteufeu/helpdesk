@@ -5,8 +5,9 @@ import { API_BASE } from "../lib/api";
 import { useRequireAuth } from "../hooks/useRequireAuth";
 
 import AppHeaderBackend from "../components/AppHeaderBackend";
-import { MdOutlineAddCircle } from "react-icons/md";
+import { MdDelete, MdOutlineAddCircle } from "react-icons/md";
 import Swal from "sweetalert2";
+import { FaCircleInfo } from "react-icons/fa6";
 
 type TicketStatus = "OPEN" | "IN_PROGRESS" | "RESOLVED";
 
@@ -75,7 +76,7 @@ export default function UserTicketsPage() {
           return;
         }
         setTickets((prev) => prev.filter((t) => t.id !== id));
-        
+
         await Swal.fire({
           title: "ลบ!",
           text: "ลบข้อมูลสำเร็จ",
@@ -209,9 +210,9 @@ export default function UserTicketsPage() {
                         <div className="flex gap-2">
                           <button
                             onClick={() => navigate(`/user/ticket/${t.id}`)}
-                            className="px-2.5 py-1 rounded-full border border-gray-300 bg-white hover:bg-gray-50 text-xs cursor-pointer"
+                            className="px-2.5 py-1 rounded-full border border-gray-300 bg-white hover:bg-gray-50 text-xs cursor-pointer inline-flex items-center text-center"
                           >
-                            รายละเอียด
+                            <FaCircleInfo className="mr-1" /> รายละเอียด
                           </button>
 
                           <button
@@ -220,7 +221,7 @@ export default function UserTicketsPage() {
                               canDelete ? () => handleDelete(t.id) : undefined
                             }
                             disabled={!canDelete}
-                            className={`px-2.5 py-1 rounded-full border-none text-xs ${
+                            className={`px-2.5 py-1 rounded-full border-none text-xs inline-flex items-center text-center ${
                               canDelete
                                 ? "bg-red-500 text-white hover:bg-red-600 cursor-pointer"
                                 : "bg-gray-200 text-gray-400 cursor-not-allowed"
@@ -231,7 +232,7 @@ export default function UserTicketsPage() {
                                 : "ไม่สามารถลบได้เมื่อคำร้องกำลังดำเนินการหรือปิดแล้ว หรือมีเจ้าหน้าที่รับงานแล้ว"
                             }
                           >
-                            ลบ
+                            <MdDelete className="mr-1" /> ลบ
                           </button>
                         </div>
                       </td>

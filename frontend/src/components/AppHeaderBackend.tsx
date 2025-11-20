@@ -3,6 +3,7 @@ import { API_BASE } from "../lib/api";
 import { useNavigate } from "react-router-dom";
 import logoSRU from "../assets/logo-sru-png.png";
 import Swal from "sweetalert2";
+import { MdOutlineLogout } from "react-icons/md";
 
 interface User {
   email: string;
@@ -61,9 +62,9 @@ export default function AppHeaderBackend({
         <span>{user?.email}</span>
         <button
           onClick={logout}
-          className="px-3.5 py-1.5 rounded-full border border-gray-300 bg-white hover:bg-gray-50 cursor-pointer"
+          className="px-3.5 py-1.5 rounded-full border border-gray-300 bg-white hover:bg-gray-50 cursor-pointer inline-flex items-center text-center"
         >
-          ออกจากระบบ
+          <MdOutlineLogout className="mr-0.5" /> ออกจากระบบ
         </button>
       </div>
     </div>
