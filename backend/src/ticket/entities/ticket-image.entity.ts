@@ -10,29 +10,29 @@ import {
 } from 'typeorm';
 import { Ticket } from './ticket.entity';
 
-@Entity('ticket_image')  // เปลี่ยนเป็นตัวเล็กทั้งหมด
+@Entity('Ticket_Image')  // เปลี่ยนเป็นตัวเล็กทั้งหมด
 export class TicketImage {
   @PrimaryGeneratedColumn('uuid', { name: 'Picture_ID' })
   id: string;
   
   @ManyToOne(() => Ticket, t => t.images, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'ticket_ID' })
+  @JoinColumn({ name: 'Ticket_ID' })
   ticket: Ticket;
 
-  @Column({ name: 'filename', type: 'varchar', length: 255, nullable: true })
+  @Column({ name: 'Filename', type: 'varchar', length: 255, nullable: true })
   filename: string | null;
 
-  @Column({ name: 'mimeType', type: 'varchar', length: 100, nullable: true })
+  @Column({ name: 'MimeType', type: 'varchar', length: 100, nullable: true })
   mimeType: string | null;
 
-  @Column({ name: 'size', type: 'int', nullable: true })
+  @Column({ name: 'Size', type: 'int', nullable: true })
   size: number | null;
 
-  @Column({ name: 'data', type: 'longblob' })
+  @Column({ name: 'Data', type: 'longblob' })
   data: Buffer;
 
   @CreateDateColumn({
-    name: 'created_at',
+    name: 'Created_at',
     type: 'timestamp',
     precision: 3,
     default: () => 'CURRENT_TIMESTAMP(3)',

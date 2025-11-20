@@ -12,6 +12,7 @@ import { Role } from 'src/role/entities/role.entity';
 
 @Entity('users')
 export class User {
+  
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
@@ -27,7 +28,8 @@ export class User {
   @Index({ unique: true })
   @Column({ type: 'varchar', length: 128, nullable: true })
   providerId?: string | null;
-    // 👇 NEW: Google display name
+
+  // 👇 NEW: Google display name
   @Column({ name: 'FullName', type: 'varchar', length: 255, nullable: true })
   name: string | null;
 
