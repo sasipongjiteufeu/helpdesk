@@ -27,7 +27,7 @@ export default function ChooseRole() {
         const data: MeResponse = await res.json();
 
         const names = (data?.roles || [])
-          .map((r) => r?.name)
+          .map((role) => role?.name)
           .filter((n): n is RoleName => Boolean(n));
 
         setEmail(data?.email || "");
@@ -50,13 +50,13 @@ export default function ChooseRole() {
     })();
   }, []);
 
-  const go = (r: RoleName) => {
+  const go = (role: RoleName) => {
     const map: Record<RoleName, string> = {
       ADMIN: "/admin",
       AGENT: "/agent",
       USER: "/user",
     };
-    window.location.replace(map[r]);
+    window.location.replace(map[role]);
   };
 
   return (
@@ -102,19 +102,23 @@ export default function ChooseRole() {
 
           <div className="flex justify-center items-center gap-3 flex-wrap animate__animated animate__fadeInUp">
             {!loading &&
-              roles.map((r) => (
+              roles.map((role) => (
                 <button
                   className={`text-white bg-gradient-to-r ${
-                    r === "ADMIN"
+                    role === "ADMIN"
                       ? "from-rose-500 via-rose-600 to-pink-600 hover:from-rose-600 hover:via-rose-700 hover:to-pink-700 focus:ring-rose-300 shadow-rose-200"
-                      : r === "AGENT"
+                      : role === "AGENT"
                       ? "from-blue-500 via-blue-600 to-indigo-600 hover:from-blue-600 hover:via-blue-700 hover:to-indigo-700 focus:ring-blue-300 shadow-blue-200"
                       : "from-emerald-500 via-emerald-600 to-teal-600 hover:from-emerald-600 hover:via-emerald-700 hover:to-teal-700 focus:ring-emerald-300 shadow-emerald-200"
                   } focus:ring-4 focus:outline-none font-semibold rounded-lg text-sm px-6 py-3 text-center shadow-lg transition-all duration-300 transform hover:scale-105 hover:shadow-xl active:scale-95`}
-                  onClick={() => go(r)}
-                  key={r}
+                  onClick={() => go(role)}
+                  key={role}
                 >
-                  {r}
+                  {role === "ADMIN"
+                    ? "ผู้ดูแลระบบ"
+                    : role === "AGENT"
+                    ? "ผู้พัฒนา"
+                    : "ผู้ใช้งานทั้วไป"}
                 </button>
               ))}
           </div>

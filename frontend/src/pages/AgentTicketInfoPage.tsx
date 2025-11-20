@@ -4,6 +4,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { API_BASE } from "../lib/api";
 import { useRequireAuth } from "../hooks/useRequireAuth";
 import AppHeaderBackend from "../components/AppHeaderBackend";
+import { MdArrowBack } from "react-icons/md";
 
 type TicketStatus = "OPEN" | "IN_PROGRESS" | "RESOLVED";
 
@@ -92,7 +93,7 @@ export default function AgentTicketInfoPage() {
         setLoading(true);
         setError(null);
 
-        // Ticket info
+        // รายละเอียด
         const ticketRes = await fetch(`${API_BASE}/tickets/${id}`, {
           credentials: "include",
         });
@@ -153,11 +154,11 @@ export default function AgentTicketInfoPage() {
   return (
     <div className="min-h-screen bg-gray-100 p-6 box-border font-sans">
       <div className="max-w-7xl mx-auto bg-white rounded-2xl shadow-2xl p-5">
-        <AppHeaderBackend user={user} title={"Admin"} />
+        <AppHeaderBackend user={user} title={"AGENT"} />
 
         {/* Content */}
         <div className="mt-4">
-          <h2 className="mt-0 mb-3">Ticket info</h2>
+          <h2 className="mt-0 mb-3">รายละเอียด</h2>
 
           {error && (
             <div className="mb-4 py-3 px-4 rounded-lg bg-red-100 text-red-900 text-sm">
@@ -197,11 +198,15 @@ export default function AgentTicketInfoPage() {
                 <Field label="รายละเอียดคำร้อง" value={ticket.detail} />
                 <Field label="เบอร์ติดต่อ" value={ticket.tel || "-"} />
 
-                <div className="">
+                <div className="space-y-1">
                   <div className="text-xs opacity-70">สถานะคำร้อง</div>
                   <div>
                     <span className={getStatusClassName(ticket.status)}>
-                      {ticket.status}
+                      {ticket.status === "OPEN"
+                        ? "เปิด"
+                        : ticket.status === "IN_PROGRESS"
+                        ? "กำลังดำเนินการ"
+                        : "ได้รับการแก้ไข"}
                     </span>
                   </div>
                 </div>
@@ -242,9 +247,9 @@ export default function AgentTicketInfoPage() {
                   <button
                     type="button"
                     onClick={handleExit}
-                    className="py-2.5 px-6 rounded-full border-none bg-green-500 text-white font-semibold cursor-pointer hover:bg-green-600 transition-colors"
+                    className="py-2.5 px-4 rounded-full border-none bg-green-500 text-white font-semibold cursor-pointer hover:bg-green-600 transition-colors inline-flex items-center text-center"
                   >
-                    กลับไปหน้า Agent
+                    <MdArrowBack className="mr-1" /> กลับไปหน้า AGENT
                   </button>
                 </div>
               </div>

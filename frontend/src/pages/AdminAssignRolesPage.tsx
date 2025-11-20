@@ -4,6 +4,7 @@ import { API_BASE } from "../lib/api";
 import { useRequireAuth } from "../hooks/useRequireAuth";
 import { useNavigate } from "react-router-dom";
 import AppHeaderBackend from "../components/AppHeaderBackend";
+import { MdArrowBack } from "react-icons/md";
 
 type RoleName = "USER" | "AGENT" | "ADMIN";
 
@@ -90,7 +91,7 @@ export default function AdminAssignRolesPage() {
   return (
     <div className="min-h-screen bg-gray-100 p-6 box-border font-sans">
       <div className="max-w-7xl mx-auto bg-white rounded-2xl shadow-2xl p-5">
-        <AppHeaderBackend user={user} title={"Admin"} />
+        <AppHeaderBackend user={user} title={"ADMIN"} />
 
         <div className="mt-4">
           <div className="flex flex-col md:flex-row justify-between gap-3 items-center flex-wrap">
@@ -117,19 +118,19 @@ export default function AdminAssignRolesPage() {
                 <thead>
                   <tr className="bg-gray-200">
                     <th className="text-left p-2 border-b border-gray-300 whitespace-nowrap">
-                      Email
+                      อีเมล
                     </th>
                     <th className="text-left p-2 border-b border-gray-300 whitespace-nowrap">
                       จำนวนคำร้อง
                     </th>
-                    <th className="text-left p-2 border-b border-gray-300 whitespace-nowrap">
-                      USER
+                    <th className="text-center p-2 border-b border-gray-300 whitespace-nowrap">
+                      ผูใช้งานทั่วไป
                     </th>
-                    <th className="text-left p-2 border-b border-gray-300 whitespace-nowrap">
-                      AGENT
+                    <th className="text-center p-2 border-b border-gray-300 whitespace-nowrap">
+                      ตัวแทน (ผู้พัฒนา)
                     </th>
-                    <th className="text-left p-2 border-b border-gray-300 whitespace-nowrap">
-                      ADMIN
+                    <th className="text-center p-2 border-b border-gray-300 whitespace-nowrap">
+                      ผู้ดูแลระบบ
                     </th>
                   </tr>
                 </thead>
@@ -161,9 +162,9 @@ export default function AdminAssignRolesPage() {
           <button
             type="button"
             onClick={() => nav("/admin")}
-            className="mt-4 py-1.5 px-4 rounded-full border border-gray-300 bg-white cursor-pointer hover:bg-gray-50 transition-colors"
+            className="mt-4 py-1.5 px-4 rounded-full border border-gray-300 bg-white cursor-pointer hover:bg-gray-50 transition-colors inline-flex items-center text-center"
           >
-            กลับหน้าหลัก Admin
+            <MdArrowBack className="mr-1" /> กลับหน้าหลัก ADMIN
           </button>
         </div>
       </div>

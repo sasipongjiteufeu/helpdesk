@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { API_BASE } from "../lib/api";
 import { useRequireAuth } from "../hooks/useRequireAuth";
 import AppHeaderBackend from "../components/AppHeaderBackend";
+import { MdInfo } from "react-icons/md";
 
 type TicketStatus = "OPEN" | "IN_PROGRESS" | "RESOLVED" | "COMMIT";
 
@@ -14,12 +15,12 @@ interface Ticket {
   tel?: string | null;
   status: TicketStatus;
   createdAt: string;
-  createdBy?: { email?: string | null; name?: string | null } | null; // Added name
+  createdBy?: { email?: string | null; name?: string | null } | null;
   assignedTo?: {
     email?: string | null;
     name?: string | null;
     id: string;
-  } | null; // Added name and made nullable
+  } | null;
   lastStatusChangedBy?: { email?: string | null } | null;
   commit_By?: number | null;
 }
@@ -63,16 +64,7 @@ export default function AgentTicketsPage() {
 
   if (authLoading || !user) {
     return (
-      <div
-        style={{
-          minHeight: "100dvh",
-          display: "grid",
-          placeItems: "center",
-          fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, Arial",
-          background: "#f3f4f6",
-          color: "#111827",
-        }}
-      >
+      <div className="min-h-screen grid place-items-center font-sans bg-gray-100 text-gray-900">
         Checking your access…
       </div>
     );
@@ -117,20 +109,16 @@ export default function AgentTicketsPage() {
 
   const normalizedSearch = searchId.trim();
 
-  // 🐛 FIX: Fixed the filter logic
   const filteredTickets = tickets.filter((t) => {
-    // Status filter
     let statusMatch = false;
     if (filter === "ALL") {
       statusMatch = true;
     } else if (filter === "COMMIT") {
-      // Fixed: Check if assignedTo exists and compare numbers properly
       statusMatch = t.assignedTo?.id === user.id;
     } else {
       statusMatch = t.status === filter;
     }
 
-    // Search filter (ticket id padded to 7 digits)
     let searchMatch = true;
     if (normalizedSearch) {
       const paddedId = String(t.id).padStart(7, "0");
@@ -140,135 +128,117 @@ export default function AgentTicketsPage() {
     return statusMatch && searchMatch;
   });
 
-  const pageStyle: React.CSSProperties = {
-    minHeight: "100vh",
-    background: "#f3f4f6",
-    padding: "24px",
-    boxSizing: "border-box",
-    fontFamily: "system-ui",
-  };
+  function FilterButton(props: {
+    label: string;
+    active: boolean;
+    onClick: () => void;
+  }) {
+    const { label, active, onClick } = props;
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className={`px-3.5 py-1.5 rounded-full border text-sm font-semibold cursor-pointer ${
+          active
+            ? "border-green-600 bg-green-500 text-gray-900"
+            : "border-gray-300 bg-white text-gray-900"
+        }`}
+      >
+        {label}
+      </button>
+    );
+  }
 
-  const shellStyle: React.CSSProperties = {
-    maxWidth: "1200px",
-    margin: "0 auto",
-    background: "#fff",
-    borderRadius: "16px",
-    boxShadow: "0 18px 40px rgba(0,0,0,0.15)",
-    padding: "20px",
-  };
+  function Th({ children }: { children: React.ReactNode }) {
+    return (
+      <th className="text-left p-2 border-b border-gray-300 whitespace-nowrap">
+        {children}
+      </th>
+    );
+  }
 
-  const filterBarStyle: React.CSSProperties = {
-    display: "flex",
-    gap: "8px",
-    marginBottom: "12px",
-    alignItems: "center",
-    flexWrap: "wrap",
-  };
+  function Td({ children }: { children: React.ReactNode }) {
+    return <td className="p-1.5 align-top">{children}</td>;
+  }
 
-  const tableWrapperStyle: React.CSSProperties = {
-    borderRadius: 12,
-    border: "1px solid #e5e7eb",
-    background: "#f9fafb",
-    padding: "12px",
-    overflowX: "auto",
-  };
-
-  const searchInputStyle: React.CSSProperties = {
-    padding: "6px 10px",
-    borderRadius: "999px",
-    border: "1px solid #d1d5db",
-    fontSize: "0.85rem",
-    minWidth: "180px",
-    background: "#ffffff",
-  };
+  function getStatusClass(status: TicketStatus): string {
+    const base = "px-2.5 py-1 rounded-full font-semibold text-xs inline-block";
+    switch (status) {
+      case "OPEN":
+        return `${base} bg-yellow-400 text-gray-100`;
+      case "IN_PROGRESS":
+        return `${base} bg-blue-500 text-white`;
+      case "RESOLVED":
+        return `${base} bg-green-500 text-white`;
+      default:
+        return base;
+    }
+  }
 
   return (
-    <div style={pageStyle}>
-      <div style={shellStyle}>
+    <div className="min-h-screen bg-gray-100 p-6">
+      <div className="max-w-7xl mx-auto bg-white rounded-2xl shadow-2xl p-5">
         <AppHeaderBackend user={user} title={"AGENT"} />
 
-        <div style={{ marginTop: 16 }}>
-          <h2 style={{ marginTop: 0, marginBottom: 12 }}>
-            รายการคำร้องทั้งหมด
-          </h2>
+        <div className="mt-4">
+          <h2 className="mt-0 mb-3 text-2xl font-bold">รายการคำร้องทั้งหมด</h2>
 
           {error && (
-            <div
-              style={{
-                marginBottom: "1rem",
-                padding: "0.75rem 1rem",
-                borderRadius: "0.5rem",
-                background: "#fee2e2",
-                color: "#7f1d1d",
-                fontSize: "0.9rem",
-              }}
-            >
+            <div className="mb-4 p-3 rounded-lg bg-red-100 text-red-900 text-sm">
               {error}
             </div>
           )}
 
-          <div style={filterBarStyle}>
-            <div
-              style={{
-                display: "flex",
-                gap: "8px",
-                flexWrap: "wrap",
-              }}
-            >
+          <div className="flex gap-2 mb-3 items-center flex-wrap">
+            <div className="flex gap-2 flex-wrap">
               <FilterButton
-                label="All"
+                label="ทั้งหมด"
                 active={filter === "ALL"}
                 onClick={() => setFilter("ALL")}
               />
               <FilterButton
-                label="OPEN"
+                label="เปิด"
                 active={filter === "OPEN"}
                 onClick={() => setFilter("OPEN")}
               />
               <FilterButton
-                label="IN_PROGRESS"
+                label="กำลังดำเนินการ"
                 active={filter === "IN_PROGRESS"}
                 onClick={() => setFilter("IN_PROGRESS")}
               />
               <FilterButton
-                label="RESOLVED"
+                label="ได้รับการแก้ไข"
                 active={filter === "RESOLVED"}
                 onClick={() => setFilter("RESOLVED")}
               />
               <FilterButton
-                label="COMMIT"
+                label="ที่ส่ง (ของตัวเอง)"
                 active={filter === "COMMIT"}
                 onClick={() => setFilter("COMMIT")}
               />
             </div>
 
-            <div style={{ marginLeft: "auto" }}>
+            <div className="ml-auto">
               <input
                 type="text"
                 value={searchId}
                 onChange={handleSearchChange}
                 placeholder="ค้นหา Ticket โดยใช้ ID"
                 inputMode="numeric"
-                style={searchInputStyle}
+                className="px-3 py-1.5 rounded-full border border-gray-300 text-sm min-w-[180px] bg-white"
               />
             </div>
           </div>
 
-          <div style={tableWrapperStyle}>
+          <div className="rounded-xl border border-gray-200 bg-gray-50 p-3 overflow-x-auto">
             {loading ? (
               <p>กำลังดาวโหลด...</p>
             ) : filteredTickets.length === 0 ? (
-              <p style={{ margin: 0 }}>ไม่พบคำร้องตามเงื่อนไข</p>
+              <p className="m-0">ไม่พบคำร้องตามเงื่อนไข</p>
             ) : (
-              <table
-                style={{
-                  width: "100%",
-                  borderCollapse: "collapse",
-                  fontSize: "0.9rem",
-                }}
-              >
+              <table className="w-full border-collapse text-sm">
                 <thead>
-                  <tr style={{ background: "#e5e7eb" }}>
+                  <tr className="bg-gray-200">
                     <Th>สถานะคำร้อง</Th>
                     <Th>Ticket ID</Th>
                     <Th>หัวข้อ</Th>
@@ -283,9 +253,15 @@ export default function AgentTicketsPage() {
                 </thead>
                 <tbody>
                   {filteredTickets.map((t) => (
-                    <tr key={t.id} style={{ borderTop: "1px solid #e5e7eb" }}>
+                    <tr key={t.id} className="border-t border-gray-200">
                       <Td>
-                        <span style={getStatusStyle(t.status)}>{t.status}</span>
+                        <span className={getStatusClass(t.status)}>
+                          {t.status === "OPEN"
+                            ? "เปิด"
+                            : t.status === "IN_PROGRESS"
+                            ? "กำลังดำเนินการ"
+                            : "ได้รับการแก้ไขแล้ว"}
+                        </span>
                       </Td>
                       <Td>{String(t.id).padStart(7, "0")}</Td>
                       <Td>{t.title}</Td>
@@ -304,33 +280,20 @@ export default function AgentTicketsPage() {
                             )
                           }
                           disabled={savingId === t.id}
-                          style={{
-                            padding: "4px 8px",
-                            borderRadius: "999px",
-                            border: "1px solid #d1d5db",
-                            fontSize: "0.8rem",
-                            background: "#ffffff",
-                          }}
+                          className="px-2 py-1 rounded-full border border-gray-300 text-xs bg-white"
                         >
-                          <option value="OPEN">OPEN</option>
-                          <option value="IN_PROGRESS">IN_PROGRESS</option>
-                          <option value="RESOLVED">RESOLVED</option>
+                          <option value="OPEN">เปิด</option>
+                          <option value="IN_PROGRESS">กำลังดำเนินการ</option>
+                          <option value="RESOLVED">ได้รับการแก้ไขแล้ว</option>
                         </select>
                       </Td>
                       <Td>
                         <button
                           type="button"
                           onClick={() => handleInfo(t.id)}
-                          style={{
-                            padding: "4px 10px",
-                            borderRadius: "999px",
-                            border: "1px solid #d1d5db",
-                            background: "#ffffff",
-                            cursor: "pointer",
-                            fontSize: "0.8rem",
-                          }}
+                          className="px-3 py-1.5 rounded-full border border-gray-300 bg-white cursor-pointer text-xs hover:bg-gray-50 inline-flex items-center text-center"
                         >
-                          Info
+                          <MdInfo className="mr-1" /> รายละเอียด
                         </button>
                       </Td>
                     </tr>
@@ -343,78 +306,4 @@ export default function AgentTicketsPage() {
       </div>
     </div>
   );
-}
-
-function FilterButton(props: {
-  label: string;
-  active: boolean;
-  onClick: () => void;
-}) {
-  const { label, active, onClick } = props;
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      style={{
-        padding: "6px 14px",
-        borderRadius: "999px",
-        border: active ? "1px solid #16a34a" : "1px solid #d1d5db",
-        background: active ? "#22c55e" : "#ffffff",
-        color: active ? "#020617" : "#111827",
-        fontSize: "0.85rem",
-        fontWeight: 600,
-        cursor: "pointer",
-      }}
-    >
-      {label}
-    </button>
-  );
-}
-
-function Th({ children }: { children: React.ReactNode }) {
-  return (
-    <th
-      style={{
-        textAlign: "left",
-        padding: "8px",
-        borderBottom: "1px solid #d1d5db",
-        whiteSpace: "nowrap",
-      }}
-    >
-      {children}
-    </th>
-  );
-}
-
-function Td({ children }: { children: React.ReactNode }) {
-  return (
-    <td
-      style={{
-        padding: "6px 8px",
-        verticalAlign: "top",
-      }}
-    >
-      {children}
-    </td>
-  );
-}
-
-function getStatusStyle(status: TicketStatus): React.CSSProperties {
-  const base: React.CSSProperties = {
-    padding: "4px 10px",
-    borderRadius: "999px",
-    fontWeight: 600,
-    fontSize: "0.8rem",
-    display: "inline-block",
-  };
-  switch (status) {
-    case "OPEN":
-      return { ...base, background: "#facc15", color: "#000000" };
-    case "IN_PROGRESS":
-      return { ...base, background: "#3b82f6", color: "#f8f8f8ff" };
-    case "RESOLVED":
-      return { ...base, background: "#22c55e", color: "#f8f8f8ff" };
-    default:
-      return base;
-  }
 }

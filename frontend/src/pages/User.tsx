@@ -1,10 +1,13 @@
 // src/pages/User.tsx
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { API_BASE } from "../lib/api";
 import { useRequireAuth } from "../hooks/useRequireAuth";
 
 import AppHeaderBackend from "../components/AppHeaderBackend";
+import { MdDelete, MdOutlineAddCircle } from "react-icons/md";
+import Swal from "sweetalert2";
+import { FaCircleInfo } from "react-icons/fa6";
 
 type TicketStatus = "OPEN" | "IN_PROGRESS" | "RESOLVED";
 
@@ -50,17 +53,38 @@ export default function UserTicketsPage() {
   }
 
   async function handleDelete(id: number) {
-    if (!confirm("ต้องการลบคำร้องนี้หรือไม่?")) return;
+    // if (!confirm("ต้องการลบคำร้องนี้หรือไม่?")) return;
     try {
-      const res = await fetch(`${API_BASE}/tickets/${id}`, {
-        method: "DELETE",
-        credentials: "include",
+      const result = await Swal.fire({
+        title: "คุรแน่ใจใช่ไหม?",
+        text: "คุณจะลบข้อมูล! รหัส " + id + " นี้",
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonColor: "#3085d6",
+        cancelButtonColor: "#d33",
+        confirmButtonText: "ใช่!",
+        cancelButtonText: "ยกเลิก!",
       });
-      if (!res.ok) {
-        alert(`ไม่สามารถลบคำร้องได้ (status code ${res.status})`);
-        return;
+
+      if (result.isConfirmed) {
+        const res = await fetch(`${API_BASE}/tickets/${id}`, {
+          method: "DELETE",
+          credentials: "include",
+        });
+        if (!res.ok) {
+          alert(`ไม่สามารถลบคำร้องได้ (status code ${res.status})`);
+          return;
+        }
+        setTickets((prev) => prev.filter((t) => t.id !== id));
+
+        await Swal.fire({
+          title: "ลบ!",
+          text: "ลบข้อมูลสำเร็จ",
+          icon: "success",
+          showConfirmButton: false,
+          timer: 1500,
+        });
       }
-      setTickets((prev) => prev.filter((t) => t.id !== id));
     } catch (e: any) {
       alert(e.message ?? "ลบคำร้องไม่สำเร็จ");
     }
@@ -73,20 +97,23 @@ export default function UserTicketsPage() {
     switch (status) {
       case "OPEN":
         return (
-          <span className={`${baseClasses} bg-yellow-400 text-black`}>
-            {status}
+          <span className={`${baseClasses} bg-yellow-400 text-white`}>
+            {/* {status}  */}
+            เปิด
           </span>
         );
       case "IN_PROGRESS":
         return (
           <span className={`${baseClasses} bg-blue-500 text-white`}>
-            {status}
+            {/* {status}  */}
+            กำลังดำเนินการ
           </span>
         );
       case "RESOLVED":
         return (
           <span className={`${baseClasses} bg-green-500 text-white`}>
-            {status}
+            {/* {status}  */}
+            แก้ไขแล้ว
           </span>
         );
       default:
@@ -99,18 +126,19 @@ export default function UserTicketsPage() {
       <div className="max-w-7xl mx-auto bg-white rounded-2xl shadow-2xl p-5">
         {/* Header */}
 
-        <AppHeaderBackend user={user} title={"User"} />
+        <AppHeaderBackend user={user} title={"USER"} />
 
         {/* Section Title */}
         <div className="mt-4 flex  flex-col-reverse md:flex-row justify-between">
           <h2 className="text-2xl font-semibold m-0">รายการคำร้องของฉัน</h2>
 
-          <button
-            onClick={() => navigate("/user/create")}
-            className="px-4 py-1.5 mb-4 bg-green-500 hover:bg-green-600 text-white rounded-full font-semibold border-none cursor-pointer"
+          <Link
+            to={"/user/create"}
+            // onClick={() => navigate("/user/create")}
+            className="px-4 py-1.5 mb-4  bg-green-500 hover:bg-green-600 text-white rounded-full font-semibold border-none cursor-pointer inline-flex items-center"
           >
-            + Create Ticket
-          </button>
+            <MdOutlineAddCircle className="mr-1" /> <span>เพิ่ม</span>
+          </Link>
         </div>
 
         {/* Error */}
@@ -182,9 +210,9 @@ export default function UserTicketsPage() {
                         <div className="flex gap-2">
                           <button
                             onClick={() => navigate(`/user/ticket/${t.id}`)}
-                            className="px-2.5 py-1 rounded-full border border-gray-300 bg-white hover:bg-gray-50 text-xs cursor-pointer"
+                            className="px-2.5 py-1 rounded-full border border-gray-300 bg-white hover:bg-gray-50 text-xs cursor-pointer inline-flex items-center text-center"
                           >
-                            Info
+                            <FaCircleInfo className="mr-1" /> รายละเอียด
                           </button>
 
                           <button
@@ -193,7 +221,7 @@ export default function UserTicketsPage() {
                               canDelete ? () => handleDelete(t.id) : undefined
                             }
                             disabled={!canDelete}
-                            className={`px-2.5 py-1 rounded-full border-none text-xs ${
+                            className={`px-2.5 py-1 rounded-full border-none text-xs inline-flex items-center text-center ${
                               canDelete
                                 ? "bg-red-500 text-white hover:bg-red-600 cursor-pointer"
                                 : "bg-gray-200 text-gray-400 cursor-not-allowed"
@@ -204,7 +232,7 @@ export default function UserTicketsPage() {
                                 : "ไม่สามารถลบได้เมื่อคำร้องกำลังดำเนินการหรือปิดแล้ว หรือมีเจ้าหน้าที่รับงานแล้ว"
                             }
                           >
-                            Delete
+                            <MdDelete className="mr-1" /> ลบ
                           </button>
                         </div>
                       </td>

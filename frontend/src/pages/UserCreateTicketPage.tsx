@@ -1,13 +1,16 @@
 // src/pages/UserCreateTicketPage.tsx
-import { FormEvent, ChangeEvent, useState } from "react";
+import { FormEvent, ChangeEvent, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { API_BASE } from "../lib/api";
 import { useRequireAuth } from "../hooks/useRequireAuth";
 import AppHeaderBackend from "../components/AppHeaderBackend";
+import Swal from "sweetalert2";
+import { FaUpload } from "react-icons/fa6";
 
 export default function UserCreateTicketPage() {
   const { user, loading: authLoading } = useRequireAuth();
   const navigate = useNavigate();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [title, setTitle] = useState("");
   const [detail, setDetail] = useState("");
@@ -83,6 +86,14 @@ export default function UserCreateTicketPage() {
         return;
       }
 
+      await Swal.fire({
+        position: "top-end",
+        icon: "success",
+        title: "เพิ่มข้อมูลสำเร็จ",
+        showConfirmButton: false,
+        timer: 1500,
+      });
+
       navigate("/user", { replace: true });
     } catch (e: any) {
       console.error(e);
@@ -96,11 +107,15 @@ export default function UserCreateTicketPage() {
     navigate("/user");
   }
 
+  function uploadFile() {
+    fileInputRef.current?.click();
+  }
+
   return (
     <div className="min-h-screen bg-gray-100 p-6">
       <div className="max-w-7xl mx-auto bg-white rounded-2xl shadow-2xl p-5">
         {/* Header */}
-        <AppHeaderBackend user={user} />
+        <AppHeaderBackend user={user} title={"USER"} />
 
         {/* Content card */}
         <div className="mt-4 rounded-xl border border-gray-200 bg-gray-50 p-5">
@@ -115,7 +130,7 @@ export default function UserCreateTicketPage() {
           <form onSubmit={handleSubmit}>
             {/* Title */}
             <div className="mb-4">
-              <label className="block mb-1 text-sm font-semibold">Title</label>
+              <label className="block mb-1 text-sm font-semibold">หัวข้อ</label>
               <input
                 type="text"
                 value={title}
@@ -128,7 +143,9 @@ export default function UserCreateTicketPage() {
 
             {/* Detail */}
             <div className="mb-4">
-              <label className="block mb-1 text-sm font-semibold">Detail</label>
+              <label className="block mb-1 text-sm font-semibold">
+                รายละอียด
+              </label>
               <textarea
                 value={detail}
                 onChange={(e) => setDetail(e.target.value)}
@@ -140,7 +157,7 @@ export default function UserCreateTicketPage() {
             {/* Tel */}
             <div className="mb-4">
               <label className="block mb-1 text-sm font-semibold">
-                Tel (10 digits)
+                เบอร์โทร (10 ตัว)
               </label>
               <input
                 type="tel"
@@ -159,11 +176,19 @@ export default function UserCreateTicketPage() {
               <label className="block mb-1 text-sm font-semibold">
                 แนบไฟล์ (ถ้ามี เช่น รูป, วิดีโอ, PDF, Word)
               </label>
+              <button
+                type="button"
+                className="px-2 py-2 bg-amber-500 rounded-2xl text-white cursor-pointer hover:bg-amber-600 inline-flex items-center text-center"
+                onClick={uploadFile}
+              >
+                <FaUpload className="mr-2" /> อัพโหลดไฟล์
+              </button>
               <input
+                ref={fileInputRef}
                 type="file"
                 multiple
                 onChange={handleFileChange}
-                className="text-sm"
+                className="hidden"
               />
 
               {files.length > 0 && (
@@ -194,17 +219,17 @@ export default function UserCreateTicketPage() {
             </div>
 
             {/* Buttons */}
-            <div className="flex justify-between mt-4">
+            <div className="flex flex-col md:flex-row md:justify-end mt-4 gap-2">
               <button
                 type="submit"
                 disabled={creating}
-                className={`px-5 py-2 rounded-full border-none font-semibold ${
+                className={`px-5 py-2 rounded-full border-none font-semibold text-white text-center ${
                   creating
                     ? "bg-gray-400 cursor-default"
-                    : "bg-green-500 cursor-pointer"
+                    : "bg-green-500 cursor-pointer hover:bg-green-700"
                 } text-gray-900`}
               >
-                {creating ? "Creating…" : "Create"}
+                {creating ? "กำลังบันทึก…" : "บันทึก"}
               </button>
 
               <button
@@ -212,7 +237,7 @@ export default function UserCreateTicketPage() {
                 onClick={handleCancel}
                 className="px-5 py-2 rounded-full border border-gray-300 bg-white cursor-pointer"
               >
-                Cancel
+                ยกเลิก
               </button>
             </div>
           </form>
