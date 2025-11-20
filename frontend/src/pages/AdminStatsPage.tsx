@@ -4,6 +4,7 @@ import { API_BASE } from "../lib/api";
 import { useRequireAuth } from "../hooks/useRequireAuth";
 import { useNavigate } from "react-router-dom";
 import AppHeaderBackend from "../components/AppHeaderBackend";
+import { MdArrowBack } from "react-icons/md";
 
 interface MonthlyItem {
   month: number;
@@ -223,9 +224,9 @@ export default function AdminStatsPage() {
           <button
             type="button"
             onClick={() => nav("/admin")}
-            className="mt-4 py-1.5 px-4 rounded-full border border-gray-300 bg-white cursor-pointer hover:bg-gray-50 transition-colors"
+            className="mt-4 py-1.5 px-4 rounded-full border border-gray-300 bg-white cursor-pointer hover:bg-gray-50 transition-colors inline-flex items-center text-center"
           >
-            กลับหน้าหลัก Admin
+            <MdArrowBack className="mr-1" /> กลับหน้าหลัก Admin
           </button>
         </div>
       </div>

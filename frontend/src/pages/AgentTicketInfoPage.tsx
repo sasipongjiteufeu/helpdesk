@@ -4,6 +4,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { API_BASE } from "../lib/api";
 import { useRequireAuth } from "../hooks/useRequireAuth";
 import AppHeaderBackend from "../components/AppHeaderBackend";
+import { MdArrowBack } from "react-icons/md";
 
 type TicketStatus = "OPEN" | "IN_PROGRESS" | "RESOLVED";
 
@@ -242,9 +243,9 @@ export default function AgentTicketInfoPage() {
                   <button
                     type="button"
                     onClick={handleExit}
-                    className="py-2.5 px-6 rounded-full border-none bg-green-500 text-white font-semibold cursor-pointer hover:bg-green-600 transition-colors"
+                    className="py-2.5 px-4 rounded-full border-none bg-green-500 text-white font-semibold cursor-pointer hover:bg-green-600 transition-colors inline-flex items-center text-center"
                   >
-                    กลับไปหน้า Agent
+                    <MdArrowBack className="mr-1" /> กลับไปหน้า Agent
                   </button>
                 </div>
               </div>

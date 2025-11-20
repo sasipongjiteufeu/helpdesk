@@ -1,10 +1,11 @@
 // src/pages/User.tsx
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { API_BASE } from "../lib/api";
 import { useRequireAuth } from "../hooks/useRequireAuth";
 
 import AppHeaderBackend from "../components/AppHeaderBackend";
+import { MdOutlineAddCircle } from "react-icons/md";
 
 type TicketStatus = "OPEN" | "IN_PROGRESS" | "RESOLVED";
 
@@ -73,20 +74,23 @@ export default function UserTicketsPage() {
     switch (status) {
       case "OPEN":
         return (
-          <span className={`${baseClasses} bg-yellow-400 text-black`}>
-            {status}
+          <span className={`${baseClasses} bg-yellow-400 text-white`}>
+            {/* {status}  */}
+            เปิด
           </span>
         );
       case "IN_PROGRESS":
         return (
           <span className={`${baseClasses} bg-blue-500 text-white`}>
-            {status}
+            {/* {status}  */}
+            กำลังดำเนินการ
           </span>
         );
       case "RESOLVED":
         return (
           <span className={`${baseClasses} bg-green-500 text-white`}>
-            {status}
+            {/* {status}  */}
+            แก้ไขแล้ว
           </span>
         );
       default:
@@ -105,12 +109,13 @@ export default function UserTicketsPage() {
         <div className="mt-4 flex  flex-col-reverse md:flex-row justify-between">
           <h2 className="text-2xl font-semibold m-0">รายการคำร้องของฉัน</h2>
 
-          <button
-            onClick={() => navigate("/user/create")}
-            className="px-4 py-1.5 mb-4 bg-green-500 hover:bg-green-600 text-white rounded-full font-semibold border-none cursor-pointer"
+          <Link
+            to={"/user/create"}
+            // onClick={() => navigate("/user/create")}
+            className="px-4 py-1.5 mb-4  bg-green-500 hover:bg-green-600 text-white rounded-full font-semibold border-none cursor-pointer inline-flex items-center"
           >
-            + Create Ticket
-          </button>
+            <MdOutlineAddCircle className="mr-1" /> <span>เพิ่ม</span>
+          </Link>
         </div>
 
         {/* Error */}
@@ -184,7 +189,7 @@ export default function UserTicketsPage() {
                             onClick={() => navigate(`/user/ticket/${t.id}`)}
                             className="px-2.5 py-1 rounded-full border border-gray-300 bg-white hover:bg-gray-50 text-xs cursor-pointer"
                           >
-                            Info
+                            รายละเอียด
                           </button>
 
                           <button
@@ -204,7 +209,7 @@ export default function UserTicketsPage() {
                                 : "ไม่สามารถลบได้เมื่อคำร้องกำลังดำเนินการหรือปิดแล้ว หรือมีเจ้าหน้าที่รับงานแล้ว"
                             }
                           >
-                            Delete
+                            ลบ
                           </button>
                         </div>
                       </td>

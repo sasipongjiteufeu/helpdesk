@@ -63,7 +63,7 @@ export default function AppHeaderBackend({
           onClick={logout}
           className="px-3.5 py-1.5 rounded-full border border-gray-300 bg-white hover:bg-gray-50 cursor-pointer"
         >
-          Logout
+          ออกจากระบบ
         </button>
       </div>
     </div>

@@ -4,6 +4,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { API_BASE } from "../lib/api";
 import { useRequireAuth } from "../hooks/useRequireAuth";
 import AppHeaderBackend from "../components/AppHeaderBackend";
+import { MdArrowBack } from "react-icons/md";
 
 type TicketStatus = "OPEN" | "IN_PROGRESS" | "RESOLVED";
 
@@ -141,7 +142,7 @@ export default function UserTicketInfoPage() {
 
         {/* Content */}
         <div className="mt-4">
-          <h2 className="mt-0 mb-3 text-2xl font-bold">Ticket info</h2>
+          <h2 className="mt-0 mb-3 text-2xl font-bold">รายละเอียด</h2>
 
           {error && (
             <div className="mb-4 p-3 rounded-lg bg-red-100 text-red-900 text-sm">
@@ -152,7 +153,7 @@ export default function UserTicketInfoPage() {
           {loading || !ticket ? (
             <p>กำลังดาวโหลด...</p>
           ) : (
-            <section className="rounded-xl border  border-gray-200 bg-gray-50 p-4 flex flex-col-reverse   md:grid md:grid-cols-[minmax(260px,320px)_1fr]  gap-6">
+            <section className="rounded-xl border  border-gray-200 bg-gray-50 p-4 grid-cols-1   grid md:grid-cols-3  gap-6">
               {/* LEFT: attachments */}
               <div className="flex flex-col gap-3 max-h-[70vh] overflow-y-auto pr-1">
                 {attachments.length === 0 ? (
@@ -224,9 +225,10 @@ export default function UserTicketInfoPage() {
                   <button
                     type="button"
                     onClick={handleExit}
-                    className="px-5 py-2.5 rounded-full border-0 bg-green-500 text-white font-semibold cursor-pointer hover:bg-green-600 transition-colors"
+                    className="px-4 py-1.5 rounded-full border-0 bg-green-500 text-white font-semibold cursor-pointer hover:bg-green-600 transition-colors text-center inline-flex items-center"
                   >
-                    ออกจากหน้านี้
+                    <MdArrowBack className="text-white mr-1" />
+                    <span>ออกจากหน้านี้</span>
                   </button>
                 </div>
               </div>
