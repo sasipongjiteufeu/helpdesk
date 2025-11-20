@@ -270,6 +270,7 @@ export default function AgentTicketsPage() {
                     <Th>รายละเอียดคำร้อง</Th>
                     <Th>เบอร์ติดต่อ</Th>
                     <Th>ผู้ร้องขอ</Th>
+                    <Th>ผู้รับ</Th>
                     <Th>สร้าง ณ วันที่</Th>
                     <Th>เปลี่ยนสถานะ</Th>
                     <Th>ตัวเลือก</Th>
@@ -285,7 +286,8 @@ export default function AgentTicketsPage() {
                       <Td>{t.title}</Td>
                       <Td>{t.detail}</Td>
                       <Td>{t.tel || "-"}</Td>
-                      <Td>{t.createdBy?.email || "-"}</Td>
+                      <Td>{t.createdBy?.name || "-"}</Td>
+                      <Td>{t.assignedTo?.name || "-"}</Td>
                       <Td>{new Date(t.createdAt).toLocaleString()}</Td>
                       <Td>
                         <select

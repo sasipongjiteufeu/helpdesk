@@ -1,8 +1,9 @@
 // src/pages/AdminStatsPage.tsx
-import React, { useEffect, useState } from 'react';
-import { API_BASE } from '../lib/api';
-import { useRequireAuth } from '../hooks/useRequireAuth';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from "react";
+import { API_BASE } from "../lib/api";
+import { useRequireAuth } from "../hooks/useRequireAuth";
+import { useNavigate } from "react-router-dom";
+import AppHeaderBackend from "../components/AppHeaderBackend";
 
 interface MonthlyItem {
   month: number;
@@ -38,16 +39,19 @@ export default function AdminStatsPage() {
 
       const [ysRes, msRes] = await Promise.all([
         fetch(`${API_BASE}/admin/stats/year?year=${targetYear}`, {
-          credentials: 'include',
+          credentials: "include",
         }),
         fetch(
-          `${API_BASE}/admin/stats/month?year=${targetYear}&month=${now.getMonth() + 1}`,
-          { credentials: 'include' },
+          `${API_BASE}/admin/stats/month?year=${targetYear}&month=${
+            now.getMonth() + 1
+          }`,
+          { credentials: "include" }
         ),
       ]);
 
       if (!ysRes.ok) throw new Error(`โหลดข้อมูลปีไม่สำเร็จ (${ysRes.status})`);
-      if (!msRes.ok) throw new Error(`โหลดข้อมูลเดือนไม่สำเร็จ (${msRes.status})`);
+      if (!msRes.ok)
+        throw new Error(`โหลดข้อมูลเดือนไม่สำเร็จ (${msRes.status})`);
 
       const ysJson = (await ysRes.json()) as YearStats;
       const msJson = (await msRes.json()) as MonthStatusStats;
@@ -56,7 +60,7 @@ export default function AdminStatsPage() {
       setMonthStats(msJson);
     } catch (e: any) {
       console.error(e);
-      setError(e.message ?? 'โหลดข้อมูลสถิติไม่สำเร็จ');
+      setError(e.message ?? "โหลดข้อมูลสถิติไม่สำเร็จ");
     } finally {
       setLoading(false);
     }
@@ -68,55 +72,10 @@ export default function AdminStatsPage() {
   }, [year]);
 
   if (authLoading || !user) {
-    return <div style={{ padding: 40 }}>Checking your access…</div>;
+    return <div className="p-10">Checking your access…</div>;
   }
 
-  const pageStyle: React.CSSProperties = {
-    minHeight: '100vh',
-    background: '#f3f4f6',
-    padding: '24px',
-    boxSizing: 'border-box',
-    fontFamily: 'system-ui',
-  };
-
-  const shellStyle: React.CSSProperties = {
-    maxWidth: '1200px',
-    margin: '0 auto',
-    background: '#fff',
-    borderRadius: '16px',
-    boxShadow: '0 18px 40px rgba(0,0,0,0.15)',
-    padding: '20px',
-  };
-
-  const headerStyle: React.CSSProperties = {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderBottom: '1px solid #e5e7eb',
-    paddingBottom: '12px',
-  };
-
-  const logoRowStyle: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-  };
-
-  const graphGrid: React.CSSProperties = {
-    marginTop: 16,
-    display: 'grid',
-    gridTemplateColumns: 'minmax(0, 2.2fr) minmax(0, 1.2fr)',
-    gap: 20,
-  };
-
-  const cardStyle: React.CSSProperties = {
-    borderRadius: 16,
-    border: '1px solid #e5e7eb',
-    background: '#f9fafb',
-    padding: '16px 18px',
-  };
-
-  const monthName = now.toLocaleString('th-TH', { month: 'long' });
+  const monthName = now.toLocaleString("th-TH", { month: "long" });
 
   // prepare graph data
   const monthly = yearStats?.monthly ?? [];
@@ -134,67 +93,47 @@ export default function AdminStatsPage() {
     #facc15 ${resolvedDeg + inProgDeg}deg 360deg
   )`;
 
-  return (
-    <div style={pageStyle}>
-      <div style={shellStyle}>
-        {/* Header */}
-        <div style={headerStyle}>
-          <div style={logoRowStyle}>
-            <img
-              src="/logo-sru-png.png"
-              alt="SRU Logo"
-              style={{ height: 58, width: 'auto' }}
-            />
-            <span style={{ fontSize: '1.7rem', fontWeight: 700 }}>
-              HelpDesk – Admin
-            </span>
-          </div>
+  function LegendItem(props: {
+    color: string;
+    label: string;
+    value: number;
+    total: number;
+  }) {
+    const percent = props.total
+      ? ((props.value / props.total) * 100).toFixed(1)
+      : "0.0";
+    return (
+      <div className="flex items-center gap-2">
+        <span
+          className="w-3.5 h-3.5 rounded-full"
+          style={{ background: props.color }}
+        />
+        <span className="flex-1">{props.label}</span>
+        <span>
+          {props.value} ({percent}%)
+        </span>
+      </div>
+    );
+  }
 
-          <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
-            <span>{user.email}</span>
-            <button
-              onClick={() => (window.location.href = `${API_BASE}/auth/logout`)}
-              style={{
-                padding: '6px 14px',
-                borderRadius: '999px',
-                border: '1px solid #d1d5db',
-                background: '#fff',
-                cursor: 'pointer',
-              }}
-            >
-              Logout
-            </button>
-          </div>
-        </div>
+  return (
+    <div className="min-h-screen bg-gray-100 p-6 box-border font-sans">
+      <div className="max-w-7xl mx-auto bg-white rounded-2xl shadow-2xl p-5">
+        <AppHeaderBackend user={user} title={"Admin"} />
 
         {/* Main */}
-        <div style={{ marginTop: 16 }}>
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              gap: 12,
-              alignItems: 'center',
-              flexWrap: 'wrap',
-            }}
-          >
-            <h2 style={{ margin: 0 }}>แสดงผลสถิติ</h2>
+        <div className="mt-4">
+          <div className="flex justify-between gap-3 items-center flex-wrap">
+            <h2 className="m-0">แสดงผลสถิติ</h2>
             {/* year selector: current year ± 2 years */}
             <div>
-              <label style={{ marginRight: 8, fontSize: '0.9rem' }}>
-                ปี:
-              </label>
+              <label className="mr-2 text-sm">ปี:</label>
               <select
                 value={year}
-                onChange={e => setYear(parseInt(e.target.value, 10))}
-                style={{
-                  padding: '4px 10px',
-                  borderRadius: '999px',
-                  border: '1px solid #d1d5db',
-                  fontSize: '0.9rem',
-                }}
+                onChange={(e) => setYear(parseInt(e.target.value, 10))}
+                className="py-1 px-2.5 rounded-full border border-gray-300 text-sm"
               >
-                {[-1, 0, 1].map(offset => {
+                {[-1, 0, 1].map((offset) => {
                   const y = now.getFullYear() + offset;
                   return (
                     <option key={y} value={y}>
@@ -206,73 +145,34 @@ export default function AdminStatsPage() {
             </div>
           </div>
 
-          {error && <p style={{ color: 'red', marginTop: 8 }}>{error}</p>}
+          {error && <p className="text-red-500 mt-2">{error}</p>}
 
-          <div style={graphGrid}>
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-5">
             {/* Bar chart */}
-            <div style={cardStyle}>
-              <h3 style={{ marginTop: 0, marginBottom: 4 }}>
-                จำนวนคำร้องแยกตามเดือน (ปี {year})
-              </h3>
+            <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+              <h3 className="mt-0 mb-1">จำนวนคำร้องแยกตามเดือน (ปี {year})</h3>
               {loading ? (
                 <p>กำลังโหลด...</p>
               ) : (
-                <div
-                  style={{
-                    marginTop: 12,
-                    height: 220,
-                    display: 'flex',
-                    flexDirection: 'column',
-                  }}
-                >
-                  <div
-                    style={{
-                      flex: 1,
-                      display: 'flex',
-                      alignItems: 'flex-end',
-                      gap: 8,
-                    }}
-                  >
-                    {monthly.map(m => {
+                <div className="mt-3 h-[220px] flex flex-col">
+                  <div className="flex-1 flex items-end gap-2">
+                    {monthly.map((m) => {
                       const h = (m.count / maxCount) * 160;
                       return (
                         <div
                           key={m.month}
-                          style={{
-                            flex: 1,
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                          }}
+                          className="flex-1 flex flex-col items-center"
                         >
-                          <div
-                            style={{
-                              height: 160,
-                              width: '100%',
-                              display: 'flex',
-                              alignItems: 'flex-end',
-                              justifyContent: 'center',
-                            }}
-                          >
+                          <div className="h-40 w-full flex items-end justify-center">
                             <div
-                              style={{
-                                width: '60%',
-                                height: `${h}px`,
-                                borderRadius: 6,
-                                background: '#22c55e',
-                              }}
+                              className="w-[60%] rounded-md bg-green-500"
+                              style={{ height: `${h}px` }}
                             />
                           </div>
-                          <div
-                            style={{
-                              marginTop: 4,
-                              fontSize: '0.7rem',
-                              color: '#4b5563',
-                            }}
-                          >
+                          <div className="mt-1 text-[0.7rem] text-gray-600">
                             {m.month}
                           </div>
-                          <div style={{ fontSize: '0.7rem' }}>{m.count}</div>
+                          <div className="text-[0.7rem]">{m.count}</div>
                         </div>
                       );
                     })}
@@ -282,43 +182,38 @@ export default function AdminStatsPage() {
             </div>
 
             {/* Pie chart */}
-            <div style={cardStyle}>
-              <h3 style={{ marginTop: 0, marginBottom: 4 }}>
-                สถานะคำร้องในเดือน {monthName}
-              </h3>
+            <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+              <h3 className="mt-0 mb-1">สถานะคำร้องในเดือน {monthName}</h3>
               {loading ? (
                 <p>กำลังโหลด...</p>
               ) : (
                 <>
-                  <div
-                    style={{
-                      marginTop: 12,
-                      display: 'flex',
-                      justifyContent: 'center',
-                    }}
-                  >
+                  <div className="mt-3 flex justify-center">
                     <div
-                      style={{
-                        width: 180,
-                        height: 180,
-                        borderRadius: '50%',
-                        background: pieBackground,
-                      }}
+                      className="w-[180px] h-[180px] rounded-full"
+                      style={{ background: pieBackground }}
                     />
                   </div>
 
-                  <div
-                    style={{
-                      marginTop: 12,
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: 4,
-                      fontSize: '0.9rem',
-                    }}
-                  >
-                    <LegendItem color="#22c55e" label="RESOLVED" value={ms.RESOLVED} total={totalMonth} />
-                    <LegendItem color="#3b82f6" label="IN_PROGRESS" value={ms.IN_PROGRESS} total={totalMonth} />
-                    <LegendItem color="#facc15" label="OPEN" value={ms.OPEN} total={totalMonth} />
+                  <div className="mt-3 flex flex-col gap-1 text-sm">
+                    <LegendItem
+                      color="#22c55e"
+                      label="RESOLVED"
+                      value={ms.RESOLVED}
+                      total={totalMonth}
+                    />
+                    <LegendItem
+                      color="#3b82f6"
+                      label="IN_PROGRESS"
+                      value={ms.IN_PROGRESS}
+                      total={totalMonth}
+                    />
+                    <LegendItem
+                      color="#facc15"
+                      label="OPEN"
+                      value={ms.OPEN}
+                      total={totalMonth}
+                    />
                   </div>
                 </>
               )}
@@ -327,45 +222,13 @@ export default function AdminStatsPage() {
 
           <button
             type="button"
-            onClick={() => nav('/admin')}
-            style={{
-              marginTop: 16,
-              padding: '7px 16px',
-              borderRadius: '999px',
-              border: '1px solid #d1d5db',
-              background: '#fff',
-              cursor: 'pointer',
-            }}
+            onClick={() => nav("/admin")}
+            className="mt-4 py-1.5 px-4 rounded-full border border-gray-300 bg-white cursor-pointer hover:bg-gray-50 transition-colors"
           >
             กลับหน้าหลัก Admin
           </button>
         </div>
       </div>
-    </div>
-  );
-}
-
-function LegendItem(props: {
-  color: string;
-  label: string;
-  value: number;
-  total: number;
-}) {
-  const percent = props.total ? ((props.value / props.total) * 100).toFixed(1) : '0.0';
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-      <span
-        style={{
-          width: 14,
-          height: 14,
-          borderRadius: 999,
-          background: props.color,
-        }}
-      />
-      <span style={{ flex: 1 }}>{props.label}</span>
-      <span>
-        {props.value} ({percent}%)
-      </span>
     </div>
   );
 }

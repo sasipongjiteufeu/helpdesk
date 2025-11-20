@@ -1,10 +1,11 @@
 // src/pages/AdminAssignRolesPage.tsx
-import React, { useEffect, useState } from 'react';
-import { API_BASE } from '../lib/api';
-import { useRequireAuth } from '../hooks/useRequireAuth';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from "react";
+import { API_BASE } from "../lib/api";
+import { useRequireAuth } from "../hooks/useRequireAuth";
+import { useNavigate } from "react-router-dom";
+import AppHeaderBackend from "../components/AppHeaderBackend";
 
-type RoleName = 'USER' | 'AGENT' | 'ADMIN';
+type RoleName = "USER" | "AGENT" | "ADMIN";
 
 interface AdminUserRow {
   id: string;
@@ -21,21 +22,21 @@ export default function AdminAssignRolesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [savingUserId, setSavingUserId] = useState<string | null>(null);
-  const [searchEmail, setSearchEmail] = useState('');
+  const [searchEmail, setSearchEmail] = useState("");
 
   useEffect(() => {
     (async () => {
       try {
         setLoading(true);
         const res = await fetch(`${API_BASE}/admin/users`, {
-          credentials: 'include',
+          credentials: "include",
         });
         if (!res.ok) throw new Error(`Failed to load users (${res.status})`);
         const data = (await res.json()) as AdminUserRow[];
         setRows(data);
       } catch (e: any) {
         console.error(e);
-        setError(e.message ?? 'โหลดรายชื่อผู้ใช้ไม่สำเร็จ');
+        setError(e.message ?? "โหลดรายชื่อผู้ใช้ไม่สำเร็จ");
       } finally {
         setLoading(false);
       }
@@ -43,27 +44,27 @@ export default function AdminAssignRolesPage() {
   }, []);
 
   if (authLoading || !user) {
-    return <div style={{ padding: 40 }}>Checking your access…</div>;
+    return <div className="p-10">Checking your access…</div>;
   }
 
   async function saveRoles(userId: string, roles: RoleName[]) {
     try {
       setSavingUserId(userId);
       const res = await fetch(`${API_BASE}/admin/users/${userId}/roles`, {
-        method: 'PATCH',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ roles }),
       });
       if (!res.ok) throw new Error(`ไม่สามารถบันทึกสิทธิ์ได้ (${res.status})`);
       const updated = await res.json();
-      setRows(prev =>
-        prev.map(r =>
-          r.id === userId ? { ...r, roles: updated.roles as RoleName[] } : r,
-        ),
+      setRows((prev) =>
+        prev.map((r) =>
+          r.id === userId ? { ...r, roles: updated.roles as RoleName[] } : r
+        )
       );
     } catch (e: any) {
-      alert(e.message ?? 'บันทึกสิทธิ์ไม่สำเร็จ');
+      alert(e.message ?? "บันทึกสิทธิ์ไม่สำเร็จ");
     } finally {
       setSavingUserId(null);
     }
@@ -72,162 +73,84 @@ export default function AdminAssignRolesPage() {
   function toggleRole(row: AdminUserRow, role: RoleName) {
     const has = row.roles.includes(role);
     const nextRoles = has
-      ? row.roles.filter(r => r !== role)
+      ? row.roles.filter((r) => r !== role)
       : [...row.roles, role];
 
     // simple optimistic UI
-    setRows(prev =>
-      prev.map(r => (r.id === row.id ? { ...r, roles: nextRoles } : r)),
+    setRows((prev) =>
+      prev.map((r) => (r.id === row.id ? { ...r, roles: nextRoles } : r))
     );
     void saveRoles(row.id, nextRoles);
   }
 
-  const filteredRows = rows.filter(r =>
-    r.email.toLowerCase().includes(searchEmail.trim().toLowerCase()),
+  const filteredRows = rows.filter((r) =>
+    r.email.toLowerCase().includes(searchEmail.trim().toLowerCase())
   );
 
-  // styling
-  const pageStyle: React.CSSProperties = {
-    minHeight: '100vh',
-    background: '#f3f4f6',
-    padding: '24px',
-    boxSizing: 'border-box',
-    fontFamily: 'system-ui',
-  };
-
-  const shellStyle: React.CSSProperties = {
-    maxWidth: '1200px',
-    margin: '0 auto',
-    background: '#fff',
-    borderRadius: '16px',
-    boxShadow: '0 18px 40px rgba(0,0,0,0.15)',
-    padding: '20px',
-  };
-
-  const headerStyle: React.CSSProperties = {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderBottom: '1px solid #e5e7eb',
-    paddingBottom: '12px',
-  };
-
-  const logoRowStyle: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-  };
-
   return (
-    <div style={pageStyle}>
-      <div style={shellStyle}>
-        {/* Header */}
-        <div style={headerStyle}>
-          <div style={logoRowStyle}>
-            <img
-              src="/logo-sru-png.png"
-              alt="SRU Logo"
-              style={{ height: 58, width: 'auto' }}
-            />
-            <span style={{ fontSize: '1.7rem', fontWeight: 700 }}>
-              HelpDesk – Admin
-            </span>
-          </div>
+    <div className="min-h-screen bg-gray-100 p-6 box-border font-sans">
+      <div className="max-w-7xl mx-auto bg-white rounded-2xl shadow-2xl p-5">
+        <AppHeaderBackend user={user} title={"Admin"} />
 
-          <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
-            <span>{user.email}</span>
-            <button
-              onClick={() => (window.location.href = `${API_BASE}/auth/logout`)}
-              style={{
-                padding: '6px 14px',
-                borderRadius: '999px',
-                border: '1px solid #d1d5db',
-                background: '#fff',
-                cursor: 'pointer',
-              }}
-            >
-              Logout
-            </button>
-          </div>
-        </div>
-
-        <div style={{ marginTop: 16 }}>
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              gap: 12,
-              alignItems: 'center',
-              flexWrap: 'wrap',
-            }}
-          >
-            <h2 style={{ margin: 0 }}>มอบหมายสิทธิ์การเข้าถึง</h2>
+        <div className="mt-4">
+          <div className="flex flex-col md:flex-row justify-between gap-3 items-center flex-wrap">
+            <h2 className="m-0">มอบหมายสิทธิ์การเข้าถึง</h2>
 
             <input
               type="text"
               placeholder="ค้นหา Email"
               value={searchEmail}
-              onChange={e => setSearchEmail(e.target.value)}
-              style={{
-                padding: '6px 10px',
-                borderRadius: '999px',
-                border: '1px solid #d1d5db',
-                fontSize: '0.9rem',
-                minWidth: '240px',
-              }}
+              onChange={(e) => setSearchEmail(e.target.value)}
+              className="py-1.5 px-2.5 rounded-full border border-gray-300 text-sm min-w-[240px]"
             />
           </div>
 
-          {error && (
-            <p style={{ color: 'red', marginTop: 8 }}>{error}</p>
-          )}
+          {error && <p className="text-red-500 mt-2">{error}</p>}
 
-          <div
-            style={{
-              marginTop: 12,
-              borderRadius: 12,
-              border: '1px solid #e5e7eb',
-              background: '#f9fafb',
-              padding: '12px',
-              overflowX: 'auto',
-            }}
-          >
+          <div className="mt-3 rounded-xl border border-gray-200 bg-gray-50 p-3 overflow-x-auto">
             {loading ? (
               <p>กำลังโหลด...</p>
             ) : filteredRows.length === 0 ? (
               <p>ไม่พบผู้ใช้</p>
             ) : (
-              <table
-                style={{
-                  width: '100%',
-                  borderCollapse: 'collapse',
-                  fontSize: '0.9rem',
-                }}
-              >
+              <table className="w-full border-collapse text-sm">
                 <thead>
-                  <tr style={{ background: '#e5e7eb' }}>
-                    <th style={th}>Email</th>
-                    <th style={th}>จำนวนคำร้อง</th>
-                    <th style={th}>USER</th>
-                    <th style={th}>AGENT</th>
-                    <th style={th}>ADMIN</th>
+                  <tr className="bg-gray-200">
+                    <th className="text-left p-2 border-b border-gray-300 whitespace-nowrap">
+                      Email
+                    </th>
+                    <th className="text-left p-2 border-b border-gray-300 whitespace-nowrap">
+                      จำนวนคำร้อง
+                    </th>
+                    <th className="text-left p-2 border-b border-gray-300 whitespace-nowrap">
+                      USER
+                    </th>
+                    <th className="text-left p-2 border-b border-gray-300 whitespace-nowrap">
+                      AGENT
+                    </th>
+                    <th className="text-left p-2 border-b border-gray-300 whitespace-nowrap">
+                      ADMIN
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredRows.map(r => (
-                    <tr key={r.id} style={{ borderTop: '1px solid #e5e7eb' }}>
-                      <td style={td}>{r.email}</td>
-                      <td style={td}>{r.ticketCount}</td>
-                      {(['USER', 'AGENT', 'ADMIN'] as RoleName[]).map(role => (
-                        <td key={role} style={tdCenter}>
-                          <input
-                            type="checkbox"
-                            checked={r.roles.includes(role)}
-                            disabled={savingUserId === r.id}
-                            onChange={() => toggleRole(r, role)}
-                          />
-                        </td>
-                      ))}
+                  {filteredRows.map((r) => (
+                    <tr key={r.id} className="border-t border-gray-200">
+                      <td className="py-1.5 px-2">{r.email}</td>
+                      <td className="py-1.5 px-2">{r.ticketCount}</td>
+                      {(["USER", "AGENT", "ADMIN"] as RoleName[]).map(
+                        (role) => (
+                          <td key={role} className="py-1.5 px-2 text-center">
+                            <input
+                              type="checkbox"
+                              checked={r.roles.includes(role)}
+                              disabled={savingUserId === r.id}
+                              onChange={() => toggleRole(r, role)}
+                              className="cursor-pointer"
+                            />
+                          </td>
+                        )
+                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -237,15 +160,8 @@ export default function AdminAssignRolesPage() {
 
           <button
             type="button"
-            onClick={() => nav('/admin')}
-            style={{
-              marginTop: 16,
-              padding: '7px 16px',
-              borderRadius: '999px',
-              border: '1px solid #d1d5db',
-              background: '#fff',
-              cursor: 'pointer',
-            }}
+            onClick={() => nav("/admin")}
+            className="mt-4 py-1.5 px-4 rounded-full border border-gray-300 bg-white cursor-pointer hover:bg-gray-50 transition-colors"
           >
             กลับหน้าหลัก Admin
           </button>
@@ -254,19 +170,3 @@ export default function AdminAssignRolesPage() {
     </div>
   );
 }
-
-const th: React.CSSProperties = {
-  textAlign: 'left',
-  padding: '8px',
-  borderBottom: '1px solid #d1d5db',
-  whiteSpace: 'nowrap',
-};
-
-const td: React.CSSProperties = {
-  padding: '6px 8px',
-};
-
-const tdCenter: React.CSSProperties = {
-  padding: '6px 8px',
-  textAlign: 'center',
-};
