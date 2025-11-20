@@ -8,7 +8,7 @@ import AppHeaderBackend from "../components/AppHeaderBackend";
 type TicketStatus = "OPEN" | "IN_PROGRESS" | "RESOLVED";
 
 interface TicketUserRef {
-  email?: string | null;
+  name?: string | null;
 }
 
 interface Ticket {
@@ -208,20 +208,20 @@ export default function AgentTicketInfoPage() {
 
                 <Field
                   label="ผู้ร้องขอ"
-                  value={ticket.createdBy?.email || "-"}
+                  value={ticket.createdBy?.name || "-"}
                 />
                 <Field
                   label="รับงานโดย"
                   value={
-                    ticket.assignedTo?.email
-                      ? ticket.assignedTo.email
+                    ticket.assignedTo?.name
+                      ? ticket.assignedTo.name
                       : "ยังไม่มีเจ้าหน้าที่รับงาน"
                   }
                 />
                 <Field
                   label="เปลี่ยนสถานะล่าสุดโดย"
                   value={
-                    ticket.lastStatusChangedBy?.email ||
+                    ticket.lastStatusChangedBy?.name ||
                     "ยังไม่มีเจ้าหน้าที่รับงาน"
                   }
                 />

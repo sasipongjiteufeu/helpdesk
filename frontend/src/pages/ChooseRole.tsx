@@ -1,10 +1,10 @@
 // src/pages/ChooseRole.tsx
+
 import { useEffect, useState } from "react";
 import { API_BASE } from "../lib/api";
-
-// โหลดโลโก้จาก public/
-//const ARIT_LOGO = '/logo-ARIT.png';
-//const SRU_LOGO = '/logo-sru-png.png';
+import logoSRU from "../assets/logo-sru-png.png";
+import logoARIT from "../assets/logo-ARIT.png";
+import "animate.css";
 
 type RoleName = "USER" | "AGENT" | "ADMIN";
 
@@ -60,42 +60,57 @@ export default function ChooseRole() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-100 flex items-center justify-center p-4">
       {/* Background Decorations */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-20 left-20 w-72 h-72 bg-blue-400 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob"></div>
         <div className="absolute top-40 right-20 w-72 h-72 bg-purple-400 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-2000"></div>
         <div className="absolute -bottom-8 left-1/2 w-72 h-72 bg-pink-400 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-4000"></div>
       </div>
-      <div className="w-full max-w-[480px] bg-white rounded-2xl px-8 pt-8 pb-6 shadow-[0_20px_45px_rgba(15,23,42,0.12)] text-center">
+
+      <div className="w-full max-w-[480px] bg-white/95 backdrop-blur-sm rounded-2xl px-8 pt-8 pb-6 shadow-[0_20px_45px_rgba(79,70,229,0.15)] text-center relative z-10">
         {/* โลโก้ ARIT + SRU */}
-        <div className="flex items-center justify-center gap-6 mb-5">
+        <div className="flex items-center justify-center gap-6 mb-6 animate__animated animate__fadeInUp">
           <img
-            src="/logo-ARIT.png"
+            src={logoARIT}
             alt="ARIT Logo"
-            className="h-[70px] object-contain animate__animated animate__fadeInUp animate__fast"
+            className="h-[70px] object-contain"
           />
           <img
-            src="/logo-sru-png.png"
+            src={logoSRU}
             alt="Suratthani Rajabhat University Logo"
-            className="h-[110px] object-contain animate__animated animate__fadeInUp animate__fast"
+            className="h-[110px] object-contain"
           />
         </div>
 
-        <div className="mb-1">
-          <p className="role-greeting">Welcome!</p>
-          {email && <p className="role-email">{email}</p>}
-          <p className="role-subtext">กรุณาเลือกรูปแบบการเข้าใช้งานระบบ</p>
+        <div className="mb-8 animate__animated animate__fadeInUp">
+          <p className="text-3xl font-bold text-gray-800 mb-2">Welcome!</p>
+          {email && (
+            <p className="text-indigo-600 font-medium text-lg mb-2">{email}</p>
+          )}
+          <p className="text-gray-600 text-sm">
+            กรุณาเลือกรูปแบบการเข้าใช้งานระบบ
+          </p>
         </div>
 
         <div>
-          {loading && <p className="role-loading">กำลังโหลดสิทธิ์การใช้งาน…</p>}
+          {loading && (
+            <p className="text-gray-500 text-sm py-8 animate__animated animate__fadeInUp">
+              กำลังโหลดสิทธิ์การใช้งาน…
+            </p>
+          )}
 
-          <div className="flex justify-center items-center gap-2">
+          <div className="flex justify-center items-center gap-3 flex-wrap animate__animated animate__fadeInUp">
             {!loading &&
               roles.map((r) => (
                 <button
-                  className="text-white bg-gradient-to-r from-purple-500 via-purple-600 to-purple-700 hover:bg-gradient-to-br focus:ring-4 focus:outline-none focus:ring-purple-300 dark:focus:ring-purple-800 font-medium rounded-lg text-sm px-5 py-2.5 text-center me-2 mb-2"
+                  className={`text-white bg-gradient-to-r ${
+                    r === "ADMIN"
+                      ? "from-rose-500 via-rose-600 to-pink-600 hover:from-rose-600 hover:via-rose-700 hover:to-pink-700 focus:ring-rose-300 shadow-rose-200"
+                      : r === "AGENT"
+                      ? "from-blue-500 via-blue-600 to-indigo-600 hover:from-blue-600 hover:via-blue-700 hover:to-indigo-700 focus:ring-blue-300 shadow-blue-200"
+                      : "from-emerald-500 via-emerald-600 to-teal-600 hover:from-emerald-600 hover:via-emerald-700 hover:to-teal-700 focus:ring-emerald-300 shadow-emerald-200"
+                  } focus:ring-4 focus:outline-none font-semibold rounded-lg text-sm px-6 py-3 text-center shadow-lg transition-all duration-300 transform hover:scale-105 hover:shadow-xl active:scale-95`}
                   onClick={() => go(r)}
                   key={r}
                 >

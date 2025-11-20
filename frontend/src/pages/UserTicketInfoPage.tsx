@@ -8,7 +8,7 @@ import AppHeaderBackend from "../components/AppHeaderBackend";
 type TicketStatus = "OPEN" | "IN_PROGRESS" | "RESOLVED";
 
 interface TicketUserRef {
-  email?: string | null;
+  name?: string | null;
 }
 
 interface Ticket {
@@ -190,20 +190,20 @@ export default function UserTicketInfoPage() {
 
                 <Field
                   label="ผู้ร้องขอ"
-                  value={ticket.createdBy?.email || user.email || "-"}
+                  value={ticket.createdBy?.name || user.name || "-"}
                 />
                 <Field
                   label="รับงานโดย"
                   value={
-                    ticket.assignedTo?.email
-                      ? ticket.assignedTo.email
+                    ticket.assignedTo?.name
+                      ? ticket.assignedTo.name
                       : "ยังไม่มีเจ้าหน้าที่รับงาน"
                   }
                 />
                 <Field
                   label="เปลี่ยนสถานะล่าสุดโดย"
                   value={
-                    ticket.lastStatusChangedBy?.email ||
+                    ticket.lastStatusChangedBy?.name ||
                     "ยังไม่มีเจ้าหน้าที่รับงาน"
                   }
                 />
@@ -224,7 +224,7 @@ export default function UserTicketInfoPage() {
                   <button
                     type="button"
                     onClick={handleExit}
-                    className="px-5 py-2.5 rounded-full border-0 bg-green-500 text-slate-950 font-semibold cursor-pointer hover:bg-green-600 transition-colors"
+                    className="px-5 py-2.5 rounded-full border-0 bg-green-500 text-white font-semibold cursor-pointer hover:bg-green-600 transition-colors"
                   >
                     ออกจากหน้านี้
                   </button>
