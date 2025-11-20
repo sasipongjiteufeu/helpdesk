@@ -120,7 +120,7 @@ export default function AdminStatsPage() {
   return (
     <div className="min-h-screen bg-gray-100 p-6 box-border font-sans">
       <div className="max-w-7xl mx-auto bg-white rounded-2xl shadow-2xl p-5">
-        <AppHeaderBackend user={user} title={"Admin"} />
+        <AppHeaderBackend user={user} title={"ADMIN"} />
 
         {/* Main */}
         <div className="mt-4">
@@ -226,7 +226,7 @@ export default function AdminStatsPage() {
             onClick={() => nav("/admin")}
             className="mt-4 py-1.5 px-4 rounded-full border border-gray-300 bg-white cursor-pointer hover:bg-gray-50 transition-colors inline-flex items-center text-center"
           >
-            <MdArrowBack className="mr-1" /> กลับหน้าหลัก Admin
+            <MdArrowBack className="mr-1" /> กลับหน้าหลัก ADMIN
           </button>
         </div>
       </div>

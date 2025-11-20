@@ -126,7 +126,7 @@ export default function UserTicketsPage() {
       <div className="max-w-7xl mx-auto bg-white rounded-2xl shadow-2xl p-5">
         {/* Header */}
 
-        <AppHeaderBackend user={user} title={"User"} />
+        <AppHeaderBackend user={user} title={"USER"} />
 
         {/* Section Title */}
         <div className="mt-4 flex  flex-col-reverse md:flex-row justify-between">

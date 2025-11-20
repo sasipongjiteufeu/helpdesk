@@ -138,7 +138,7 @@ export default function UserTicketInfoPage() {
     <div className="min-h-screen bg-gray-100 p-6 box-border font-sans">
       <div className="max-w-7xl mx-auto bg-white rounded-2xl shadow-2xl p-5">
         {/* Header */}
-        <AppHeaderBackend user={user} />
+        <AppHeaderBackend user={user} title={'USER'} />
 
         {/* Content */}
         <div className="mt-4">

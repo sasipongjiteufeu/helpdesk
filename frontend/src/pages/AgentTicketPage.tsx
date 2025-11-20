@@ -192,27 +192,27 @@ export default function AgentTicketsPage() {
           <div className="flex gap-2 mb-3 items-center flex-wrap">
             <div className="flex gap-2 flex-wrap">
               <FilterButton
-                label="All"
+                label="ทั้งหมด"
                 active={filter === "ALL"}
                 onClick={() => setFilter("ALL")}
               />
               <FilterButton
-                label="OPEN"
+                label="เปิด"
                 active={filter === "OPEN"}
                 onClick={() => setFilter("OPEN")}
               />
               <FilterButton
-                label="IN_PROGRESS"
+                label="กำลังดำเนินการ"
                 active={filter === "IN_PROGRESS"}
                 onClick={() => setFilter("IN_PROGRESS")}
               />
               <FilterButton
-                label="RESOLVED"
+                label="ได้รับการแก้ไข"
                 active={filter === "RESOLVED"}
                 onClick={() => setFilter("RESOLVED")}
               />
               <FilterButton
-                label="COMMIT"
+                label="ที่ส่ง (ของตัวเอง)"
                 active={filter === "COMMIT"}
                 onClick={() => setFilter("COMMIT")}
               />
