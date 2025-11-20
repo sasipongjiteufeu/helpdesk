@@ -14,10 +14,14 @@ interface Ticket {
   tel?: string | null;
   status: TicketStatus;
   createdAt: string;
-  createdBy?: { email?: string | null } | null;
-  assignedTo?: { email?: string | null  , id : number} ;
+  createdBy?: { email?: string | null; name?: string | null } | null; // Added name
+  assignedTo?: {
+    email?: string | null;
+    name?: string | null;
+    id: string;
+  } | null; // Added name and made nullable
   lastStatusChangedBy?: { email?: string | null } | null;
-  commit_By?: number | null; // Added missing property
+  commit_By?: number | null;
 }
 
 type Filter = "ALL" | TicketStatus;
@@ -113,14 +117,15 @@ export default function AgentTicketsPage() {
 
   const normalizedSearch = searchId.trim();
 
-  // 🐛 FIX: Fixed the filter logic - was missing return statements
+  // 🐛 FIX: Fixed the filter logic
   const filteredTickets = tickets.filter((t) => {
     // Status filter
     let statusMatch = false;
     if (filter === "ALL") {
       statusMatch = true;
     } else if (filter === "COMMIT") {
-      statusMatch = t.assignedTo.id === user.id;
+      // Fixed: Check if assignedTo exists and compare numbers properly
+      statusMatch = t.assignedTo?.id === user.id;
     } else {
       statusMatch = t.status === filter;
     }

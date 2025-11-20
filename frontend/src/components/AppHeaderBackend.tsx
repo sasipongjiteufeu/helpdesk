@@ -10,6 +10,7 @@ interface User {
 
 interface AppHeaderBackendProps {
   user: User | null;
+  title?: string; // Add this line
 }
 
 export default function AppHeaderBackend({
@@ -24,6 +25,7 @@ export default function AppHeaderBackend({
       const response = await axios.get(`${API_BASE}/auth/logout`, {
         withCredentials: true,
       });
+      console.log(response)
       navigate("/");
     } catch (error) {
       console.error(error);

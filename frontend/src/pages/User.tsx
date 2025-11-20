@@ -98,27 +98,8 @@ export default function UserTicketsPage() {
     <div className="min-h-screen bg-gray-100 p-6">
       <div className="max-w-7xl mx-auto bg-white rounded-2xl shadow-2xl p-5">
         {/* Header */}
-        {/* <div className="flex flex-col md:flex-row  justify-between items-center border-b border-gray-200 pb-3">
-          <div className="flex items-center gap-3">
-            <img
-              src="/logo-sru-png.png"
-              alt="SRU Logo"
-              className="h-14 w-auto"
-            />
-            <span className="text-3xl font-bold">HelpDesk</span>
-          </div>
 
-          <div className="flex flex-col md:flex-row gap-4 items-center">
-            <span>{user.email}</span>
-            <button
-              onClick={logout}
-              className="px-3.5 py-1.5 rounded-full border border-gray-300 bg-white hover:bg-gray-50 cursor-pointer"
-            >
-              Logout
-            </button>
-          </div>
-        </div> */}
-        <AppHeaderBackend user={user} />
+        <AppHeaderBackend user={user} title={"User"} />
 
         {/* Section Title */}
         <div className="mt-4 flex  flex-col-reverse md:flex-row justify-between">
@@ -173,10 +154,7 @@ export default function UserTicketsPage() {
               </thead>
               <tbody>
                 {tickets.map((t) => {
-                  const canDelete = t.status === "OPEN" && !t.assignedTo;
-                  const statusChangerEmail =
-                    t.lastStatusChangedBy?.email || t.assignedTo?.email || "-";
-
+                  const canDelete = t.status === "OPEN" ? true : false;
                   return (
                     <tr key={t.id}>
                       <td className="p-2 border-b border-gray-300">

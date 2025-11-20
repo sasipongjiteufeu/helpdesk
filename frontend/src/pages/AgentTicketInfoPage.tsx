@@ -1,5 +1,5 @@
 // src/pages/AgentTicketInfoPage.tsx
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { API_BASE } from "../lib/api";
 import { useRequireAuth } from "../hooks/useRequireAuth";
