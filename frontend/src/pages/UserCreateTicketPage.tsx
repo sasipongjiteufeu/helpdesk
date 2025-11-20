@@ -5,6 +5,7 @@ import { API_BASE } from "../lib/api";
 import { useRequireAuth } from "../hooks/useRequireAuth";
 import AppHeaderBackend from "../components/AppHeaderBackend";
 import Swal from "sweetalert2";
+import { FaUpload } from "react-icons/fa6";
 
 export default function UserCreateTicketPage() {
   const { user, loading: authLoading } = useRequireAuth();
@@ -114,7 +115,7 @@ export default function UserCreateTicketPage() {
     <div className="min-h-screen bg-gray-100 p-6">
       <div className="max-w-7xl mx-auto bg-white rounded-2xl shadow-2xl p-5">
         {/* Header */}
-        <AppHeaderBackend user={user} title={'USER'} />
+        <AppHeaderBackend user={user} title={"USER"} />
 
         {/* Content card */}
         <div className="mt-4 rounded-xl border border-gray-200 bg-gray-50 p-5">
@@ -177,10 +178,10 @@ export default function UserCreateTicketPage() {
               </label>
               <button
                 type="button"
-                className="px-2 py-2 bg-amber-500 rounded-2xl text-white cursor-pointer hover:bg-amber-600"
+                className="px-2 py-2 bg-amber-500 rounded-2xl text-white cursor-pointer hover:bg-amber-600 inline-flex items-center text-center"
                 onClick={uploadFile}
               >
-                อัพโหลดไฟล์
+                <FaUpload className="mr-2" /> อัพโหลดไฟล์
               </button>
               <input
                 ref={fileInputRef}
@@ -218,17 +219,17 @@ export default function UserCreateTicketPage() {
             </div>
 
             {/* Buttons */}
-            <div className="flex justify-between mt-4">
+            <div className="flex flex-col md:flex-row md:justify-end mt-4 gap-2">
               <button
                 type="submit"
                 disabled={creating}
-                className={`px-5 py-2 rounded-full border-none font-semibold text-white ${
+                className={`px-5 py-2 rounded-full border-none font-semibold text-white text-center ${
                   creating
                     ? "bg-gray-400 cursor-default"
                     : "bg-green-500 cursor-pointer hover:bg-green-700"
                 } text-gray-900`}
               >
-                {creating ? "กำลังสร้าง…" : "สร้าง"}
+                {creating ? "กำลังบันทึก…" : "บันทึก"}
               </button>
 
               <button
