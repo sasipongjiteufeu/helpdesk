@@ -87,7 +87,7 @@ export default function UserCreateTicketPage() {
       }
 
       await Swal.fire({
-        position: "top-end",
+        position: "center",
         icon: "success",
         title: "เพิ่มข้อมูลสำเร็จ",
         showConfirmButton: false,
