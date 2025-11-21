@@ -23,12 +23,14 @@ export class TelegramNotifyService {
     const ticketId = String(ticket.id).padStart(7, '0');
     const title = ticket.title ?? '(no title)';
     const requester = ticket.createdBy?.email ?? 'unknown';
+    const detail = ticket.detail
 
     // ✅ SIMPLE PLAIN TEXT (no Markdown, no HTML)
     const text =
       `🎫 New Helpdesk Ticket\n` +
       `ID: ${ticketId}\n` +
       `หัวข้อ: ${title}\n` +
+      `รายละเอียด${detail}\n `+
       `ผู้ร้องขอ: ${requester}\n` +
       `สถานะเริ่มต้น: ${ticket.status}\n`;
 
