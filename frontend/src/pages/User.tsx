@@ -123,7 +123,7 @@ export default function UserTicketsPage() {
 
   return (
     <div className="min-h-screen bg-gray-100 p-6">
-      <div className="max-w-7xl mx-auto bg-white rounded-2xl shadow-2xl p-5">
+      <div className="max-w-full container mx-auto bg-white rounded-2xl shadow-2xl p-5">
         {/* Header */}
 
         <AppHeaderBackend user={user} title={"USER"} />
@@ -154,28 +154,28 @@ export default function UserTicketsPage() {
             <table className="w-full border-collapse text-sm">
               <thead>
                 <tr>
-                  <th className="text-left p-2 border-b-2 border-gray-800">
+                  <th className="text-left p-2 border-b-2 text-xl  border-gray-800">
                     สถานะคำร้อง
                   </th>
-                  <th className="text-left p-2 border-b-2 border-gray-800">
+                  <th className="text-left p-2 border-b-2 text-xl border-gray-800">
                     Ticket ID
                   </th>
-                  <th className="text-left p-2 border-b-2 border-gray-800">
+                  <th className="text-left p-2 border-b-2 text-xl border-gray-800">
                     หัวข้อ
                   </th>
-                  <th className="text-left p-2 border-b-2 border-gray-800">
+                  <th className="text-left p-2 border-b-2 text-xl border-gray-800">
                     รายระเอียดคำร้อง
                   </th>
-                  <th className="text-left p-2 border-b-2 border-gray-800">
+                  <th className="text-left p-2 border-b-2 text-xl border-gray-800">
                     เบอร์ติดต่อ
                   </th>
-                  <th className="text-left p-2 border-b-2 border-gray-800">
+                  <th className="text-left p-2 border-b-2 text-xl border-gray-800">
                     รับงาน / แก้ไขสถานะโดย
                   </th>
-                  <th className="text-left p-2 border-b-2 border-gray-800">
+                  <th className="text-left p-2 border-b-2 text-xl border-gray-800">
                     สร้าง ณ วันที่
                   </th>
-                  <th className="text-left p-2 border-b-2 border-gray-800">
+                  <th className="text-left p-2 border-b-2 text-xl border-gray-800">
                     ตัวเลือก
                   </th>
                 </tr>
@@ -185,34 +185,35 @@ export default function UserTicketsPage() {
                   const canDelete = t.status === "OPEN" ? true : false;
                   return (
                     <tr key={t.id}>
-                      <td className="p-2 border-b border-gray-300">
+                      <td className="p-2 border-b border-gray-300 text-lg">
                         <StatusBadge status={t.status} />
                       </td>
-                      <td className="p-2 border-b border-gray-300">
+                      <td className="p-2 border-b border-gray-300 text-lg">
                         {String(t.id).padStart(7, "0")}
                       </td>
-                      <td className="p-2 border-b border-gray-300">
+                      <td className="p-2 border-b border-gray-300 text-lg">
                         {t.title}
                       </td>
-                      <td className="p-2 border-b border-gray-300">
+                      <td className="p-2 border-b border-gray-300 text-lg">
                         {t.detail}
                       </td>
-                      <td className="p-2 border-b border-gray-300">
+                      <td className="p-2 border-b border-gray-300 text-lg">
                         {t.tel ?? "-"}
                       </td>
-                      <td className="p-2 border-b border-gray-300">
+                      <td className="p-2 border-b border-gray-300 text-lg">
                         {t.assignedTo?.name ?? "-"}
                       </td>
-                      <td className="p-2 border-b border-gray-300">
+                      <td className="p-2 border-b border-gray-300 text-lg">
                         {new Date(t.createdAt).toLocaleString()}
                       </td>
-                      <td className="p-2 border-b border-gray-300">
+                      <td className="p-2 border-b border-gray-300 ">
                         <div className="flex gap-2">
                           <button
                             onClick={() => navigate(`/user/ticket/${t.id}`)}
                             className="px-2.5 py-1 rounded-full border border-gray-300 bg-white hover:bg-gray-50 text-xs cursor-pointer inline-flex items-center text-center"
                           >
-                            <FaCircleInfo className="mr-1" /> รายละเอียด
+                            <FaCircleInfo className="mr-1 text-lg" />{" "}
+                            <span className="text-lg">รายละเอียด</span>
                           </button>
 
                           <button
@@ -221,7 +222,7 @@ export default function UserTicketsPage() {
                               canDelete ? () => handleDelete(t.id) : undefined
                             }
                             disabled={!canDelete}
-                            className={`px-2.5 py-1 rounded-full border-none text-xs inline-flex items-center text-center ${
+                            className={`px-2.5 py-1 rounded-full border-none  inline-flex items-center text-center text-lg ${
                               canDelete
                                 ? "bg-red-500 text-white hover:bg-red-600 cursor-pointer"
                                 : "bg-gray-200 text-gray-400 cursor-not-allowed"
@@ -232,7 +233,7 @@ export default function UserTicketsPage() {
                                 : "ไม่สามารถลบได้เมื่อคำร้องกำลังดำเนินการหรือปิดแล้ว หรือมีเจ้าหน้าที่รับงานแล้ว"
                             }
                           >
-                            <MdDelete className="mr-1" /> ลบ
+                            <MdDelete className="mr-1 text-lg" /> ลบ
                           </button>
                         </div>
                       </td>
