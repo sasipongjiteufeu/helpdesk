@@ -9,6 +9,7 @@ import { RoleEnum } from 'src/role/entities/role.enum';
 import { hasAnyRole, hasRole } from 'src/auth/role.utile';  // 👈 add
 import { TicketImage } from './entities/ticket-image.entity';
 import { EmailService } from 'src/email/email.service';
+import { TelegramNotifyService } from 'src/telegram-notify/telegram-notify.service';
 
 @Injectable()
 export class TicketService {
@@ -17,6 +18,7 @@ export class TicketService {
     @InjectRepository(TicketImage) private readonly images: Repository<TicketImage>,
     @InjectRepository(User) private readonly users: Repository<User>,
     private readonly email: EmailService,
+    private readonly telegramNotify: TelegramNotifyService,
   ) {}
 
     async getAllImagesFor(user: User, id: number) {
@@ -97,6 +99,11 @@ export class TicketService {
       savedTicket.images = imgs;
     }
     await this.notifyAgentsAboutNewTicket(savedTicket);
+    try {
+      await this.telegramNotify.notifyNewTicket(savedTicket);
+    } catch (e) {
+      // already logged inside service; don't block ticket creation
+    }
     return savedTicket;
   
   }

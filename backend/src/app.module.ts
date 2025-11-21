@@ -8,6 +8,7 @@ import { AuthModule } from './auth/auth.module';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AdminModule } from './admin/admin.module';
+import { TelegramNotifyModule } from './telegram-notify/telegram-notify.module';
 
 @Module({
   imports: [ConfigModule.forRoot({
@@ -24,7 +25,7 @@ import { AdminModule } from './admin/admin.module';
       // entities: [User, Role],
       entities: [__dirname + '/**/*.entity.{js,ts}'],
       synchronize: true, // dev only
-    }), TicketModule, RoleModule, UserModule, AuthModule, AdminModule],
+    }), TicketModule, RoleModule, UserModule, AuthModule, AdminModule, TelegramNotifyModule],
   controllers: [AppController],
   providers: [AppService],
 })

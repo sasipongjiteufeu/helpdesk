@@ -42,6 +42,8 @@ services:
       - SMTP_USER=beermini991@gmail.com
       - SMTP_PASS=djasuhdowsxcoevb   
       - SMTP_FROM=beermini991@gmail.com
+      - TELEGRAM_BOT_TOKEN=8350312225:AAEaJ0eZeJ1Oxy7EubTON27ZIPodRxTzCnA
+      - TELEGRAM_CHAT_ID=-4828646624
     restart: unless-stopped
 
   frontend:
