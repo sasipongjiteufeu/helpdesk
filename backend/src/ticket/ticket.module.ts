@@ -19,5 +19,6 @@ import { EmailService } from 'src/email/email.service';
   ],
   controllers: [TicketController],
   providers: [TicketService, EmailService],
+  exports: [TicketService],
 })
 export class TicketModule {}

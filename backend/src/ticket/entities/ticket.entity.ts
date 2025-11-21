@@ -61,6 +61,23 @@ export class Ticket {
 @JoinColumn({ name: 'lastStatusChangedBy' })
 lastStatusChangedBy?: User | null;
 
+  @Column({
+    name: 'First_In_Progress_At',
+    type: 'timestamp',
+    precision: 3,
+    nullable: true,
+  })
+  firstInProgressAt: Date | null;
+
+  // 👇 NEW: first time this ticket is resolved
+  @Column({
+    name: 'Resolved_At',
+    type: 'timestamp',
+    precision: 3,
+    nullable: true,
+  })
+  resolvedAt: Date | null;
+
   // 👇 MULTI-IMAGE RELATION
   @OneToMany(() => TicketImage, img => img.ticket, { cascade: true })
   images: TicketImage[];

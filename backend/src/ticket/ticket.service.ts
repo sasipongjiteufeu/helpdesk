@@ -213,11 +213,13 @@ async findOneFor(user: User, id: number) {
     user: User,
     dto: CreateTicketDto,
   ) {
+    
     const t = await this.repo.findOne({
       where: { id },
       relations: ['assignedTo'],
     });
 
+    
     if (!t) throw new NotFoundException('Ticket not found');
     if (!dto.status) throw new NotFoundException('status is required');
 
@@ -226,7 +228,26 @@ async findOneFor(user: User, id: number) {
     if (!isStaff) {
       throw new ForbiddenException('Only staff can change status');
     }
+    
+    const prevStatus = t.status;
+    const nextStatus = dto.status as TicketStatus;
+    const now = new Date();
+    const isLeavingOpen = prevStatus === TicketStatus.OPEN && nextStatus !== TicketStatus.OPEN;
 
+    if (isLeavingOpen && !t.assignedTo) {
+      t.assignedTo = user;
+    }
+
+    // 💡 NEW: first time action (time to first action)
+    // define "first action" = first time leaving OPEN
+    if (!t.firstInProgressAt && isLeavingOpen) {
+      t.firstInProgressAt = now;
+    }
+
+    // 💡 NEW: first time resolved
+    if (!t.resolvedAt && nextStatus === TicketStatus.RESOLVED) {
+      t.resolvedAt = now;
+    }
     
     // ✅ If ticket already has an assigned agent,
     //    ONLY that agent (or ADMIN) can change status.
@@ -234,14 +255,12 @@ async findOneFor(user: User, id: number) {
       throw new ForbiddenException('Only the assigned agent can change status');
     }
 
-    const nextStatus = dto.status;
-
     if (t.status !== 'OPEN' && nextStatus === 'OPEN') {
     throw new ForbiddenException('Cannot move ticket back to OPEN');
     } 
     
     // 💡 first time someone moves it away from OPEN → remember that person
-    const isLeavingOpen = t.status === TicketStatus.OPEN && nextStatus !== TicketStatus.OPEN;
+    
 
     if (isLeavingOpen && !t.assignedTo) {
       t.assignedTo = user;
@@ -251,7 +270,86 @@ async findOneFor(user: User, id: number) {
     t.status = nextStatus;
     return this.repo.save(t);
   }
+  /**
+   * SLA metrics:
+   * - average time to first action (createdAt -> firstInProgressAt)
+   * - average time to resolve (createdAt -> resolvedAt)
+   * - % of resolved tickets resolved within `thresholdDays`
+   */
+  async getSlaMetricsForYear(
+    year: number,
+    thresholdDays: number,
+  ) {
+    const start = new Date(year, 0, 1);        // Jan 1
+    const end = new Date(year + 1, 0, 1);      // Jan 1 next year
 
+    // --- avg time to first action (sec) ---
+    const firstActionRow = await this.repo
+      .createQueryBuilder('t')
+      .select(
+        'AVG(TIMESTAMPDIFF(SECOND, t.createdAt, t.firstInProgressAt))',
+        'avgSeconds',
+      )
+      .where('t.createdAt >= :start AND t.createdAt < :end', { start, end })
+      .andWhere('t.firstInProgressAt IS NOT NULL')
+      .getRawOne<{ avgSeconds: string | null }>();
+
+    const avgFirstActionSeconds = firstActionRow?.avgSeconds
+      ? Number(firstActionRow.avgSeconds)
+      : null;
+
+    // --- avg time to resolve (sec) ---
+    const resolveRow = await this.repo
+      .createQueryBuilder('t')
+      .select(
+        'AVG(TIMESTAMPDIFF(SECOND, t.createdAt, t.resolvedAt))',
+        'avgSeconds',
+      )
+      .where('t.createdAt >= :start AND t.createdAt < :end', { start, end })
+      .andWhere('t.resolvedAt IS NOT NULL')
+      .getRawOne<{ avgSeconds: string | null }>();
+
+    const avgResolveSeconds = resolveRow?.avgSeconds
+      ? Number(resolveRow.avgSeconds)
+      : null;
+
+    // --- total resolved in that year ---
+    const totalResolvedRow = await this.repo
+      .createQueryBuilder('t')
+      .select('COUNT(*)', 'cnt')
+      .where('t.createdAt >= :start AND t.createdAt < :end', { start, end })
+      .andWhere('t.resolvedAt IS NOT NULL')
+      .getRawOne<{ cnt: string }>();
+
+    const totalResolved = totalResolvedRow ? Number(totalResolvedRow.cnt) : 0;
+
+    // --- resolved within threshold days ---
+    const withinRow = await this.repo
+      .createQueryBuilder('t')
+      .select('COUNT(*)', 'cnt')
+      .where('t.createdAt >= :start AND t.createdAt < :end', { start, end })
+      .andWhere('t.resolvedAt IS NOT NULL')
+      .andWhere(
+        'TIMESTAMPDIFF(DAY, t.createdAt, t.resolvedAt) <= :days',
+        { days: thresholdDays },
+      )
+      .getRawOne<{ cnt: string }>();
+
+    const resolvedWithin = withinRow ? Number(withinRow.cnt) : 0;
+
+    const percentWithin =
+      totalResolved > 0 ? (resolvedWithin / totalResolved) * 100 : null;
+
+    return {
+      year,
+      thresholdDays,
+      averageTimeToFirstActionSeconds: avgFirstActionSeconds,
+      averageTimeToResolveSeconds: avgResolveSeconds,
+      totalResolved,
+      resolvedWithinThreshold: resolvedWithin,
+      percentResolvedWithinThreshold: percentWithin,
+    };
+  }
   async removeFor(user: User, id: number) {
     const t = await this.repo.findOne({ where: { id } });
     if (!t) throw new NotFoundException('Ticket not found');

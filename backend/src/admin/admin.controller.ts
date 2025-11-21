@@ -15,12 +15,15 @@ import { Roles } from 'src/auth/decorators/roles.decorator';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { AuthenticatedGuard } from 'src/auth/guards/authenticated.guard';
 import { RoleEnum } from 'src/role/entities/role.enum';
+import { TicketService } from 'src/ticket/ticket.service';
 
 @UseGuards(AuthenticatedGuard, RolesGuard)
 @Roles(RoleEnum.ADMIN)
 @Controller('admin')
 export class AdminController {
-  constructor(private readonly adminService: AdminService) {}
+  constructor(private readonly adminService: AdminService,
+    private readonly tickets: TicketService
+  ) {}
 
   // === USERS + ROLES ===
   @Get('users')
@@ -42,7 +45,17 @@ export class AdminController {
     const year = yearQ ? parseInt(yearQ, 10) : new Date().getFullYear();
     return this.adminService.getYearStats(year);
   }
+  @Get('sla')
+  async getSla(
+    @Query('year') yearStr?: string,
+    @Query('days') daysStr?: string,
+  ) {
+    const now = new Date();
+    const year = yearStr ? Number(yearStr) : now.getFullYear();
+    const days = daysStr ? Number(daysStr) : 3; // default 3 days
 
+    return this.tickets.getSlaMetricsForYear(year, days);
+  }
   @Get('stats/month')
   getMonthStats(
     @Query('year') yearQ?: string,

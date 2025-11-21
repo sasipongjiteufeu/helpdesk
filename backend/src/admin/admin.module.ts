@@ -6,10 +6,11 @@ import { AdminService } from './admin.service';
 import { User } from 'src/user/entities/user.entity';
 import { Ticket } from 'src/ticket/entities/ticket.entity';
 import { Role } from 'src/role/entities/role.entity';
+import { TicketModule } from 'src/ticket/ticket.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([User, Ticket, Role])],
+  imports: [TypeOrmModule.forFeature([User, Ticket, Role]),TicketModule],
   controllers: [AdminController],
-  providers: [AdminService],
+  providers: [AdminService,],
 })
 export class AdminModule {}
