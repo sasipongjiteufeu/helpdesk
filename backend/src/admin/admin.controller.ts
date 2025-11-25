@@ -66,4 +66,21 @@ export class AdminController {
     const month = monthQ ? parseInt(monthQ, 10) : now.getMonth() + 1;
     return this.adminService.getMonthStatusStats(year, month);
   }
+  @Get('stats/agents-range')
+  getAgentStatsRange(
+    @Query('from') from: string,
+    @Query('to') to: string,
+  ) {
+    return this.adminService.getAgentStatusStatsForRange(from, to);
+  }
+
+   @Get('stats-range')
+  @Roles(RoleEnum.ADMIN)
+  getStatsForRange(
+    @Query('from') from: string,
+    @Query('to') to: string,
+  ) {
+    // optional: you can also accept targetDays from query
+    return this.adminService.getStatsForRange(from, to, 3);
+  }
 }

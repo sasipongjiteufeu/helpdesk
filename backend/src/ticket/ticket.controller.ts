@@ -11,14 +11,17 @@ import { AuthenticatedGuard } from 'src/auth/guards/authenticated.guard';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { Roles } from 'src/auth/decorators/roles.decorator';
 import { RoleEnum } from 'src/role/entities/role.enum';
+import { get } from 'axios';
 
 @Controller('tickets')
-@UseGuards(AuthenticatedGuard, RolesGuard)
+
 export class TicketController {
   constructor(private readonly svc: TicketService) {}
+  
 
   // Create (multipart form: title, detail, tal?, picture?)
   @Post()
+  @UseGuards(AuthenticatedGuard, RolesGuard)
   @Roles(RoleEnum.USER, RoleEnum.AGENT, RoleEnum.ADMIN)
   @UseInterceptors(FilesInterceptor('pictures', 10)) // 👈 matches form field "pictures"
   create(
@@ -31,6 +34,7 @@ export class TicketController {
 
   // List (mine for USER, all for staff)
   @Get()
+  @UseGuards(AuthenticatedGuard, RolesGuard)
   @Roles(RoleEnum.USER, RoleEnum.AGENT, RoleEnum.ADMIN)
   findAll(@Req() req: any, @Query('page') page?: string, @Query('limit') limit?: string) {
     return this.svc.findAllFor(req.user, {
@@ -39,8 +43,18 @@ export class TicketController {
     });
   }
 
+  // Public list (no auth) for landing page
+  @Get('public')
+  findAllPublic(@Query('page') page?: string, @Query('limit') limit?: string) {
+    return this.svc.findAllPublic({
+      page: page ? parseInt(page, 10) : 1,
+      limit: limit ? parseInt(limit, 10) : 20,
+    });
+  }
+
   // Get one (owner or staff)
   @Get(':id')
+  @UseGuards(AuthenticatedGuard, RolesGuard)
   @Roles(RoleEnum.USER, RoleEnum.AGENT, RoleEnum.ADMIN)
   findOne(@Param('id') id: number, @Req() req: any) {
     return this.svc.findOneFor(req.user, id);
@@ -48,6 +62,7 @@ export class TicketController {
 
   // Get raw picture bytes (204 if none)
 @Get(':id/picture')
+@UseGuards(AuthenticatedGuard, RolesGuard)
 @Roles(RoleEnum.USER, RoleEnum.AGENT, RoleEnum.ADMIN)
 async getPicture(@Param('id') id: number, @Req() req: any, @Res() res: express.Response) {
   const t = await this.svc.findOneFor(req.user, id); // now includes images
@@ -59,6 +74,7 @@ async getPicture(@Param('id') id: number, @Req() req: any, @Res() res: express.R
 }
   // === NEW: get one image's bytes ===
   @Get(':id/images/:imageId')
+  @UseGuards(AuthenticatedGuard, RolesGuard)
   @Roles(RoleEnum.USER, RoleEnum.AGENT, RoleEnum.ADMIN)
   async getImage(
     @Param('id') id: number,
@@ -72,6 +88,7 @@ async getPicture(@Param('id') id: number, @Req() req: any, @Res() res: express.R
   }
   // === NEW: list all images metadata for a ticket ===
   @Get(':id/images')
+  @UseGuards(AuthenticatedGuard, RolesGuard)
   @Roles(RoleEnum.USER, RoleEnum.AGENT, RoleEnum.ADMIN)
   getAllImages(@Param('id') id: number, @Req() req: any) {
     return this.svc.getAllImagesFor(req.user, id);
@@ -80,6 +97,7 @@ async getPicture(@Param('id') id: number, @Req() req: any, @Res() res: express.R
 
   // Update content/tel/picture (owner or staff)
   @Patch(':id')
+  @UseGuards(AuthenticatedGuard, RolesGuard)
   @Roles(RoleEnum.USER, RoleEnum.AGENT, RoleEnum.ADMIN)
   @UseInterceptors(FilesInterceptor('pictures'))
   update(
@@ -93,6 +111,7 @@ async getPicture(@Param('id') id: number, @Req() req: any, @Res() res: express.R
 
   // Assign (staff only)
   @Patch(':id/assign')
+  @UseGuards(AuthenticatedGuard, RolesGuard)
   @Roles(RoleEnum.AGENT, RoleEnum.ADMIN)
   assign(@Param('id') id: number, @Body() dto: CreateTicketDto) {
     return this.svc.assign(id, dto);
@@ -108,8 +127,11 @@ async getPicture(@Param('id') id: number, @Req() req: any, @Res() res: express.R
 
   // Delete (admin; or owner if OPEN & unassigned)
   @Delete(':id')
+  @UseGuards(AuthenticatedGuard, RolesGuard)
   @Roles(RoleEnum.USER, RoleEnum.ADMIN)
   remove(@Param('id') id: number, @Req() req: any) {
     return this.svc.removeFor(req.user, id);
   }
+  
+  
 }
