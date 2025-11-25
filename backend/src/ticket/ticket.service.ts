@@ -125,6 +125,30 @@ export class TicketService {
 
     await this.email.notifyAgentsNewTicket(emails, ticket);
   }
+
+  async findAllPublic(opts?: { page?: number; limit?: number }) {
+    const page = Math.max(1, opts?.page ?? 1);
+    const limit = Math.min(100, Math.max(1, opts?.limit ?? 20));
+
+    const qb = this.repo
+      .createQueryBuilder('t')
+      .select([
+        't.id',
+        't.title',
+        't.detail',
+        't.status',
+        't.createdAt',
+        't.updatedAt',
+      ])
+      .orderBy('t.createdAt', 'DESC')
+      .take(limit)
+      .skip((page - 1) * limit);
+
+    const [items, total] = await qb.getManyAndCount();
+
+    return { items, total, page, limit };
+  }
+
   async findAllFor(user: User, opts?: { page?: number; limit?: number }) {
   const page = Math.max(1, opts?.page ?? 1);
   const limit = Math.min(100, Math.max(1, opts?.limit ?? 20));
