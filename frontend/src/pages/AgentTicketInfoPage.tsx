@@ -1,5 +1,5 @@
 // src/pages/AgentTicketInfoPage.tsx
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { API_BASE } from "../lib/api";
 import { useRequireAuth } from "../hooks/useRequireAuth";
@@ -83,6 +83,30 @@ export default function AgentTicketInfoPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const handleStatusChange = useCallback(
+    async (next: TicketStatus) => {
+      try {
+        const res = await fetch(`${API_BASE}/tickets/${id}/status`, {
+          method: "PATCH",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: next }),
+        });
+
+        if (!res.ok) {
+          throw new Error(`เปลี่ยนสถานะไม่สำเร็จ (${res.status})`);
+        }
+
+        const updated = await res.json();
+        setTicket(updated);
+      } catch (e: any) {
+        alert(e.message ?? "เปลี่ยนสถานะไม่สำเร็จ");
+        console.error(e);
+      }
+    },
+    [id]
+  );
+
   useEffect(() => {
     if (!id) return;
 
@@ -137,6 +161,7 @@ export default function AgentTicketInfoPage() {
   function handleExit() {
     nav("/agent");
   }
+
   function getStatusClassName(status: TicketStatus): string {
     const base = "py-1 px-2.5 rounded-full font-semibold text-xs inline-block";
     switch (status) {
@@ -198,8 +223,35 @@ export default function AgentTicketInfoPage() {
                 <Field label="รายละเอียดคำร้อง" value={ticket.detail} />
                 <Field label="เบอร์ติดต่อ" value={ticket.tel || "-"} />
 
-                <div className="space-y-1">
+                <div className="space-y-3">
                   <div className="text-xs opacity-70">สถานะคำร้อง</div>
+                  <div className="inline-flex rounded-md shadow-xs">
+                    <button
+                      type="button"
+                      aria-current="page"
+                      className={`px-4 py-2 text-sm font-medium  ${
+                        ticket.status === "IN_PROGRESS"
+                          ? "text-white bg-blue-800"
+                          : "text-gray-900 bg-white"
+                      } border border-gray-200 rounded-s-lg hover:text-white hover:bg-blue-900 focus:z-10  focus:ring-blue-700 focus:text-white dark:bg-gray-800 dark:border-gray-700 dark:text-white dark:hover:text-white dark:hover:bg-gray-700 dark:focus:ring-blue-500 dark:focus:text-white`}
+                      onClick={() => handleStatusChange("IN_PROGRESS")}
+                    >
+                      กำลังดำเนินการ
+                    </button>
+
+                    <button
+                      type="button"
+                      className={`px-4 py-2 text-sm font-medium   ${
+                        ticket.status === "RESOLVED"
+                          ? "text-white bg-green-800"
+                          : "text-gray-900 bg-white"
+                      }  border-t border-b border-gray-200 hover:bg-green-900 hover:text-white focus:z-10 rounded-e-lg focus:ring-green-700 focus:text-white dark:bg-gray-800 dark:border-gray-700 dark:text-white dark:hover:text-white dark:hover:bg-gray-700 dark:focus:ring-blue-500 dark:focus:text-white`}
+                      onClick={() => handleStatusChange("RESOLVED")}
+                    >
+                      ได้รับการแก้ไข
+                    </button>
+                  </div>
+
                   <div>
                     <span className={getStatusClassName(ticket.status)}>
                       {ticket.status === "OPEN"
