@@ -1,9 +1,9 @@
 // src/hooks/useRequireAuth.ts
-import { useEffect, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { API_BASE } from '../lib/api';
+import { useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { API_BASE } from "../lib/api";
 
-type RoleName = 'USER' | 'AGENT' | 'ADMIN';
+type RoleName = "USER" | "AGENT" | "ADMIN";
 
 export interface AuthUser {
   id: string;
@@ -39,7 +39,7 @@ export function useRequireAuth() {
         setError(null);
 
         const res = await fetch(`${API_BASE}/auth/me`, {
-          credentials: 'include',
+          credentials: "include",
         });
 
         if (!res.ok) {
@@ -56,12 +56,12 @@ export function useRequireAuth() {
 
           // อย่า loop redirect ตัวเอง (เผื่อหน้า login ใช้ hook ด้วย)
           const isOnPublicPage =
-            location.pathname === '/' ||
-            location.pathname === '/login' ||
-            location.pathname === '/forbidden';
+            location.pathname === "/" ||
+            location.pathname === "/login" ||
+            location.pathname === "/forbidden";
 
           if (!isOnPublicPage) {
-            navigate('/', { replace: true });
+            navigate("/login", { replace: true });
           }
           return;
         }
@@ -78,7 +78,7 @@ export function useRequireAuth() {
         }
       } catch (e: any) {
         console.error(e);
-        if (!cancelled) setError(e.message ?? 'Auth error');
+        if (!cancelled) setError(e.message ?? "Auth error");
       } finally {
         if (!cancelled) setLoading(false);
       }

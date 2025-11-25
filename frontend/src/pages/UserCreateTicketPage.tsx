@@ -144,7 +144,7 @@ export default function UserCreateTicketPage() {
             {/* Detail */}
             <div className="mb-4">
               <label className="block mb-1 text-sm font-semibold">
-                รายละอียด
+                รายละเอียด
               </label>
               <textarea
                 value={detail}
@@ -157,10 +157,10 @@ export default function UserCreateTicketPage() {
             {/* Tel */}
             <div className="mb-4">
               <label className="block mb-1 text-sm font-semibold">
-                เบอร์โทร (10 ตัว)
+                เบอร์โทรที่ติดต่อได้
               </label>
               <input
-                type="tel"
+                type="text"
                 inputMode="numeric"
                 pattern="\d{0,10}"
                 maxLength={10}

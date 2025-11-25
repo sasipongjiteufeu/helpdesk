@@ -130,7 +130,7 @@ export default function UserTicketsPage() {
 
         {/* Section Title */}
         <div className="mt-4 flex  flex-col-reverse md:flex-row justify-between">
-          <h2 className="text-2xl font-semibold m-0">รายการคำร้องของฉัน</h2>
+          <h2 className="text-2xl font-semibold m-0">รายการแจ้งปัญหา</h2>
 
           <Link
             to={"/user/create"}

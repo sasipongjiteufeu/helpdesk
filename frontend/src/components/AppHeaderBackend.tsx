@@ -44,7 +44,7 @@ export default function AppHeaderBackend({
           withCredentials: true,
         });
         console.log(response);
-        navigate("/");
+        navigate("/login");
       }
     } catch (error) {
       console.error(error);
