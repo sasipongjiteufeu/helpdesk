@@ -27,9 +27,7 @@ export default function UserTicketsPage() {
   async function loadTickets() {
     try {
       setLoading(true);
-      const res = await fetch(`${API_BASE}/tickets?page=1&limit=50`, {
-        credentials: "include",
-      });
+      const res = await fetch(`${API_BASE}/tickets/public?page=1&limit=50`);
       const data = await res.json();
       setTickets(data.items ?? []);
     } catch (e: any) {
