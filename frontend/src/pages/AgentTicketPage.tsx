@@ -41,7 +41,7 @@ export default function AgentTicketsPage() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<Filter>("IN_PROGRESS");
+  const [filter, setFilter] = useState<Filter>("ALL");
   const [savingId, setSavingId] = useState<number | null>(null);
   const [search, setSearch] = useState("");
 
@@ -134,9 +134,7 @@ export default function AgentTicketsPage() {
       if (filter === "ALL") {
         statusMatch = true;
       } else if (filter === "COMMIT") {
-        statusMatch = t.assignedTo?.id === user?.id;
-      } else if (filter === "IN_PROGRESS") {
-        statusMatch = t.status === "OPEN" || t.status === "IN_PROGRESS";
+        statusMatch = t.assignedTo?.id === user?.id && t.status !== "RESOLVED";
       } else {
         statusMatch = t.status === filter;
       }
@@ -164,11 +162,12 @@ export default function AgentTicketsPage() {
   const ticketCounts = useMemo(() => {
     return {
       all: tickets.length,
-      inProgress: tickets.filter(
-        (t) => t.status === "OPEN" || t.status === "IN_PROGRESS"
-      ).length,
+      open: tickets.filter((t) => t.status === "OPEN").length,
+      inProgress: tickets.filter((t) => t.status === "IN_PROGRESS").length,
       resolved: tickets.filter((t) => t.status === "RESOLVED").length,
-      commit: tickets.filter((t) => t.assignedTo?.id === user?.id).length,
+      commit: tickets.filter(
+        (t) => t.assignedTo?.id === user?.id && t.status !== "RESOLVED"
+      ).length,
     };
   }, [tickets, user?.id]);
 
@@ -278,7 +277,13 @@ export default function AgentTicketsPage() {
           <div className="flex gap-2 mb-3 items-center flex-wrap">
             <div className="flex gap-2 flex-wrap">
               <FilterButton
-                label="เปิด/กำลังดำเนินการ"
+                label="เปิด"
+                count={ticketCounts.open}
+                active={filter === "OPEN"}
+                onClick={() => setFilter("OPEN")}
+              />
+              <FilterButton
+                label="กำลังดำเนินการ"
                 count={ticketCounts.inProgress}
                 active={filter === "IN_PROGRESS"}
                 onClick={() => setFilter("IN_PROGRESS")}
@@ -289,6 +294,12 @@ export default function AgentTicketsPage() {
                 count={ticketCounts.commit}
                 active={filter === "COMMIT"}
                 onClick={() => setFilter("COMMIT")}
+              />
+              <FilterButton
+                label="ได้รับการแก้ไข"
+                count={ticketCounts.resolved}
+                active={filter === "RESOLVED"}
+                onClick={() => setFilter("RESOLVED")}
               />
               <FilterButton
                 label="ทั้งหมด"
