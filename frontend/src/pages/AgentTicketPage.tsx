@@ -77,7 +77,7 @@ export default function AgentTicketsPage() {
 
     // Cleanup interval on component unmount
     return () => clearInterval(intervalId);
-  }, [fetchTickets]);
+  }, []);
 
   const handleInfo = useCallback(
     (id: number) => {

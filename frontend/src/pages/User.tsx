@@ -53,7 +53,7 @@ export default function UserTicketsPage() {
 
     // Cleanup interval on component unmount
     return () => clearInterval(intervalId);
-  }, [loadTickets]);
+  }, []);
 
   if (authLoading || !user) {
     return <div className="p-10">Checking your access…</div>;
@@ -139,7 +139,9 @@ export default function UserTicketsPage() {
         <div className="mt-4 flex  flex-col-reverse md:flex-row justify-between">
           <h2 className="text-2xl font-semibold m-0">
             รายการแจ้งปัญหา{" "}
-            <span className="mr-1">จำนวน ticket ที่กำลังดำเนินการของวันนี้</span>
+            <span className="mr-1">
+              จำนวน ticket ที่กำลังดำเนินการของวันนี้
+            </span>
             <span>
               <span className="text-blue-500">
                 {
