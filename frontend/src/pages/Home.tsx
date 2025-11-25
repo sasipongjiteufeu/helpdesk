@@ -99,18 +99,37 @@ export default function UserTicketsPage() {
         <AppHeaderBackend user={user} title="Pubilc" />
 
         {/* Section Title */}
-        <div className="mt-4 flex  flex-col-reverse md:flex-row justify-between">
-          <h2 className="text-2xl font-semibold m-0">รายการแจ้งปัญหา</h2>
+        <div className="my-4 flex  flex-col-reverse md:flex-row justify-between">
+          <h2 className="text-2xl font-semibold m-0">
+            รายการแจ้งปัญหา{" "}
+            <span className="mr-1">
+              จำนวน ticket ที่กำลังดำเนินการของวันนี้
+            </span>
+            <span>
+              <span className="text-blue-500">
+                {
+                  tickets.filter(
+                    (t) =>
+                      t.status === "IN_PROGRESS" &&
+                      new Date(t.createdAt).toDateString() ===
+                        new Date().toDateString()
+                  ).length
+                }
+              </span>
+
+              <span className="ml-1">ticket</span>
+            </span>
+          </h2>
         </div>
 
         {/* Error */}
         {error && <p className="text-red-500 mt-2">{error}</p>}
 
         {/* Ticket Table */}
-        <div className="mt-3 overflow-x-auto">
-          <table className="w-full border-collapse text-sm">
+        <div className="rounded-xl border border-gray-200 bg-gray-50 p-3 overflow-x-auto">
+          <table className="w-full border-collapse text-sm bg-gray-200">
             <thead>
-              <tr>
+              <tr className="bg-gray-200">
                 <th className="text-left p-2 border-b-2 text-xl  border-gray-800">
                   สถานะคำร้อง
                 </th>
@@ -135,8 +154,11 @@ export default function UserTicketsPage() {
             <tbody>
               {tickets.map((t) => {
                 return (
-                  <tr key={t.id}>
-                    <td className="p-2 border-b border-gray-300 text-lg">
+                  <tr
+                    key={t.id}
+                    className="border-t border-gray-200 hover:bg-gray-100 bg-gray-100 transition-colors"
+                  >
+                    <td className="p-2 border-b border-gray-300 text-lg  align-top">
                       <StatusBadge status={t.status} />
                     </td>
                     <td className="p-2 border-b border-gray-300 text-lg">

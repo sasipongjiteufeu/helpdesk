@@ -176,9 +176,9 @@ export default function UserTicketsPage() {
           ) : tickets.length === 0 ? (
             <p>ยังไม่มีรายการคำร้อง</p>
           ) : (
-            <table className="w-full border-collapse text-sm">
+            <table className="w-full border-collapse text-sm bg-gray-200">
               <thead>
-                <tr>
+                <tr className="bg-gray-200">
                   <th className="text-left p-2 border-b-2 text-xl  border-gray-800">
                     สถานะคำร้อง
                   </th>
@@ -209,7 +209,10 @@ export default function UserTicketsPage() {
                 {tickets.map((t) => {
                   const canDelete = t.status === "OPEN" ? true : false;
                   return (
-                    <tr key={t.id}>
+                    <tr
+                      key={t.id}
+                      className="border-t border-gray-200 hover:bg-gray-100 bg-gray-100 transition-colors"
+                    >
                       <td className="p-2 border-b border-gray-300 text-lg">
                         <StatusBadge status={t.status} />
                       </td>

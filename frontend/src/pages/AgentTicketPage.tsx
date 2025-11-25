@@ -193,7 +193,7 @@ export default function AgentTicketsPage() {
       <button
         type="button"
         onClick={onClick}
-        className={`px-3.5 py-1.5 rounded-full border text-sm font-semibold cursor-pointer transition-all ${
+        className={`px-3.5 py-1.5 rounded-full border  font-semibold cursor-pointer transition-all text-lg ${
           active
             ? "border-green-600 bg-green-500 text-white shadow-md"
             : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
@@ -211,14 +211,14 @@ export default function AgentTicketsPage() {
 
   function Th({ children }: { children: React.ReactNode }) {
     return (
-      <th className="text-left p-2 border-b border-gray-300 whitespace-nowrap font-semibold text-gray-700">
+      <th className="text-left p-2 text-xl border-b border-gray-300 whitespace-nowrap font-semibold text-gray-700">
         {children}
       </th>
     );
   }
 
   function Td({ children }: { children: React.ReactNode }) {
-    return <td className="p-1.5 align-top">{children}</td>;
+    return <td className="p-1.5 text-lg align-top">{children}</td>;
   }
 
   function getStatusClass(status: TicketStatus): string {
