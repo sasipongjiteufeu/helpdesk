@@ -130,7 +130,7 @@ export default function AgentTicketsPage() {
       } else if (filter === "COMMIT") {
         statusMatch = t.assignedTo?.id === user?.id;
       } else {
-        statusMatch = t.status === filter;
+        statusMatch = t.status === "OPEN" || t.status === "IN_PROGRESS";
       }
 
       let searchMatch = true;
@@ -146,8 +146,9 @@ export default function AgentTicketsPage() {
   const ticketCounts = useMemo(() => {
     return {
       all: tickets.length,
-      open: tickets.filter((t) => t.status === "OPEN").length,
-      inProgress: tickets.filter((t) => t.status === "IN_PROGRESS").length,
+      inProgress: tickets.filter(
+        (t) => t.status === "OPEN" || t.status === "IN_PROGRESS"
+      ).length,
       resolved: tickets.filter((t) => t.status === "RESOLVED").length,
       commit: tickets.filter((t) => t.assignedTo?.id === user?.id).length,
     };
@@ -259,34 +260,23 @@ export default function AgentTicketsPage() {
           <div className="flex gap-2 mb-3 items-center flex-wrap">
             <div className="flex gap-2 flex-wrap">
               <FilterButton
-                label="ทั้งหมด"
-                count={ticketCounts.all}
-                active={filter === "ALL"}
-                onClick={() => setFilter("ALL")}
-              />
-              <FilterButton
-                label="เปิด"
-                count={ticketCounts.open}
-                active={filter === "OPEN"}
-                onClick={() => setFilter("OPEN")}
-              />
-              <FilterButton
-                label="กำลังดำเนินการ"
+                label="เปิด/กำลังดำเนินการ"
                 count={ticketCounts.inProgress}
                 active={filter === "IN_PROGRESS"}
                 onClick={() => setFilter("IN_PROGRESS")}
               />
-              <FilterButton
-                label="ได้รับการแก้ไข"
-                count={ticketCounts.resolved}
-                active={filter === "RESOLVED"}
-                onClick={() => setFilter("RESOLVED")}
-              />
+
               <FilterButton
                 label="งานที่มอบหมาย"
                 count={ticketCounts.commit}
                 active={filter === "COMMIT"}
                 onClick={() => setFilter("COMMIT")}
+              />
+              <FilterButton
+                label="ทั้งหมด"
+                count={ticketCounts.all}
+                active={filter === "ALL"}
+                onClick={() => setFilter("ALL")}
               />
             </div>
 

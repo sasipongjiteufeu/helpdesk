@@ -1,11 +1,9 @@
 // src/pages/User.tsx
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { API_BASE } from "../lib/api";
 import { useRequireAuth } from "../hooks/useRequireAuth";
 
 import AppHeaderBackend from "../components/AppHeaderBackend";
-import { FaCircleInfo } from "react-icons/fa6";
 
 type TicketStatus = "OPEN" | "IN_PROGRESS" | "RESOLVED";
 
@@ -21,8 +19,7 @@ interface Ticket {
 }
 
 export default function UserTicketsPage() {
-  const { user, loading: authLoading } = useRequireAuth();
-  const navigate = useNavigate();
+  const { user } = useRequireAuth();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
