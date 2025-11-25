@@ -44,6 +44,13 @@ export default function UserTicketsPage() {
 
   useEffect(() => {
     loadTickets();
+    // Auto refresh every 5 minutes (300000 milliseconds)
+    const intervalId = setInterval(() => {
+      loadTickets();
+    }, 300000);
+
+    // Cleanup interval on component unmount
+    return () => clearInterval(intervalId);
   }, []);
 
   function StatusBadge({ status }: { status: TicketStatus }) {
@@ -121,6 +128,9 @@ export default function UserTicketsPage() {
                 <th className="text-left p-2 border-b-2 text-xl border-gray-800">
                   รายระเอียดคำร้อง
                 </th>
+                <th className="text-left p-2 border-b-2 text-xl border-gray-800">
+                  รับงาน / แก้ไขสถานะโดย
+                </th>
 
                 <th className="text-left p-2 border-b-2 text-xl border-gray-800">
                   สร้าง ณ วันที่
@@ -144,24 +154,11 @@ export default function UserTicketsPage() {
                       {t.detail}
                     </td>
                     <td className="p-2 border-b border-gray-300 text-lg">
-                      {t.tel ?? "-"}
-                    </td>
-                    <td className="p-2 border-b border-gray-300 text-lg">
                       {t.assignedTo?.name ?? "-"}
                     </td>
+
                     <td className="p-2 border-b border-gray-300 text-lg">
                       {new Date(t.createdAt).toLocaleString()}
-                    </td>
-                    <td className="p-2 border-b border-gray-300 ">
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => navigate(`/user/ticket/${t.id}`)}
-                          className="px-2.5 py-1 rounded-full border border-gray-300 bg-white hover:bg-gray-50 text-xs cursor-pointer inline-flex items-center text-center"
-                        >
-                          <FaCircleInfo className="mr-1 text-lg" />{" "}
-                          <span className="text-lg">รายละเอียด</span>
-                        </button>
-                      </div>
                     </td>
                   </tr>
                 );
