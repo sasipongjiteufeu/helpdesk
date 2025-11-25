@@ -44,6 +44,7 @@ export default function AgentTicketsPage() {
   const [filter, setFilter] = useState<Filter>("ALL");
   const [savingId, setSavingId] = useState<number | null>(null);
   const [searchId, setSearchId] = useState("");
+   const [searchName, setSearchName] = useState("");
 
   const fetchTickets = useCallback(async () => {
     try {
@@ -70,6 +71,13 @@ export default function AgentTicketsPage() {
 
   useEffect(() => {
     fetchTickets();
+    // Auto refresh every 5 minutes (300000 milliseconds)
+    const intervalId = setInterval(() => {
+      fetchTickets();
+    }, 300000);
+
+    // Cleanup interval on component unmount
+    return () => clearInterval(intervalId);
   }, [fetchTickets]);
 
   const handleInfo = useCallback(
