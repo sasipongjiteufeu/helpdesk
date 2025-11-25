@@ -41,10 +41,9 @@ export default function AgentTicketsPage() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<Filter>("ALL");
+  const [filter, setFilter] = useState<Filter>("IN_PROGRESS");
   const [savingId, setSavingId] = useState<number | null>(null);
-  const [searchId, setSearchId] = useState("");
-   const [searchName, setSearchName] = useState("");
+  const [search, setSearch] = useState("");
 
   const fetchTickets = useCallback(async () => {
     try {
@@ -121,35 +120,46 @@ export default function AgentTicketsPage() {
 
   const handleSearchChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      const raw = e.target.value;
-      const digitsOnly = raw.replace(/\D/g, "");
-      setSearchId(digitsOnly);
+      setSearch(e.target.value);
     },
     []
   );
 
   const filteredTickets = useMemo(() => {
-    const normalizedSearch = searchId.trim();
+    const normalizedSearch = search.trim().toLowerCase();
 
     return tickets.filter((t) => {
+      // Status filter logic
       let statusMatch = false;
       if (filter === "ALL") {
         statusMatch = true;
       } else if (filter === "COMMIT") {
         statusMatch = t.assignedTo?.id === user?.id;
-      } else {
+      } else if (filter === "IN_PROGRESS") {
         statusMatch = t.status === "OPEN" || t.status === "IN_PROGRESS";
+      } else {
+        statusMatch = t.status === filter;
       }
 
-      let searchMatch = true;
+      // Search logic - searches in ID, name, and phone
+      let searchMatch: string | boolean = true;
       if (normalizedSearch) {
         const paddedId = String(t.id).padStart(7, "0");
-        searchMatch = paddedId.includes(normalizedSearch);
+        const createdByName = (t.createdBy?.name || "").toLowerCase();
+        const assignedToName = (t.assignedTo?.name || "").toLowerCase();
+        const tel = (t.tel || "").replace(/\D/g, "");
+        const searchDigits = normalizedSearch.replace(/\D/g, "");
+
+        searchMatch =
+          paddedId.includes(searchDigits) ||
+          createdByName.includes(normalizedSearch) ||
+          assignedToName.includes(normalizedSearch) ||
+          (searchDigits && tel.includes(searchDigits));
       }
 
       return statusMatch && searchMatch;
     });
-  }, [tickets, filter, searchId, user?.id]);
+  }, [tickets, filter, search, user?.id]);
 
   const ticketCounts = useMemo(() => {
     return {
@@ -288,14 +298,13 @@ export default function AgentTicketsPage() {
               />
             </div>
 
-            <div className="ml-auto">
+            <div className="ml-auto flex gap-2">
               <input
                 type="text"
-                value={searchId}
+                value={search}
                 onChange={handleSearchChange}
-                placeholder="ค้นหา Ticket โดยใช้ ID"
-                inputMode="numeric"
-                className="px-3 py-1.5 rounded-full border border-gray-300 text-sm min-w-[180px] bg-white focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                placeholder="ค้นหา ID, ชื่อ หรือเบอร์โทร"
+                className="px-3 py-1.5 rounded-full border border-gray-300 text-sm min-w-[200px] bg-white focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
               />
             </div>
           </div>
@@ -309,7 +318,7 @@ export default function AgentTicketsPage() {
             ) : filteredTickets.length === 0 ? (
               <div className="text-center py-8 text-gray-500">
                 <p className="m-0 text-lg">
-                  {searchId ? "ไม่พบคำร้องที่ค้นหา" : "ไม่พบคำร้องตามเงื่อนไข"}
+                  {search ? "ไม่พบคำร้องที่ค้นหา" : "ไม่พบคำร้องตามเงื่อนไข"}
                 </p>
               </div>
             ) : (

@@ -53,7 +53,7 @@ export default function UserTicketsPage() {
 
     // Cleanup interval on component unmount
     return () => clearInterval(intervalId);
-  }, []);
+  }, [loadTickets]);
 
   if (authLoading || !user) {
     return <div className="p-10">Checking your access…</div>;
