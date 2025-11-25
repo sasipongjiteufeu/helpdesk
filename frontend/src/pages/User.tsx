@@ -46,6 +46,13 @@ export default function UserTicketsPage() {
 
   useEffect(() => {
     loadTickets();
+    // Auto refresh every 5 minutes (300000 milliseconds)
+    const intervalId = setInterval(() => {
+      loadTickets();
+    }, 300000);
+
+    // Cleanup interval on component unmount
+    return () => clearInterval(intervalId);
   }, []);
 
   if (authLoading || !user) {
@@ -130,8 +137,24 @@ export default function UserTicketsPage() {
 
         {/* Section Title */}
         <div className="mt-4 flex  flex-col-reverse md:flex-row justify-between">
-          <h2 className="text-2xl font-semibold m-0">รายการแจ้งปัญหา</h2>
+          <h2 className="text-2xl font-semibold m-0">
+            รายการแจ้งปัญหา{" "}
+            <span className="mr-1">จำนวน ticket ที่กำลังดำเนินการของวันนี้</span>
+            <span>
+              <span className="text-blue-500">
+                {
+                  tickets.filter(
+                    (t) =>
+                      t.status === "IN_PROGRESS" &&
+                      new Date(t.createdAt).toDateString() ===
+                        new Date().toDateString()
+                  ).length
+                }
+              </span>
 
+              <span className="ml-1">ticket</span>
+            </span>
+          </h2>
           <Link
             to={"/user/create"}
             // onClick={() => navigate("/user/create")}

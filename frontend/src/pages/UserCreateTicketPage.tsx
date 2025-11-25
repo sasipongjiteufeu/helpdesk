@@ -39,12 +39,12 @@ export default function UserCreateTicketPage() {
   }
 
   // 🔢 จำกัดเบอร์โทร: ตัวเลขเท่านั้น และไม่เกิน 10 หลัก
-  function handleTelephoneChange(e: ChangeEvent<HTMLInputElement>) {
-    const raw = e.target.value;
-    const digitsOnly = raw.replace(/\D/g, ""); // เอาเฉพาะตัวเลข
-    const limited = digitsOnly.slice(0, 10); // ตัดให้เหลือ 10 ตัว
-    setTelephone(limited);
-  }
+  // function handleTelephoneChange(e: ChangeEvent<HTMLInputElement>) {
+  //   const raw = e.target.value;
+  //   const digitsOnly = raw.replace(/\D/g, ""); // เอาเฉพาะตัวเลข
+  //   const limited = digitsOnly.slice(0, 10); // ตัดให้เหลือ 10 ตัว
+  //   setTelephone(limited);
+  // }
 
   // helper เล็ก ๆ กัน input แปลก ๆ นิดหน่อย (trim และตัด length)
   function sanitizeText(input: string, maxLen: number) {
@@ -161,11 +161,11 @@ export default function UserCreateTicketPage() {
               </label>
               <input
                 type="text"
-                inputMode="numeric"
-                pattern="\d{0,10}"
-                maxLength={10}
+                // inputMode="numeric"
+                // pattern="\d{0,10}"
+                // maxLength={10}
                 value={telephone}
-                onChange={handleTelephoneChange}
+                onChange={(e) => setTelephone(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg border border-gray-300 bg-white text-gray-900 text-sm"
                 placeholder="0XXXXXXXXX"
               />
