@@ -1,5 +1,7 @@
 import { Routes, Route } from "react-router-dom";
 
+
+import Home from "./pages/Home";
 import Login from "./pages/Login";
 import AgentTicketInfoPage from "./pages/AgentTicketInfoPage";
 import Welcome from "./pages/Welcome";
@@ -17,7 +19,8 @@ import AdminStatsPage from "./pages/AdminStatsPage";
 export default function App() {
   return (
     <Routes>
-      <Route path="/" element={<Login />} />
+      <Route path="/" element={<Home />} />
+      <Route path="/login" element={<Login />} />
       <Route path="/welcome" element={<Welcome />} />
       <Route path="/forbidden" element={<Forbidden />} />
 

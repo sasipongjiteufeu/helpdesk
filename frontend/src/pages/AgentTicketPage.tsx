@@ -43,7 +43,7 @@ export default function AgentTicketsPage() {
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>("ALL");
   const [savingId, setSavingId] = useState<number | null>(null);
-  const [searchId, setSearchId] = useState("");
+  const [search, setSearch] = useState("");
 
   const fetchTickets = useCallback(async () => {
     try {
@@ -70,7 +70,14 @@ export default function AgentTicketsPage() {
 
   useEffect(() => {
     fetchTickets();
-  }, [fetchTickets]);
+    // Auto refresh every 5 minutes (300000 milliseconds)
+    const intervalId = setInterval(() => {
+      fetchTickets();
+    }, 300000);
+
+    // Cleanup interval on component unmount
+    return () => clearInterval(intervalId);
+  }, []);
 
   const handleInfo = useCallback(
     (id: number) => {
@@ -113,35 +120,44 @@ export default function AgentTicketsPage() {
 
   const handleSearchChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      const raw = e.target.value;
-      const digitsOnly = raw.replace(/\D/g, "");
-      setSearchId(digitsOnly);
+      setSearch(e.target.value);
     },
     []
   );
 
   const filteredTickets = useMemo(() => {
-    const normalizedSearch = searchId.trim();
+    const normalizedSearch = search.trim().toLowerCase();
 
     return tickets.filter((t) => {
+      // Status filter logic
       let statusMatch = false;
       if (filter === "ALL") {
         statusMatch = true;
       } else if (filter === "COMMIT") {
-        statusMatch = t.assignedTo?.id === user?.id;
+        statusMatch = t.assignedTo?.id === user?.id && t.status !== "RESOLVED";
       } else {
         statusMatch = t.status === filter;
       }
 
-      let searchMatch = true;
+      // Search logic - searches in ID, name, and phone
+      let searchMatch: string | boolean = true;
       if (normalizedSearch) {
         const paddedId = String(t.id).padStart(7, "0");
-        searchMatch = paddedId.includes(normalizedSearch);
+        const createdByName = (t.createdBy?.name || "").toLowerCase();
+        const assignedToName = (t.assignedTo?.name || "").toLowerCase();
+        const tel = (t.tel || "").replace(/\D/g, "");
+        const searchDigits = normalizedSearch.replace(/\D/g, "");
+
+        searchMatch =
+          paddedId.includes(searchDigits) ||
+          createdByName.includes(normalizedSearch) ||
+          assignedToName.includes(normalizedSearch) ||
+          (searchDigits && tel.includes(searchDigits));
       }
 
       return statusMatch && searchMatch;
     });
-  }, [tickets, filter, searchId, user?.id]);
+  }, [tickets, filter, search, user?.id]);
 
   const ticketCounts = useMemo(() => {
     return {
@@ -149,7 +165,9 @@ export default function AgentTicketsPage() {
       open: tickets.filter((t) => t.status === "OPEN").length,
       inProgress: tickets.filter((t) => t.status === "IN_PROGRESS").length,
       resolved: tickets.filter((t) => t.status === "RESOLVED").length,
-      commit: tickets.filter((t) => t.assignedTo?.id === user?.id).length,
+      commit: tickets.filter(
+        (t) => t.assignedTo?.id === user?.id && t.status !== "RESOLVED"
+      ).length,
     };
   }, [tickets, user?.id]);
 
@@ -175,7 +193,7 @@ export default function AgentTicketsPage() {
       <button
         type="button"
         onClick={onClick}
-        className={`px-3.5 py-1.5 rounded-full border text-sm font-semibold cursor-pointer transition-all ${
+        className={`px-3.5 py-1.5 rounded-full border  font-semibold cursor-pointer transition-all text-lg ${
           active
             ? "border-green-600 bg-green-500 text-white shadow-md"
             : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
@@ -193,14 +211,14 @@ export default function AgentTicketsPage() {
 
   function Th({ children }: { children: React.ReactNode }) {
     return (
-      <th className="text-left p-2 border-b border-gray-300 whitespace-nowrap font-semibold text-gray-700">
+      <th className="text-left p-2 text-xl border-b border-gray-300 whitespace-nowrap font-semibold text-gray-700">
         {children}
       </th>
     );
   }
 
   function Td({ children }: { children: React.ReactNode }) {
-    return <td className="p-1.5 align-top">{children}</td>;
+    return <td className="p-1.5 text-lg align-top">{children}</td>;
   }
 
   function getStatusClass(status: TicketStatus): string {
@@ -259,12 +277,6 @@ export default function AgentTicketsPage() {
           <div className="flex gap-2 mb-3 items-center flex-wrap">
             <div className="flex gap-2 flex-wrap">
               <FilterButton
-                label="ทั้งหมด"
-                count={ticketCounts.all}
-                active={filter === "ALL"}
-                onClick={() => setFilter("ALL")}
-              />
-              <FilterButton
                 label="เปิด"
                 count={ticketCounts.open}
                 active={filter === "OPEN"}
@@ -276,6 +288,13 @@ export default function AgentTicketsPage() {
                 active={filter === "IN_PROGRESS"}
                 onClick={() => setFilter("IN_PROGRESS")}
               />
+
+              <FilterButton
+                label="งานที่มอบหมาย"
+                count={ticketCounts.commit}
+                active={filter === "COMMIT"}
+                onClick={() => setFilter("COMMIT")}
+              />
               <FilterButton
                 label="ได้รับการแก้ไข"
                 count={ticketCounts.resolved}
@@ -283,21 +302,20 @@ export default function AgentTicketsPage() {
                 onClick={() => setFilter("RESOLVED")}
               />
               <FilterButton
-                label="งานที่มอบหมาย"
-                count={ticketCounts.commit}
-                active={filter === "COMMIT"}
-                onClick={() => setFilter("COMMIT")}
+                label="ทั้งหมด"
+                count={ticketCounts.all}
+                active={filter === "ALL"}
+                onClick={() => setFilter("ALL")}
               />
             </div>
 
-            <div className="ml-auto">
+            <div className="ml-auto flex gap-2">
               <input
                 type="text"
-                value={searchId}
+                value={search}
                 onChange={handleSearchChange}
-                placeholder="ค้นหา Ticket โดยใช้ ID"
-                inputMode="numeric"
-                className="px-3 py-1.5 rounded-full border border-gray-300 text-sm min-w-[180px] bg-white focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                placeholder="ค้นหา ID, ชื่อ หรือเบอร์โทร"
+                className="px-3 py-1.5 rounded-full border border-gray-300 text-sm min-w-[200px] bg-white focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
               />
             </div>
           </div>
@@ -311,7 +329,7 @@ export default function AgentTicketsPage() {
             ) : filteredTickets.length === 0 ? (
               <div className="text-center py-8 text-gray-500">
                 <p className="m-0 text-lg">
-                  {searchId ? "ไม่พบคำร้องที่ค้นหา" : "ไม่พบคำร้องตามเงื่อนไข"}
+                  {search ? "ไม่พบคำร้องที่ค้นหา" : "ไม่พบคำร้องตามเงื่อนไข"}
                 </p>
               </div>
             ) : (

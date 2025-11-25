@@ -46,6 +46,13 @@ export default function UserTicketsPage() {
 
   useEffect(() => {
     loadTickets();
+    // Auto refresh every 5 minutes (300000 milliseconds)
+    const intervalId = setInterval(() => {
+      loadTickets();
+    }, 300000);
+
+    // Cleanup interval on component unmount
+    return () => clearInterval(intervalId);
   }, []);
 
   if (authLoading || !user) {
@@ -130,8 +137,26 @@ export default function UserTicketsPage() {
 
         {/* Section Title */}
         <div className="mt-4 flex  flex-col-reverse md:flex-row justify-between">
-          <h2 className="text-2xl font-semibold m-0">รายการคำร้องของฉัน</h2>
+          <h2 className="text-2xl font-semibold m-0">
+            รายการแจ้งปัญหา{" "}
+            <span className="mr-1">
+              จำนวน ticket ที่กำลังดำเนินการของวันนี้
+            </span>
+            <span>
+              <span className="text-blue-500">
+                {
+                  tickets.filter(
+                    (t) =>
+                      t.status === "IN_PROGRESS" &&
+                      new Date(t.createdAt).toDateString() ===
+                        new Date().toDateString()
+                  ).length
+                }
+              </span>
 
+              <span className="ml-1">ticket</span>
+            </span>
+          </h2>
           <Link
             to={"/user/create"}
             // onClick={() => navigate("/user/create")}
@@ -151,9 +176,9 @@ export default function UserTicketsPage() {
           ) : tickets.length === 0 ? (
             <p>ยังไม่มีรายการคำร้อง</p>
           ) : (
-            <table className="w-full border-collapse text-sm">
+            <table className="w-full border-collapse text-sm bg-gray-200">
               <thead>
-                <tr>
+                <tr className="bg-gray-200">
                   <th className="text-left p-2 border-b-2 text-xl  border-gray-800">
                     สถานะคำร้อง
                   </th>
@@ -184,7 +209,10 @@ export default function UserTicketsPage() {
                 {tickets.map((t) => {
                   const canDelete = t.status === "OPEN" ? true : false;
                   return (
-                    <tr key={t.id}>
+                    <tr
+                      key={t.id}
+                      className="border-t border-gray-200 hover:bg-gray-100 bg-gray-100 transition-colors"
+                    >
                       <td className="p-2 border-b border-gray-300 text-lg">
                         <StatusBadge status={t.status} />
                       </td>

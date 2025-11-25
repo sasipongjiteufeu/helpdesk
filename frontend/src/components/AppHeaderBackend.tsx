@@ -1,6 +1,6 @@
 import axios from "axios";
 import { API_BASE } from "../lib/api";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import logoSRU from "../assets/logo-sru-png.png";
 import Swal from "sweetalert2";
 import { MdOutlineLogout } from "react-icons/md";
@@ -44,7 +44,7 @@ export default function AppHeaderBackend({
           withCredentials: true,
         });
         console.log(response);
-        navigate("/");
+        navigate("/login");
       }
     } catch (error) {
       console.error(error);
@@ -59,13 +59,27 @@ export default function AppHeaderBackend({
       </div>
 
       <div className="flex flex-col md:flex-row gap-4 items-center">
-        <span>{user?.email}</span>
-        <button
-          onClick={logout}
-          className="px-3.5 py-1.5 rounded-full border border-gray-300 bg-white hover:bg-gray-50 cursor-pointer inline-flex items-center text-center"
-        >
-          <MdOutlineLogout className="mr-0.5" /> ออกจากระบบ
-        </button>
+        {user && (
+          <>
+            <span>{user?.email}</span>
+            <button
+              onClick={logout}
+              className="px-3.5 py-1.5 rounded-full border border-gray-300 bg-white hover:bg-gray-50 cursor-pointer inline-flex items-center text-center"
+            >
+              <MdOutlineLogout className="mr-0.5" /> ออกจากระบบ
+            </button>
+          </>
+        )}
+        {!user && (
+          <>
+            <Link
+              to={"/login"}
+              className="px-3.5 py-1.5 rounded-full border border-gray-300 bg-white hover:bg-gray-50 cursor-pointer inline-flex items-center text-center"
+            >
+              เข้าสู่ระบบ
+            </Link>
+          </>
+        )}
       </div>
     </div>
   );
