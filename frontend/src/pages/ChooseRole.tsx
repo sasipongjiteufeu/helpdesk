@@ -4,6 +4,10 @@ import { useEffect, useState } from "react";
 import { API_BASE } from "../lib/api";
 import logoSRU from "../assets/logo-sru-png.png";
 import logoARIT from "../assets/logo-ARIT.png";
+import { FaUser } from "react-icons/fa6";
+import { RiAdminFill } from "react-icons/ri";
+import { MdDeveloperMode } from "react-icons/md";
+
 import "animate.css";
 
 type RoleName = "USER" | "AGENT" | "ADMIN";
@@ -104,16 +108,24 @@ export default function ChooseRole() {
             {!loading &&
               roles.map((role) => (
                 <button
-                  className={`text-white bg-gradient-to-r ${
+                  className={`text-white bg-gradient-to-r  ${
                     role === "ADMIN"
                       ? "from-rose-500 via-rose-600 to-pink-600 hover:from-rose-600 hover:via-rose-700 hover:to-pink-700 focus:ring-rose-300 shadow-rose-200"
                       : role === "AGENT"
                       ? "from-blue-500 via-blue-600 to-indigo-600 hover:from-blue-600 hover:via-blue-700 hover:to-indigo-700 focus:ring-blue-300 shadow-blue-200"
                       : "from-emerald-500 via-emerald-600 to-teal-600 hover:from-emerald-600 hover:via-emerald-700 hover:to-teal-700 focus:ring-emerald-300 shadow-emerald-200"
-                  } focus:ring-4 focus:outline-none font-semibold rounded-lg text-sm px-6 py-3 text-center shadow-lg transition-all duration-300 transform hover:scale-105 hover:shadow-xl active:scale-95`}
+                  } focus:ring-4 focus:outline-none font-semibold rounded-lg text-sm px-6 py-3 text-center shadow-lg transition-all duration-300 transform hover:scale-105 hover:shadow-xl active:scale-95 inline-flex items-center justify-center gap-3`}
                   onClick={() => go(role)}
                   key={role}
                 >
+                  {role === "ADMIN" ? (
+                    <RiAdminFill />
+                  ) : role === "AGENT" ? (
+                    <MdDeveloperMode />
+                  ) : (
+                    <FaUser />
+                  )}
+
                   {role === "ADMIN"
                     ? "ผู้ดูแลระบบ"
                     : role === "AGENT"
