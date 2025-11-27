@@ -6,7 +6,7 @@ import { useRequireAuth } from "../hooks/useRequireAuth";
 import AppHeaderBackend from "../components/AppHeaderBackend";
 import { MdInfo, MdRefresh } from "react-icons/md";
 
-type TicketStatus = "OPEN" | "IN_PROGRESS" | "RESOLVED" | "COMMIT";
+type TicketStatus = "OPEN" | "IN_PROGRESS" | "RESOLVED" | "COMMIT" | "O_P";
 
 interface Ticket {
   id: number;
@@ -32,6 +32,7 @@ const STATUS_LABELS: Record<TicketStatus, string> = {
   IN_PROGRESS: "กำลังดำเนินการ",
   RESOLVED: "ได้รับการแก้ไขแล้ว",
   COMMIT: "ที่ส่ง",
+  O_P: "เปิด/กำลังดำเนินการ",
 };
 
 export default function AgentTicketsPage() {
@@ -41,7 +42,7 @@ export default function AgentTicketsPage() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<Filter>("ALL");
+  const [filter, setFilter] = useState<Filter>("O_P");
   const [savingId, setSavingId] = useState<number | null>(null);
   const [search, setSearch] = useState("");
 
@@ -135,6 +136,8 @@ export default function AgentTicketsPage() {
         statusMatch = true;
       } else if (filter === "COMMIT") {
         statusMatch = t.assignedTo?.id === user?.id && t.status !== "RESOLVED";
+      } else if (filter === "O_P") {
+        statusMatch = t.status !== "RESOLVED";
       } else {
         statusMatch = t.status === filter;
       }
@@ -164,7 +167,7 @@ export default function AgentTicketsPage() {
       all: tickets.length,
       open: tickets.filter((t) => t.status === "OPEN").length,
       inProgress: tickets.filter((t) => t.status === "IN_PROGRESS").length,
-      resolved: tickets.filter((t) => t.status === "RESOLVED").length,
+      resolved: tickets.filter((t) => t.status !== "RESOLVED").length,
       commit: tickets.filter(
         (t) => t.assignedTo?.id === user?.id && t.status !== "RESOLVED"
       ).length,
@@ -277,6 +280,12 @@ export default function AgentTicketsPage() {
           <div className="flex gap-2 mb-3 items-center flex-wrap">
             <div className="flex gap-2 flex-wrap">
               <FilterButton
+                label="เปิด/กำลังดำเนินการ"
+                count={ticketCounts.resolved}
+                active={filter === "O_P"}
+                onClick={() => setFilter("O_P")}
+              />
+              <FilterButton
                 label="เปิด"
                 count={ticketCounts.open}
                 active={filter === "OPEN"}
@@ -294,12 +303,6 @@ export default function AgentTicketsPage() {
                 count={ticketCounts.commit}
                 active={filter === "COMMIT"}
                 onClick={() => setFilter("COMMIT")}
-              />
-              <FilterButton
-                label="ได้รับการแก้ไข"
-                count={ticketCounts.resolved}
-                active={filter === "RESOLVED"}
-                onClick={() => setFilter("RESOLVED")}
               />
               <FilterButton
                 label="ทั้งหมด"
