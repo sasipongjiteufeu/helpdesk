@@ -28,8 +28,13 @@ export class TicketImage {
   @Column({ name: 'Size', type: 'int', nullable: true })
   size: number | null;
 
-  @Column({ name: 'Data', type: 'longblob' })
-  data: Buffer;
+  // File is stored on disk; keep path, not blob
+  @Column({ name: 'Path', type: 'varchar', length: 512, nullable: true })
+  path: string | null;
+
+  // Legacy blob column (kept nullable for backward compatibility)
+  @Column({ name: 'Data', type: 'longblob', nullable: true })
+  data: Buffer | null;
 
   @CreateDateColumn({
     name: 'Created_at',

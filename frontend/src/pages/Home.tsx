@@ -21,15 +21,11 @@ const STATUS_LABELS: Record<TicketStatus, string> = {
   RESOLVED: "ปิดแล้ว",
 };
 
-interface SessionUser {
-  email?: string;
-}
-
 export default function Home() {
-  const [sessionUser, setSessionUser] = useState<SessionUser | null>(null);
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [checkingSession, setCheckingSession] = useState(true);
 
   async function loadTickets() {
     try {
@@ -45,7 +41,7 @@ export default function Home() {
   }
 
   useEffect(() => {
-    // try to read current session, but don't block
+    // If already logged in, send them to role chooser (skip public page)
     (async () => {
       try {
         const res = await fetch(`${API_BASE}/auth/me`, {
@@ -53,12 +49,15 @@ export default function Home() {
         });
         if (res.ok) {
           const data = await res.json();
-          setSessionUser({ email: data?.email });
-        } else {
-          setSessionUser(null);
+          if (data?.email) {
+            window.location.replace("/choose-role");
+            return;
+          }
         }
+        setCheckingSession(false);
       } catch {
-        setSessionUser(null);
+        // ignore
+        setCheckingSession(false);
       }
     })();
 
@@ -117,10 +116,21 @@ export default function Home() {
     });
   }
 
+  if (checkingSession) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-gray-50 via-white to-gray-100 flex items-center justify-center text-gray-900">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto mb-4"></div>
+          <p className="text-lg text-gray-600">กำลังตรวจสอบ...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 via-white to-gray-100 py-10 px-4 text-gray-900">
       <div className="max-w-7xl mx-auto bg-white/80 backdrop-blur rounded-3xl shadow-[0_25px_80px_-40px_rgba(15,23,42,0.35)] border border-gray-100 px-8 py-6">
-        <AppHeaderBackend user={sessionUser} title="Public" />
+        <AppHeaderBackend user={null} title="Public" />
 
         <div className="mt-6 flex flex-col gap-3">
           <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight">

@@ -12,6 +12,9 @@ import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { Roles } from 'src/auth/decorators/roles.decorator';
 import { RoleEnum } from 'src/role/entities/role.enum';
 import { get } from 'axios';
+import * as path from 'path';
+import * as fs from 'fs';
+import { FilterTicketDto } from './dto/filter-ticket.dto';
 
 @Controller('tickets')
 
@@ -52,6 +55,14 @@ export class TicketController {
     });
   }
 
+  // Filter (server-side) to reduce client load
+  @Post('filter')
+  @UseGuards(AuthenticatedGuard, RolesGuard)
+  @Roles(RoleEnum.USER, RoleEnum.AGENT, RoleEnum.ADMIN)
+  filter(@Req() req: any, @Body() dto: FilterTicketDto) {
+    return this.svc.filterFor(req.user, dto);
+  }
+
   // Get one (owner or staff)
   @Get(':id')
   @UseGuards(AuthenticatedGuard, RolesGuard)
@@ -62,16 +73,21 @@ export class TicketController {
 
   // Get raw picture bytes (204 if none)
 @Get(':id/picture')
-@UseGuards(AuthenticatedGuard, RolesGuard)
-@Roles(RoleEnum.USER, RoleEnum.AGENT, RoleEnum.ADMIN)
-async getPicture(@Param('id') id: number, @Req() req: any, @Res() res: express.Response) {
-  const t = await this.svc.findOneFor(req.user, id); // now includes images
-  const firstImage = t.images?.[0];
-  if (!firstImage) return res.status(204).send();
+  @UseGuards(AuthenticatedGuard, RolesGuard)
+  @Roles(RoleEnum.USER, RoleEnum.AGENT, RoleEnum.ADMIN)
+  async getPicture(@Param('id') id: number, @Req() req: any, @Res() res: express.Response) {
+    const t = await this.svc.findOneFor(req.user, id); // now includes images
+    const firstImage = t.images?.[0];
+    if (!firstImage || !firstImage.path) return res.status(204).send();
 
-  res.setHeader('Content-Type', firstImage.mimeType || 'application/octet-stream');
-  res.end(firstImage.data);
-}
+    const absPath = path.isAbsolute(firstImage.path)
+      ? firstImage.path
+      : path.join(process.cwd(), firstImage.path);
+    if (!fs.existsSync(absPath)) return res.status(204).send();
+
+    res.setHeader('Content-Type', firstImage.mimeType || 'application/octet-stream');
+    return res.sendFile(absPath);
+  }
   // === NEW: get one image's bytes ===
   @Get(':id/images/:imageId')
   @UseGuards(AuthenticatedGuard, RolesGuard)
@@ -83,8 +99,18 @@ async getPicture(@Param('id') id: number, @Req() req: any, @Res() res: express.R
     @Res() res: express.Response,
   ) {
     const img = await this.svc.getImageFor(req.user, id, imageId);
+    const absPath = img.path && path.isAbsolute(img.path)
+      ? img.path
+      : img.path
+      ? path.join(process.cwd(), img.path)
+      : null;
+
+    if (!absPath || !fs.existsSync(absPath)) {
+      return res.status(204).send();
+    }
+
     res.setHeader('Content-Type', img.mimeType || 'application/octet-stream');
-    res.end(img.data);
+    return res.sendFile(absPath);
   }
   // === NEW: list all images metadata for a ticket ===
   @Get(':id/images')

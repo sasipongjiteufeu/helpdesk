@@ -1,13 +1,12 @@
 // src/pages/User.tsx
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { API_BASE } from "../lib/api";
 import { useRequireAuth } from "../hooks/useRequireAuth";
-
 import AppHeaderBackend from "../components/AppHeaderBackend";
 import { MdDelete, MdOutlineAddCircle } from "react-icons/md";
-import Swal from "sweetalert2";
 import { FaCircleInfo } from "react-icons/fa6";
+import Swal from "sweetalert2";
 
 type TicketStatus = "OPEN" | "IN_PROGRESS" | "RESOLVED";
 
@@ -18,9 +17,14 @@ interface Ticket {
   tel?: string | null;
   status: TicketStatus;
   createdAt: string;
-  assignedTo?: { email?: string | null; name: string } | null;
-  lastStatusChangedBy?: { email?: string | null } | null;
+  assignedTo?: { name?: string | null } | null;
 }
+
+const STATUS_LABELS: Record<TicketStatus, string> = {
+  OPEN: "เปิด",
+  IN_PROGRESS: "กำลังดำเนินการ",
+  RESOLVED: "ปิดแล้ว",
+};
 
 export default function UserTicketsPage() {
   const { user, loading: authLoading } = useRequireAuth();
@@ -38,7 +42,7 @@ export default function UserTicketsPage() {
       const data = await res.json();
       setTickets(data.items ?? []);
     } catch (e: any) {
-      setError(e.message || "fetch error");
+      setError(e.message || "ไม่สามารถดึงข้อมูลได้");
     } finally {
       setLoading(false);
     }
@@ -46,31 +50,82 @@ export default function UserTicketsPage() {
 
   useEffect(() => {
     loadTickets();
-    // Auto refresh every 5 minutes (300000 milliseconds)
     const intervalId = setInterval(() => {
       loadTickets();
     }, 300000);
-
-    // Cleanup interval on component unmount
     return () => clearInterval(intervalId);
   }, []);
 
+  const todayActiveCount = useMemo(() => {
+    const today = new Date().toDateString();
+    return tickets.filter(
+      (t) =>
+        t.status === "IN_PROGRESS" &&
+        new Date(t.createdAt).toDateString() === today,
+    ).length;
+  }, [tickets]);
+
   if (authLoading || !user) {
-    return <div className="p-10">Checking your access…</div>;
+    return (
+      <div className="min-h-screen grid place-items-center bg-gray-100 text-gray-900">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
+          <p>กำลังตรวจสอบสิทธิ์...</p>
+        </div>
+      </div>
+    );
+  }
+
+  function StatusBadge({ status }: { status: TicketStatus }) {
+    const base =
+      "px-3 py-1.5 rounded-full font-semibold text-sm inline-flex items-center gap-2 shadow-sm";
+    const dot = "inline-block w-2.5 h-2.5 rounded-full";
+    switch (status) {
+      case "OPEN":
+        return (
+          <span className={`${base} bg-amber-100 text-amber-900`}>
+            <span className={`${dot} bg-amber-500`} /> {STATUS_LABELS.OPEN}
+          </span>
+        );
+      case "IN_PROGRESS":
+        return (
+          <span className={`${base} bg-blue-100 text-blue-900`}>
+            <span className={`${dot} bg-blue-500`} /> {STATUS_LABELS.IN_PROGRESS}
+          </span>
+        );
+      case "RESOLVED":
+        return (
+          <span className={`${base} bg-emerald-100 text-emerald-900`}>
+            <span className={`${dot} bg-emerald-500`} /> {STATUS_LABELS.RESOLVED}
+          </span>
+        );
+      default:
+        return <span className={base}>{status}</span>;
+    }
+  }
+
+  function formatDate(dateString: string): string {
+    const date = new Date(dateString);
+    return date.toLocaleString("th-TH", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   }
 
   async function handleDelete(id: number) {
-    // if (!confirm("ต้องการลบคำร้องนี้หรือไม่?")) return;
     try {
       const result = await Swal.fire({
-        title: "คุรแน่ใจใช่ไหม?",
-        text: "คุณจะลบข้อมูล! รหัส " + id + " นี้",
+        title: "ลบคำร้องนี้หรือไม่?",
+        text: `Ticket ${id} จะถูกลบถาวร`,
         icon: "warning",
         showCancelButton: true,
-        confirmButtonColor: "#3085d6",
-        cancelButtonColor: "#d33",
-        confirmButtonText: "ใช่!",
-        cancelButtonText: "ยกเลิก!",
+        confirmButtonColor: "#e11d48",
+        cancelButtonColor: "#6b7280",
+        confirmButtonText: "ลบคำร้อง",
+        cancelButtonText: "ยกเลิก",
       });
 
       if (result.isConfirmed) {
@@ -79,198 +134,144 @@ export default function UserTicketsPage() {
           credentials: "include",
         });
         if (!res.ok) {
-          alert(`ไม่สามารถลบคำร้องได้ (status code ${res.status})`);
+          alert(`ไม่สามารถลบได้ (status ${res.status})`);
           return;
         }
         setTickets((prev) => prev.filter((t) => t.id !== id));
-
         await Swal.fire({
-          title: "ลบ!",
-          text: "ลบข้อมูลสำเร็จ",
+          title: "ลบแล้ว",
           icon: "success",
           showConfirmButton: false,
-          timer: 1500,
+          timer: 1200,
         });
       }
     } catch (e: any) {
-      alert(e.message ?? "ลบคำร้องไม่สำเร็จ");
-    }
-  }
-
-  function StatusBadge({ status }: { status: TicketStatus }) {
-    const baseClasses =
-      "px-2.5 py-1 rounded-full font-semibold text-xs inline-block";
-
-    switch (status) {
-      case "OPEN":
-        return (
-          <span className={`${baseClasses} bg-yellow-400 text-white`}>
-            {/* {status}  */}
-            เปิด
-          </span>
-        );
-      case "IN_PROGRESS":
-        return (
-          <span className={`${baseClasses} bg-blue-500 text-white`}>
-            {/* {status}  */}
-            กำลังดำเนินการ
-          </span>
-        );
-      case "RESOLVED":
-        return (
-          <span className={`${baseClasses} bg-green-500 text-white`}>
-            {/* {status}  */}
-            แก้ไขแล้ว
-          </span>
-        );
-      default:
-        return <span className={baseClasses}>{status}</span>;
+      alert(e.message ?? "ลบไม่สำเร็จ");
     }
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 p-6">
-      <div className="max-w-full container mx-auto bg-white rounded-2xl shadow-2xl p-5">
-        {/* Header */}
-
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 via-white to-gray-100 py-10 px-4 text-gray-900">
+      <div className=" mx-auto bg-white/85 backdrop-blur rounded-3xl shadow-[0_25px_80px_-40px_rgba(15,23,42,0.35)] border border-gray-100 px-8 py-6">
         <AppHeaderBackend user={user} title={"USER"} />
 
-        {/* Section Title */}
-        <div className="mt-4 flex  flex-col-reverse md:flex-row justify-between">
-          <h2 className="text-2xl font-semibold m-0">
-            รายการแจ้งปัญหา{" "}
-            <span className="mr-1">
-              จำนวน ticket ที่กำลังดำเนินการของวันนี้
-            </span>
-            <span>
-              <span className="text-blue-500">
-                {
-                  tickets.filter(
-                    (t) =>
-                      t.status === "IN_PROGRESS" &&
-                      new Date(t.createdAt).toDateString() ===
-                        new Date().toDateString()
-                  ).length
-                }
+        <div className="mt-6 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          <div>
+            <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight">
+              งานของฉัน
+            </h2>
+            <p className="text-lg text-gray-600">
+              วันนี้มีคำร้องที่กำลังดำเนินการ{" "}
+              <span className="font-semibold text-emerald-700">
+                {todayActiveCount} ticket
               </span>
-
-              <span className="ml-1">ticket</span>
-            </span>
-          </h2>
+            </p>
+          </div>
           <Link
             to={"/user/create"}
-            // onClick={() => navigate("/user/create")}
-            className="px-4 py-1.5 mb-4  bg-green-500 hover:bg-green-600 text-white rounded-full font-semibold border-none cursor-pointer inline-flex items-center"
+            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-full font-semibold inline-flex items-center gap-2 shadow-md transition-colors"
           >
-            <MdOutlineAddCircle className="mr-1" /> <span>เพิ่ม</span>
+            <MdOutlineAddCircle className="text-xl" /> สร้างคำร้องใหม่
           </Link>
         </div>
 
-        {/* Error */}
-        {error && <p className="text-red-500 mt-2">{error}</p>}
+        {error && (
+          <div className="mt-4 rounded-2xl bg-red-50 border border-red-100 px-4 py-3 text-red-800">
+            {error}
+          </div>
+        )}
 
-        {/* Ticket Table */}
-        <div className="mt-3 overflow-x-auto">
-          {loading ? (
-            <p>Loading…</p>
-          ) : tickets.length === 0 ? (
-            <p>ยังไม่มีรายการคำร้อง</p>
-          ) : (
-            <table className="w-full border-collapse text-sm bg-gray-200">
-              <thead>
-                <tr className="bg-gray-200">
-                  <th className="text-left p-2 border-b-2 text-xl  border-gray-800">
-                    สถานะคำร้อง
-                  </th>
-                  <th className="text-left p-2 border-b-2 text-xl border-gray-800">
-                    Ticket ID
-                  </th>
-                  <th className="text-left p-2 border-b-2 text-xl border-gray-800">
-                    หัวข้อ
-                  </th>
-                  <th className="text-left p-2 border-b-2 text-xl border-gray-800">
-                    รายระเอียดคำร้อง
-                  </th>
-                  <th className="text-left p-2 border-b-2 text-xl border-gray-800">
-                    เบอร์ติดต่อ
-                  </th>
-                  <th className="text-left p-2 border-b-2 text-xl border-gray-800">
-                    รับงาน / แก้ไขสถานะโดย
-                  </th>
-                  <th className="text-left p-2 border-b-2 text-xl border-gray-800">
-                    สร้าง ณ วันที่
-                  </th>
-                  <th className="text-left p-2 border-b-2 text-xl border-gray-800">
-                    ตัวเลือก
-                  </th>
+        <div className="mt-5 rounded-2xl border border-gray-200 bg-gray-50/60 overflow-hidden shadow-inner">
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse">
+              <thead className="bg-gray-200/80 text-left text-gray-800 text-base md:text-lg">
+                <tr>
+                  <th className="px-4 py-3 font-semibold">สถานะ</th>
+                  <th className="px-4 py-3 font-semibold">Ticket ID</th>
+                  <th className="px-4 py-3 font-semibold">หัวข้อ</th>
+                  <th className="px-4 py-3 font-semibold">รายละเอียด</th>
+                  <th className="px-4 py-3 font-semibold">เบอร์ติดต่อ</th>
+                  <th className="px-4 py-3 font-semibold">ผู้รับผิดชอบ</th>
+                  <th className="px-4 py-3 font-semibold">สร้างเมื่อ</th>
+                  <th className="px-4 py-3 font-semibold text-right">จัดการ</th>
                 </tr>
               </thead>
-              <tbody>
-                {tickets.map((t) => {
-                  const canDelete = t.status === "OPEN" ? true : false;
-                  return (
-                    <tr
-                      key={t.id}
-                      className="border-t border-gray-200 hover:bg-gray-100 bg-gray-100 transition-colors"
-                    >
-                      <td className="p-2 border-b border-gray-300 text-lg">
-                        <StatusBadge status={t.status} />
-                      </td>
-                      <td className="p-2 border-b border-gray-300 text-lg">
-                        {String(t.id).padStart(7, "0")}
-                      </td>
-                      <td className="p-2 border-b border-gray-300 text-lg">
-                        {t.title}
-                      </td>
-                      <td className="p-2 border-b border-gray-300 text-lg">
-                        {t.detail}
-                      </td>
-                      <td className="p-2 border-b border-gray-300 text-lg">
-                        {t.tel ?? "-"}
-                      </td>
-                      <td className="p-2 border-b border-gray-300 text-lg">
-                        {t.assignedTo?.name ?? "-"}
-                      </td>
-                      <td className="p-2 border-b border-gray-300 text-lg">
-                        {new Date(t.createdAt).toLocaleString()}
-                      </td>
-                      <td className="p-2 border-b border-gray-300 ">
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => navigate(`/user/ticket/${t.id}`)}
-                            className="px-2.5 py-1 rounded-full border border-gray-300 bg-white hover:bg-gray-50 text-xs cursor-pointer inline-flex items-center text-center"
-                          >
-                            <FaCircleInfo className="mr-1 text-lg" />{" "}
-                            <span className="text-lg">รายละเอียด</span>
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={
-                              canDelete ? () => handleDelete(t.id) : undefined
-                            }
-                            disabled={!canDelete}
-                            className={`px-2.5 py-1 rounded-full border-none  inline-flex items-center text-center text-lg ${
-                              canDelete
-                                ? "bg-red-500 text-white hover:bg-red-600 cursor-pointer"
-                                : "bg-gray-200 text-gray-400 cursor-not-allowed"
-                            }`}
-                            title={
-                              canDelete
-                                ? "ลบคำร้อง"
-                                : "ไม่สามารถลบได้เมื่อคำร้องกำลังดำเนินการหรือปิดแล้ว หรือมีเจ้าหน้าที่รับงานแล้ว"
-                            }
-                          >
-                            <MdDelete className="mr-1 text-lg" /> ลบ
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
+              <tbody className="divide-y divide-gray-200 bg-white text-base md:text-lg">
+                {loading ? (
+                  <tr>
+                    <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
+                      กำลังโหลดข้อมูล...
+                    </td>
+                  </tr>
+                ) : tickets.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
+                      ยังไม่มีคำร้อง
+                    </td>
+                  </tr>
+                ) : (
+                  tickets.map((t) => {
+                    const canDelete = t.status === "OPEN";
+                    return (
+                      <tr
+                        key={t.id}
+                        className="hover:bg-gray-50 transition-colors"
+                      >
+                        <td className="px-4 py-3">
+                          <StatusBadge status={t.status} />
+                        </td>
+                        <td className="px-4 py-3 font-mono font-semibold text-gray-800">
+                          {String(t.id).padStart(7, "0")}
+                        </td>
+                        <td className="px-4 py-3 font-semibold text-gray-900">
+                          {t.title}
+                        </td>
+                        <td className="px-4 py-3 text-gray-700">{t.detail}</td>
+                        <td className="px-4 py-3 text-gray-700">
+                          {t.tel ?? "-"}
+                        </td>
+                        <td className="px-4 py-3 text-gray-800">
+                          {t.assignedTo?.name || "-"}
+                        </td>
+                        <td className="px-4 py-3 text-gray-700 whitespace-nowrap">
+                          {formatDate(t.createdAt)}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex justify-end gap-2">
+                            <button
+                              onClick={() => navigate(`/user/ticket/${t.id}`)}
+                              className="px-3 py-2 rounded-full border border-gray-300 bg-white hover:bg-gray-50 text-sm font-semibold inline-flex items-center gap-2 transition-colors"
+                            >
+                              <FaCircleInfo /> รายละเอียด
+                            </button>
+                            <button
+                              type="button"
+                              onClick={
+                                canDelete ? () => handleDelete(t.id) : undefined
+                              }
+                              disabled={!canDelete}
+                              className={`px-3 py-2 rounded-full text-sm font-semibold inline-flex items-center gap-2 transition-colors ${
+                                canDelete
+                                  ? "bg-rose-100 text-rose-700 hover:bg-rose-200"
+                                  : "bg-gray-200 text-gray-400 cursor-not-allowed"
+                              }`}
+                              title={
+                                canDelete
+                                  ? "ลบคำร้อง"
+                                  : "ลบไม่ได้หลังจากเริ่มดำเนินการ"
+                              }
+                            >
+                              <MdDelete /> ลบ
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
-          )}
+          </div>
         </div>
       </div>
     </div>

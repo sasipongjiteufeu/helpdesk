@@ -1,7 +1,9 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { MulterModule } from '@nestjs/platform-express';
-import { memoryStorage } from 'multer';
+import { diskStorage } from 'multer';
+import * as fs from 'fs';
+import * as path from 'path';
 import { Ticket } from './entities/ticket.entity';
 import { User } from 'src/user/entities/user.entity';
 import { TicketService } from './ticket.service';
@@ -14,7 +16,18 @@ import { TelegramNotifyModule } from 'src/telegram-notify/telegram-notify.module
   imports: [
     TypeOrmModule.forFeature([Ticket, User, TicketImage]),
     MulterModule.register({
-      storage: memoryStorage(),          // file.buffer available
+      storage: diskStorage({
+        destination: (req, file, cb) => {
+          const uploadPath = path.join(process.cwd(), 'uploads', 'tickets');
+          fs.mkdirSync(uploadPath, { recursive: true });
+          cb(null, uploadPath);
+        },
+        filename: (req, file, cb) => {
+          const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+          const ext = path.extname(file.originalname);
+          cb(null, `${unique}${ext}`);
+        },
+      }),
       limits: { fileSize: 5 * 1024 * 1024 }, // 5MB max; adjust as needed
     }),TelegramNotifyModule
   ],

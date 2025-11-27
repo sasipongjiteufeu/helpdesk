@@ -6,7 +6,7 @@ import Swal from "sweetalert2";
 import { MdOutlineLogout } from "react-icons/md";
 
 interface User {
-  email: string;
+  email?: string;
   // Add other user properties as needed
 }
 

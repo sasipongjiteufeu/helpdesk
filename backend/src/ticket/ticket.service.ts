@@ -6,10 +6,13 @@ import { Ticket, TicketStatus } from './entities/ticket.entity';
 import { CreateTicketDto } from './dto/create-ticket.dto';
 import { User } from 'src/user/entities/user.entity';
 import { RoleEnum } from 'src/role/entities/role.enum';
-import { hasAnyRole, hasRole } from 'src/auth/role.utile';  // 👈 add
+import { hasAnyRole, hasRole } from 'src/auth/role.utile';
 import { TicketImage } from './entities/ticket-image.entity';
 import { EmailService } from 'src/email/email.service';
 import { TelegramNotifyService } from 'src/telegram-notify/telegram-notify.service';
+import * as fs from 'fs';
+import * as path from 'path';
+import { FilterTicketDto, TicketFilterName } from './dto/filter-ticket.dto';
 
 @Injectable()
 export class TicketService {
@@ -21,7 +24,23 @@ export class TicketService {
     private readonly telegramNotify: TelegramNotifyService,
   ) {}
 
-    async getAllImagesFor(user: User, id: number) {
+  private relativePath(absPath: string | undefined | null): string | null {
+    if (!absPath) return null;
+    return path.relative(process.cwd(), absPath).replace(/\\/g, '/');
+  }
+
+  private deleteFileIfExists(filePath: string | null | undefined) {
+    if (!filePath) return;
+    try {
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    } catch {
+      // ignore cleanup errors
+    }
+  }
+
+  async getAllImagesFor(user: User, id: number) {
     const t = await this.repo.findOne({
       where: { id },
       relations: ['images', 'createdBy', 'assignedTo'],
@@ -36,17 +55,18 @@ export class TicketService {
       throw new ForbiddenException('Not your ticket');
     }
 
-    // return lightweight DTOs with base64 data
-    return (t.images ?? []).map(img => ({
+    // return lightweight DTOs with file paths (no base64 to avoid overload)
+    return (t.images ?? []).map((img) => ({
       id: img.id,
       filename: img.filename,
       mimeType: img.mimeType,
       size: img.size,
-      base64: img.data.toString('base64'),
+      path: this.relativePath(img.path || undefined),
+      url: `/tickets/${t.id}/images/${img.id}`,
     }));
   }
-    async listImagesFor(user: User, ticketId: number) {
-    // Re-use your existing permission logic
+
+  async listImagesFor(user: User, ticketId: number) {
     const ticket = await this.findOneFor(user, ticketId);
 
     return this.images.find({
@@ -57,11 +77,12 @@ export class TicketService {
         filename: true,
         size: true,
         mimeType: true,
+        path: true,
       },
     });
   }
-   async getImageFor(user: User, ticketId: number, imageId: string) {
-    // ensure user can see this ticket
+
+  async getImageFor(user: User, ticketId: number, imageId: string) {
     const ticket = await this.findOneFor(user, ticketId);
 
     const img = await this.images.findOne({
@@ -75,7 +96,12 @@ export class TicketService {
 
     return img;
   }
-  async create(dto: CreateTicketDto, creator: User, files?: Express.Multer.File[],) {
+
+  async create(
+    dto: CreateTicketDto,
+    creator: User,
+    files?: Express.Multer.File[],
+  ) {
     const t = this.repo.create({
       title: dto.title,
       detail: dto.detail,
@@ -86,13 +112,14 @@ export class TicketService {
     const savedTicket = await this.repo.save(t);
 
     if (files?.length) {
-      const imgs = files.map(f =>
+      const imgs = files.map((f) =>
         this.images.create({
           ticket: savedTicket,
           filename: f.originalname,
           mimeType: f.mimetype,
           size: f.size,
-          data: f.buffer,
+          path: f.path,
+          data: null,
         }),
       );
       await this.images.save(imgs);
@@ -101,27 +128,21 @@ export class TicketService {
     await this.notifyAgentsAboutNewTicket(savedTicket);
     try {
       await this.telegramNotify.notifyNewTicket(savedTicket);
-    } catch (e) {
-      // already logged inside service; don't block ticket creation
+    } catch {
+      // ignore notify errors
     }
     return savedTicket;
-  
   }
+
   private async notifyAgentsAboutNewTicket(ticket: Ticket) {
-    // ดึง AGENT ทั้งหมดจากฐานข้อมูล
     const agents = await this.users
       .createQueryBuilder('u')
       .innerJoin('u.roles', 'r')
       .where('r.name = :role', { role: RoleEnum.AGENT })
       .getMany();
 
-    const emails = agents
-      .map(a => a.email)
-      .filter((e): e is string => !!e);
-
-    if (!emails.length) {
-      return;
-    }
+    const emails = agents.map((a) => a.email).filter((e): e is string => !!e);
+    if (!emails.length) return;
 
     await this.email.notifyAgentsNewTicket(emails, ticket);
   }
@@ -150,82 +171,184 @@ export class TicketService {
   }
 
   async findAllFor(user: User, opts?: { page?: number; limit?: number }) {
-  const page = Math.max(1, opts?.page ?? 1);
-  const limit = Math.min(100, Math.max(1, opts?.limit ?? 20));
+    const page = Math.max(1, opts?.page ?? 1);
+    const limit = Math.min(100, Math.max(1, opts?.limit ?? 20));
 
-  const isStaff = hasAnyRole(user, [RoleEnum.AGENT, RoleEnum.ADMIN]);
+    const isStaff = hasAnyRole(user, [RoleEnum.AGENT, RoleEnum.ADMIN]);
 
-  const where: FindOptionsWhere<Ticket> | {} = isStaff
-    ? {}
-    : { createdBy: { id: user.id } };
+    const where: FindOptionsWhere<Ticket> | {} = isStaff
+      ? {}
+      : { createdBy: { id: user.id } };
 
-  const [items, total] = await this.repo.findAndCount({
-    where,
-    order: { createdAt: 'DESC' },
-    take: limit,
-    skip: (page - 1) * limit,
-    relations: ['assignedTo', 'createdBy', 'lastStatusChangedBy'],  
-  });
+    const [items, total] = await this.repo.findAndCount({
+      where,
+      order: { createdAt: 'DESC' },
+      take: limit,
+      skip: (page - 1) * limit,
+      relations: ['assignedTo', 'createdBy', 'lastStatusChangedBy'],
+    });
 
-  return { items, total, page, limit };
-}
-
-
-async findOneFor(user: User, id: number) {
-  const t = await this.repo.findOne({
-    where: { id },
-    relations: ['createdBy', 'assignedTo', 'images', 'lastStatusChangedBy'],  
-  });
-  if (!t) throw new NotFoundException('Ticket not found');
-
-  const isStaff = hasAnyRole(user, [RoleEnum.AGENT, RoleEnum.ADMIN]);
-  if (!isStaff && t.createdBy.id !== user.id) {
-    throw new ForbiddenException('Not your ticket');
+    return { items, total, page, limit };
   }
-  return t;
-}
 
+  private applyFilter(qb: any, filter: TicketFilterName, user?: User) {
+    switch (filter) {
+      case 'ACTIVE':
+        qb.andWhere('t.status IN (:...active)', {
+          active: [TicketStatus.OPEN, TicketStatus.IN_PROGRESS],
+        });
+        break;
+      case 'OPEN':
+        qb.andWhere('t.status = :open', { open: TicketStatus.OPEN });
+        break;
+      case 'IN_PROGRESS':
+        qb.andWhere('t.status = :prog', { prog: TicketStatus.IN_PROGRESS });
+        break;
+      case 'COMMIT':
+        qb.andWhere('t.status != :res', { res: TicketStatus.RESOLVED });
+        if (user?.id) {
+          qb.andWhere('assignedTo.id = :me', { me: user.id });
+        }
+        break;
+      case 'ALL':
+      default:
+        break;
+    }
+  }
 
-  async updateFor(
-  user: User,
-  id: number,
-  dto: CreateTicketDto,
-  files?: Express.Multer.File[],
-) {
-  const t = await this.repo.findOne({
-    where: { id },
-    relations: ['createdBy', 'images'],   // 👈 load images so we can delete
-  });
-  if (!t) throw new NotFoundException('Ticket not found');
+  private applySearch(qb: any, search?: string) {
+    if (!search) return;
+    const s = search.trim();
+    if (!s) return;
 
-  const isStaff = hasAnyRole(user, [RoleEnum.AGENT, RoleEnum.ADMIN]);
-  const isOwner = t.createdBy.id === user.id;
-  if (!isOwner && !isStaff) throw new ForbiddenException();
+    const numericId = Number(s);
+    const like = `%${s.toLowerCase()}%`;
 
-  if (dto.title !== undefined) t.title = dto.title;
-  if (dto.detail !== undefined) t.detail = dto.detail;
-  if (dto.telephone !== undefined) t.tel = dto.telephone ?? null;
+    qb.andWhere(
+      `(t.title LIKE :like OR t.detail LIKE :like OR LOWER(createdBy.name) LIKE :like OR LOWER(assignedTo.name) LIKE :like OR t.tel LIKE :tel${
+        Number.isFinite(numericId) ? ' OR t.id = :tid' : ''
+      })`,
+      {
+        like,
+        tel: `%${s.replace(/\D/g, '')}%`,
+        tid: numericId,
+      },
+    );
+  }
 
-  if (files && files.length) {
-    if (t.images?.length) {
-      await this.images.remove(t.images);
+  async filterFor(user: User, dto: FilterTicketDto) {
+    const page = Math.max(1, dto.page ?? 1);
+    const limit = Math.min(100, Math.max(1, dto.limit ?? 20));
+    const filter = dto.filter ?? 'ALL';
+    const search = dto.search;
+
+    const isStaff = hasAnyRole(user, [RoleEnum.AGENT, RoleEnum.ADMIN]);
+
+    const baseQb = this.repo
+      .createQueryBuilder('t')
+      .leftJoinAndSelect('t.assignedTo', 'assignedTo')
+      .leftJoinAndSelect('t.createdBy', 'createdBy')
+      .orderBy('t.createdAt', 'DESC');
+
+    if (!isStaff) {
+      baseQb.andWhere('createdBy.id = :uid', { uid: user.id });
     }
 
-    const imgs = files.map(f =>
-      this.images.create({
-        ticket: t,
-        filename: f.originalname,
-        mimeType: f.mimetype,
-        size: f.size,
-        data: f.buffer,
-      }),
-    );
-    await this.images.save(imgs);
-    t.images = imgs;
+    // apply search once to base query
+    this.applySearch(baseQb, search);
+
+    // items query = base + selected filter
+    const itemsQb = baseQb.clone();
+    this.applyFilter(itemsQb, filter, user);
+    const [items, total] = await itemsQb
+      .take(limit)
+      .skip((page - 1) * limit)
+      .getManyAndCount();
+
+    // counts: always start from base (search + scope), then apply each filter
+    const countFor = async (f: TicketFilterName) => {
+      const qb = baseQb.clone();
+      qb.skip(undefined).take(undefined);
+      qb.expressionMap.parameters = { ...baseQb.expressionMap.parameters };
+      this.applyFilter(qb, f, user);
+      return qb.getCount();
+    };
+
+    const [active, open, inProgress, commit, all] = await Promise.all([
+      countFor('ACTIVE'),
+      countFor('OPEN'),
+      countFor('IN_PROGRESS'),
+      countFor('COMMIT'),
+      countFor('ALL'),
+    ]);
+
+    return {
+      items,
+      total,
+      page,
+      limit,
+      counts: { active, open, inProgress, commit, all },
+    };
   }
 
-  return this.repo.save(t);
-}
+  async findOneFor(user: User, id: number) {
+    const t = await this.repo.findOne({
+      where: { id },
+      relations: ['createdBy', 'assignedTo', 'images', 'lastStatusChangedBy'],
+    });
+    if (!t) throw new NotFoundException('Ticket not found');
+
+    const isStaff = hasAnyRole(user, [RoleEnum.AGENT, RoleEnum.ADMIN]);
+    if (!isStaff && t.createdBy.id !== user.id) {
+      throw new ForbiddenException('Not your ticket');
+    }
+    return t;
+  }
+
+  async updateFor(
+    user: User,
+    id: number,
+    dto: CreateTicketDto,
+    files?: Express.Multer.File[],
+  ) {
+    const t = await this.repo.findOne({
+      where: { id },
+      relations: ['createdBy', 'images'],
+    });
+    if (!t) throw new NotFoundException('Ticket not found');
+
+    const isStaff = hasAnyRole(user, [RoleEnum.AGENT, RoleEnum.ADMIN]);
+    const isOwner = t.createdBy.id === user.id;
+    if (!isOwner && !isStaff) throw new ForbiddenException();
+
+    if (dto.title !== undefined) t.title = dto.title;
+    if (dto.detail !== undefined) t.detail = dto.detail;
+    if (dto.telephone !== undefined) t.tel = dto.telephone ?? null;
+
+    if (files && files.length) {
+      if (t.images?.length) {
+        for (const img of t.images) {
+          this.deleteFileIfExists(img.path);
+        }
+        await this.images.remove(t.images);
+      }
+
+      const imgs = files.map((f) =>
+        this.images.create({
+          ticket: t,
+          filename: f.originalname,
+          mimeType: f.mimetype,
+          size: f.size,
+          path: f.path,
+          data: null,
+        }),
+      );
+      await this.images.save(imgs);
+      t.images = imgs;
+    }
+
+    return this.repo.save(t);
+  }
 
   async assign(id: number, dto: CreateTicketDto) {
     const t = await this.repo.findOne({ where: { id } });
@@ -239,27 +362,24 @@ async findOneFor(user: User, id: number) {
     return this.repo.save(t);
   }
 
-   async changeStatusFor(
+  async changeStatusFor(
     id: number,
     user: User,
     dto: CreateTicketDto,
   ) {
-    
     const t = await this.repo.findOne({
       where: { id },
       relations: ['assignedTo'],
     });
 
-    
     if (!t) throw new NotFoundException('Ticket not found');
     if (!dto.status) throw new NotFoundException('status is required');
 
-    // only AGENT / ADMIN can change status
     const isStaff = hasAnyRole(user, [RoleEnum.AGENT, RoleEnum.ADMIN]);
     if (!isStaff) {
       throw new ForbiddenException('Only staff can change status');
     }
-    
+
     const prevStatus = t.status;
     const nextStatus = dto.status as TicketStatus;
     const now = new Date();
@@ -269,29 +389,21 @@ async findOneFor(user: User, id: number) {
       t.assignedTo = user;
     }
 
-    // 💡 NEW: first time action (time to first action)
-    // define "first action" = first time leaving OPEN
     if (!t.firstInProgressAt && isLeavingOpen) {
       t.firstInProgressAt = now;
     }
 
-    // 💡 NEW: first time resolved
     if (!t.resolvedAt && nextStatus === TicketStatus.RESOLVED) {
       t.resolvedAt = now;
     }
-    
-    // ✅ If ticket already has an assigned agent,
-    //    ONLY that agent (or ADMIN) can change status.
+
     if (t.assignedTo && t.assignedTo.id !== user.id) {
       throw new ForbiddenException('Only the assigned agent can change status');
     }
 
     if (t.status !== 'OPEN' && nextStatus === 'OPEN') {
-    throw new ForbiddenException('Cannot move ticket back to OPEN');
-    } 
-    
-    // 💡 first time someone moves it away from OPEN → remember that person
-    
+      throw new ForbiddenException('Cannot move ticket back to OPEN');
+    }
 
     if (isLeavingOpen && !t.assignedTo) {
       t.assignedTo = user;
@@ -301,20 +413,14 @@ async findOneFor(user: User, id: number) {
     t.status = nextStatus;
     return this.repo.save(t);
   }
-  /**
-   * SLA metrics:
-   * - average time to first action (createdAt -> firstInProgressAt)
-   * - average time to resolve (createdAt -> resolvedAt)
-   * - % of resolved tickets resolved within `thresholdDays`
-   */
+
   async getSlaMetricsForYear(
     year: number,
     thresholdDays: number,
   ) {
-    const start = new Date(year, 0, 1);        // Jan 1
-    const end = new Date(year + 1, 0, 1);      // Jan 1 next year
+    const start = new Date(year, 0, 1);
+    const end = new Date(year + 1, 0, 1);
 
-    // --- avg time to first action (sec) ---
     const firstActionRow = await this.repo
       .createQueryBuilder('t')
       .select(
@@ -329,7 +435,6 @@ async findOneFor(user: User, id: number) {
       ? Number(firstActionRow.avgSeconds)
       : null;
 
-    // --- avg time to resolve (sec) ---
     const resolveRow = await this.repo
       .createQueryBuilder('t')
       .select(
@@ -344,7 +449,6 @@ async findOneFor(user: User, id: number) {
       ? Number(resolveRow.avgSeconds)
       : null;
 
-    // --- total resolved in that year ---
     const totalResolvedRow = await this.repo
       .createQueryBuilder('t')
       .select('COUNT(*)', 'cnt')
@@ -354,7 +458,6 @@ async findOneFor(user: User, id: number) {
 
     const totalResolved = totalResolvedRow ? Number(totalResolvedRow.cnt) : 0;
 
-    // --- resolved within threshold days ---
     const withinRow = await this.repo
       .createQueryBuilder('t')
       .select('COUNT(*)', 'cnt')
@@ -381,16 +484,27 @@ async findOneFor(user: User, id: number) {
       percentResolvedWithinThreshold: percentWithin,
     };
   }
+
   async removeFor(user: User, id: number) {
-    const t = await this.repo.findOne({ where: { id } });
+    const t = await this.repo.findOne({
+      where: { id },
+      relations: ['images'],
+    });
     if (!t) throw new NotFoundException('Ticket not found');
 
-    const isAdmin = hasRole(user, RoleEnum.ADMIN); // 👈 fix
+    const isAdmin = hasRole(user, RoleEnum.ADMIN);
     const isOwner = t.createdBy.id === user.id;
 
     if (!isAdmin && !(isOwner && t.status === TicketStatus.OPEN && !t.assignedTo)) {
       throw new ForbiddenException();
     }
+
+    if (t.images?.length) {
+      for (const img of t.images) {
+        this.deleteFileIfExists(img.path);
+      }
+    }
+
     await this.repo.remove(t);
     return { ok: true };
   }

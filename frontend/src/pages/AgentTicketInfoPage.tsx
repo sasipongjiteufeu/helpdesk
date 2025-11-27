@@ -30,14 +30,27 @@ interface TicketImageDto {
   filename?: string | null;
   mimeType?: string | null;
   size?: number | null;
-  base64: string;
+  path?: string | null;
+  url?: string | null;
 }
 
 // ----- helper: preview attachment (image / video / download) -----
 function MediaPreview({ file }: { file: TicketImageDto }) {
-  const { mimeType, base64, filename } = file;
+  const { mimeType, filename, url, path } = file;
   const safeMime = mimeType || "application/octet-stream";
-  const src = `data:${safeMime};base64,${base64}`;
+  const src = url
+    ? `${API_BASE}${url}`
+    : path
+    ? `${API_BASE}/${path}`
+    : undefined;
+
+  if (!src) {
+    return (
+      <div className="p-3 text-center text-sm text-gray-500">
+        ไม่พบไฟล์แนบ
+      </div>
+    );
+  }
 
   if (safeMime.startsWith("image/")) {
     return (

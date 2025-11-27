@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -48,7 +48,7 @@ export class UserService {
     avatarUrl?: string | null,
   ) {
     if (!email?.endsWith('@sru.ac.th')) {
-      throw new Error('Unauthorized domain');
+      throw new UnauthorizedException('Unauthorized domain');
     } //check if that use @sru.ac.th Doman?
     let user = await this.findByEmailWithRoles(email);
 

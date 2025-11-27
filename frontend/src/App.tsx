@@ -19,7 +19,8 @@ import AdminStatsPage from "./pages/AdminStatsPage";
 export default function App() {
   return (
     <Routes>
-      <Route path="/" element={<Home />} />
+      {/* Make the agent dashboard the first page */}
+      <Route path="/" element={<Home/>} />
       <Route path="/login" element={<Login />} />
       <Route path="/welcome" element={<Welcome />} />
       <Route path="/forbidden" element={<Forbidden />} />

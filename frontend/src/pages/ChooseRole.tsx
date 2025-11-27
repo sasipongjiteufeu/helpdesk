@@ -30,9 +30,16 @@ export default function ChooseRole() {
         });
         const data: MeResponse = await res.json();
 
+        const order: Record<RoleName, number> = {
+          USER: 0,
+          AGENT: 1,
+          ADMIN: 2,
+        };
+
         const names = (data?.roles || [])
           .map((role) => role?.name)
-          .filter((n): n is RoleName => Boolean(n));
+          .filter((n): n is RoleName => Boolean(n))
+          .sort((a, b) => order[a] - order[b]);
 
         setEmail(data?.email || "");
 
@@ -104,7 +111,7 @@ export default function ChooseRole() {
             </p>
           )}
 
-          <div className="flex justify-center items-center gap-3 flex-wrap animate__animated animate__fadeInUp">
+          <div className="flex flex-col items-center gap-3 w-full max-w-sm mx-auto animate__animated animate__fadeInUp">
             {!loading &&
               roles.map((role) => (
                 <button
@@ -114,7 +121,7 @@ export default function ChooseRole() {
                       : role === "AGENT"
                       ? "from-blue-500 via-blue-600 to-indigo-600 hover:from-blue-600 hover:via-blue-700 hover:to-indigo-700 focus:ring-blue-300 shadow-blue-200"
                       : "from-emerald-500 via-emerald-600 to-teal-600 hover:from-emerald-600 hover:via-emerald-700 hover:to-teal-700 focus:ring-emerald-300 shadow-emerald-200"
-                  } focus:ring-4 focus:outline-none font-semibold rounded-lg text-sm px-6 py-3 text-center shadow-lg transition-all duration-300 transform hover:scale-105 hover:shadow-xl active:scale-95 inline-flex items-center justify-center gap-3`}
+                  } focus:ring-4 focus:outline-none font-semibold rounded-lg text-base px-6 py-3 text-center shadow-lg transition-all duration-300 transform hover:scale-105 hover:shadow-xl active:scale-95 inline-flex items-center justify-center gap-3 w-full leading-tight whitespace-normal`}
                   onClick={() => go(role)}
                   key={role}
                 >

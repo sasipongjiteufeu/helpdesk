@@ -1,12 +1,12 @@
-// src/pages/AgentTicketsPage.tsx
-import React, { useEffect, useState, useMemo, useCallback } from "react";
+// src/pages/AgentTicketPage.tsx
+import React, { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { API_BASE } from "../lib/api";
 import { useRequireAuth } from "../hooks/useRequireAuth";
 import AppHeaderBackend from "../components/AppHeaderBackend";
 import { MdInfo, MdRefresh } from "react-icons/md";
 
-type TicketStatus = "OPEN" | "IN_PROGRESS" | "RESOLVED" | "COMMIT" | "O_P";
+type TicketStatus = "OPEN" | "IN_PROGRESS" | "RESOLVED" | "COMMIT";
 
 interface Ticket {
   id: number;
@@ -25,15 +25,36 @@ interface Ticket {
   commit_By?: number | null;
 }
 
-type Filter = "ALL" | TicketStatus;
+type Filter = "ACTIVE" | "OPEN" | "IN_PROGRESS" | "COMMIT" | "ALL";
 
 const STATUS_LABELS: Record<TicketStatus, string> = {
   OPEN: "เปิด",
   IN_PROGRESS: "กำลังดำเนินการ",
-  RESOLVED: "ได้รับการแก้ไขแล้ว",
-  COMMIT: "ที่ส่ง",
-  O_P: "เปิด/กำลังดำเนินการ",
+  RESOLVED: "ปิดแล้ว",
+  COMMIT: "มอบหมายให้ฉัน",
 };
+
+const FILTER_LABELS: Record<Filter, string> = {
+  ACTIVE: "เปิด + กำลังดำเนินการ",
+  OPEN: "เปิด",
+  IN_PROGRESS: "กำลังดำเนินการ",
+  COMMIT: "ตั๋วที่รับผิดชอบ (ฉัน)",
+  ALL: "ทั้งหมด",
+};
+
+interface FilterResponse {
+  items: Ticket[];
+  total: number;
+  page: number;
+  limit: number;
+  counts: {
+    active: number;
+    open: number;
+    inProgress: number;
+    commit: number;
+    all: number;
+  };
+}
 
 export default function AgentTicketsPage() {
   const { user, loading: authLoading } = useRequireAuth();
@@ -42,43 +63,73 @@ export default function AgentTicketsPage() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<Filter>("O_P");
+  const [filter, setFilter] = useState<Filter>("ACTIVE");
   const [savingId, setSavingId] = useState<number | null>(null);
   const [search, setSearch] = useState("");
+  const [counts, setCounts] = useState({
+    active: 0,
+    open: 0,
+    inProgress: 0,
+    commit: 0,
+    all: 0,
+  });
 
-  const fetchTickets = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
+  const fetchTickets = useCallback(
+    async (nextFilter: Filter = filter, searchTerm: string = search) => {
+      try {
+        setLoading(true);
+        setError(null);
 
-      const res = await fetch(`${API_BASE}/tickets?page=1&limit=100`, {
-        credentials: "include",
-      });
+        const res = await fetch(`${API_BASE}/tickets/filter`, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            filter: nextFilter,
+            search: searchTerm.trim() || undefined,
+            page: 1,
+            limit: 100,
+          }),
+        });
 
-      if (!res.ok) {
-        throw new Error(`ไม่สามารถโหลดข้อมูลได้ (${res.status})`);
+        if (!res.ok) {
+          throw new Error(`โหลดรายการไม่สำเร็จ (${res.status})`);
+        }
+
+        const data = (await res.json()) as FilterResponse;
+        setTickets(data.items ?? []);
+        if (data.counts) {
+          setCounts({
+            active: data.counts.active ?? 0,
+            open: data.counts.open ?? 0,
+            inProgress: data.counts.inProgress ?? 0,
+            commit: data.counts.commit ?? 0,
+            all: data.counts.all ?? 0,
+          });
+        }
+      } catch (e: any) {
+        console.error(e);
+        setError(e.message ?? "โหลดรายการไม่สำเร็จ");
+      } finally {
+        setLoading(false);
       }
-
-      const data = await res.json();
-      setTickets(data.items ?? data);
-    } catch (e: any) {
-      console.error(e);
-      setError(e.message ?? "ไม่สามารถโหลดข้อมูลได้");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    },
+    [filter, search]
+  );
 
   useEffect(() => {
-    fetchTickets();
-    // Auto refresh every 5 minutes (300000 milliseconds)
-    const intervalId = setInterval(() => {
-      fetchTickets();
-    }, 300000);
+    const timer = setTimeout(() => {
+      fetchTickets(filter, search);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [filter, search, fetchTickets]);
 
-    // Cleanup interval on component unmount
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      fetchTickets(filter, search);
+    }, 300000);
     return () => clearInterval(intervalId);
-  }, []);
+  }, [filter, search, fetchTickets]);
 
   const handleInfo = useCallback(
     (id: number) => {
@@ -99,87 +150,36 @@ export default function AgentTicketsPage() {
         });
 
         if (!res.ok) {
-          throw new Error(`เปลี่ยนสถานะไม่สำเร็จ (${res.status})`);
+          throw new Error(
+            `อัปเดตสถานะไม่สำเร็จ (${res.status})`
+          );
         }
 
-        const updated = await res.json();
-
-        setTickets((prev) =>
-          prev.map((t) =>
-            t.id === id ? { ...t, status: updated.status as TicketStatus } : t
-          )
-        );
+        await fetchTickets(filter, search);
       } catch (e: any) {
-        alert(e.message ?? "เปลี่ยนสถานะไม่สำเร็จ");
+        alert(e.message ?? "อัปเดตสถานะไม่สำเร็จ");
         console.error(e);
       } finally {
         setSavingId(null);
       }
     },
-    []
+    [fetchTickets]
   );
 
   const handleSearchChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      setSearch(e.target.value);
+      const term = e.target.value;
+      setSearch(term);
     },
     []
   );
-
-  const filteredTickets = useMemo(() => {
-    const normalizedSearch = search.trim().toLowerCase();
-
-    return tickets.filter((t) => {
-      // Status filter logic
-      let statusMatch = false;
-      if (filter === "ALL") {
-        statusMatch = true;
-      } else if (filter === "COMMIT") {
-        statusMatch = t.assignedTo?.id === user?.id && t.status !== "RESOLVED";
-      } else if (filter === "O_P") {
-        statusMatch = t.status !== "RESOLVED";
-      } else {
-        statusMatch = t.status === filter;
-      }
-
-      // Search logic - searches in ID, name, and phone
-      let searchMatch: string | boolean = true;
-      if (normalizedSearch) {
-        const paddedId = String(t.id).padStart(7, "0");
-        const createdByName = (t.createdBy?.name || "").toLowerCase();
-        const assignedToName = (t.assignedTo?.name || "").toLowerCase();
-        const tel = (t.tel || "").replace(/\D/g, "");
-        const searchDigits = normalizedSearch.replace(/\D/g, "");
-
-        searchMatch =
-          paddedId.includes(searchDigits) ||
-          createdByName.includes(normalizedSearch) ||
-          assignedToName.includes(normalizedSearch) ||
-          (searchDigits && tel.includes(searchDigits));
-      }
-
-      return statusMatch && searchMatch;
-    });
-  }, [tickets, filter, search, user?.id]);
-
-  const ticketCounts = useMemo(() => {
-    return {
-      all: tickets.length,
-      open: tickets.filter((t) => t.status === "OPEN").length,
-      inProgress: tickets.filter((t) => t.status === "IN_PROGRESS").length,
-      resolved: tickets.filter((t) => t.status !== "RESOLVED").length,
-      commit: tickets.filter(
-        (t) => t.assignedTo?.id === user?.id && t.status !== "RESOLVED"
-      ).length,
-    };
-  }, [tickets, user?.id]);
 
   if (authLoading || !user) {
     return (
       <div className="min-h-screen grid place-items-center font-sans bg-gray-100 text-gray-900">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
-          <p>กำลังตรวจสอบสิทธิ์...</p>
+          <p>กำลังโหลดข้อมูล...</p>
         </div>
       </div>
     );
@@ -196,7 +196,7 @@ export default function AgentTicketsPage() {
       <button
         type="button"
         onClick={onClick}
-        className={`px-3.5 py-1.5 rounded-full border  font-semibold cursor-pointer transition-all text-lg ${
+        className={`px-4 py-2 rounded-full border font-semibold cursor-pointer transition-all text-lg tracking-wide ${
           active
             ? "border-green-600 bg-green-500 text-white shadow-md"
             : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
@@ -214,18 +214,18 @@ export default function AgentTicketsPage() {
 
   function Th({ children }: { children: React.ReactNode }) {
     return (
-      <th className="text-left p-2 text-xl border-b border-gray-300 whitespace-nowrap font-semibold text-gray-700">
+      <th className="text-left p-3 text-2xl border-b border-gray-300 whitespace-nowrap font-semibold text-gray-800">
         {children}
       </th>
     );
   }
 
   function Td({ children }: { children: React.ReactNode }) {
-    return <td className="p-1.5 text-lg align-top">{children}</td>;
+    return <td className="p-2 text-xl align-top leading-relaxed">{children}</td>;
   }
 
   function getStatusClass(status: TicketStatus): string {
-    const base = "px-2.5 py-1 rounded-full font-semibold text-xs inline-block";
+    const base = "px-3 py-1.5 rounded-full font-semibold text-sm inline-block";
     switch (status) {
       case "OPEN":
         return `${base} bg-yellow-400 text-gray-900`;
@@ -250,66 +250,66 @@ export default function AgentTicketsPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col justify-center items-center bg-gray-100 p-6">
-      <div className="container mx-auto bg-white rounded-2xl shadow-2xl p-5">
+    <div className="min-h-screen flex flex-col justify-stretch items-center bg-gradient-to-b from-gray-50 via-white to-gray-100 p-6 text-lg">
+      <div className="w-full bg-white/85 backdrop-blur rounded-3xl shadow-[0_25px_80px_-40px_rgba(15,23,42,0.35)] border border-gray-100 p-6 mt-2">
         <AppHeaderBackend user={user} title={"AGENT"} />
 
         <div className="mt-4">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="mt-0 mb-0 text-2xl font-bold text-gray-800">
-              รายการคำร้องทั้งหมด
+          <div className="flex items-center justify-between mb-4 gap-4 flex-wrap">
+            <h2 className="mt-0 mb-0 text-3xl font-bold text-gray-900 tracking-tight">
+              คิวงานของเจ้าหน้าที่
             </h2>
             <button
               type="button"
-              onClick={fetchTickets}
+              onClick={() => fetchTickets(filter, search)}
               disabled={loading}
-              className="px-3 py-1.5 rounded-full border border-gray-300 bg-white hover:bg-gray-50 text-sm font-medium flex items-center gap-1 transition-all disabled:opacity-50"
+              className="px-4 py-2 rounded-full border border-gray-300 bg-white hover:bg-gray-50 text-base font-semibold flex items-center gap-2 transition-all disabled:opacity-50"
             >
               <MdRefresh className={loading ? "animate-spin" : ""} />
-              รีเฟรช
+              รีเฟรชรายการ
             </button>
           </div>
 
           {error && (
-            <div className="mb-4 p-3 rounded-lg bg-red-100 text-red-900 text-sm flex items-start gap-2">
-              <span className="font-semibold">ข้อผิดพลาด:</span>
+            <div className="mb-4 p-3 rounded-lg bg-red-100 text-red-900 text-base flex items-start gap-2">
+              <span className="font-semibold">เกิดข้อผิดพลาด:</span>
               <span>{error}</span>
             </div>
           )}
 
-          <div className="flex gap-2 mb-3 items-center flex-wrap">
+          <div className="flex gap-2 mb-4 items-center flex-wrap">
             <div className="flex gap-2 flex-wrap">
               <FilterButton
-                label="เปิด/กำลังดำเนินการ"
-                count={ticketCounts.resolved}
-                active={filter === "O_P"}
-                onClick={() => setFilter("O_P")}
-              />
-              <FilterButton
-                label="เปิด"
-                count={ticketCounts.open}
-                active={filter === "OPEN"}
-                onClick={() => setFilter("OPEN")}
-              />
-              <FilterButton
-                label="กำลังดำเนินการ"
-                count={ticketCounts.inProgress}
-                active={filter === "IN_PROGRESS"}
-                onClick={() => setFilter("IN_PROGRESS")}
-              />
+                label={FILTER_LABELS.ACTIVE}
+                count={counts.active}
+                active={filter === "ACTIVE"}
+              onClick={() => setFilter("ACTIVE")}
+            />
+            <FilterButton
+              label={FILTER_LABELS.OPEN}
+              count={counts.open}
+              active={filter === "OPEN"}
+              onClick={() => setFilter("OPEN")}
+            />
+            <FilterButton
+              label={FILTER_LABELS.IN_PROGRESS}
+              count={counts.inProgress}
+              active={filter === "IN_PROGRESS"}
+              onClick={() => setFilter("IN_PROGRESS")}
+            />
 
               <FilterButton
-                label="งานที่มอบหมาย"
-                count={ticketCounts.commit}
-                active={filter === "COMMIT"}
-                onClick={() => setFilter("COMMIT")}
-              />
-              <FilterButton
-                label="ทั้งหมด"
-                count={ticketCounts.all}
-                active={filter === "ALL"}
-                onClick={() => setFilter("ALL")}
-              />
+              label={FILTER_LABELS.COMMIT}
+              count={counts.commit}
+              active={filter === "COMMIT"}
+              onClick={() => setFilter("COMMIT")}
+            />
+            <FilterButton
+              label={FILTER_LABELS.ALL}
+              count={counts.all}
+              active={filter === "ALL"}
+              onClick={() => setFilter("ALL")}
+            />
             </div>
 
             <div className="ml-auto flex gap-2">
@@ -317,42 +317,44 @@ export default function AgentTicketsPage() {
                 type="text"
                 value={search}
                 onChange={handleSearchChange}
-                placeholder="ค้นหา ID, ชื่อ หรือเบอร์โทร"
-                className="px-3 py-1.5 rounded-full border border-gray-300 text-sm min-w-[200px] bg-white focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                placeholder="ค้นหา ID, ผู้แจ้ง, ผู้รับผิดชอบ หรือเบอร์โทร"
+                className="px-4 py-2 rounded-full border border-gray-300 text-base min-w-[260px] bg-white focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
               />
             </div>
           </div>
 
-          <div className="rounded-xl border border-gray-200 bg-gray-50 p-3 overflow-x-auto">
+          <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 overflow-x-auto">
             {loading ? (
-              <div className="text-center py-8">
-                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-green-600 mx-auto mb-3"></div>
-                <p className="text-gray-600">กำลังโหลดข้อมูล...</p>
+              <div className="text-center py-10">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
+                <p className="text-gray-600 text-lg">กำลังโหลดข้อมูล...</p>
               </div>
-            ) : filteredTickets.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                <p className="m-0 text-lg">
-                  {search ? "ไม่พบคำร้องที่ค้นหา" : "ไม่พบคำร้องตามเงื่อนไข"}
+            ) : tickets.length === 0 ? (
+              <div className="text-center py-10 text-gray-500">
+                <p className="m-0 text-xl">
+                  {search
+                    ? "ไม่พบรายการที่ตรงกับการค้นหา"
+                    : "ยังไม่มีงานในคิวตอนนี้"}
                 </p>
               </div>
             ) : (
-              <table className="w-full border-collapse text-sm">
+              <table className="w-full border-collapse text-base">
                 <thead>
                   <tr className="bg-gray-200">
-                    <Th>สถานะคำร้อง</Th>
+                    <Th>สถานะ</Th>
                     <Th>Ticket ID</Th>
                     <Th>หัวข้อ</Th>
-                    <Th>รายละเอียดคำร้อง</Th>
-                    <Th>เบอร์ติดต่อ</Th>
-                    <Th>ผู้ร้องขอ</Th>
-                    <Th>ผู้รับ</Th>
-                    <Th>สร้าง ณ วันที่</Th>
-                    <Th>เปลี่ยนสถานะ</Th>
-                    <Th>ตัวเลือก</Th>
+                    <Th>รายละเอียด</Th>
+                    <Th>เบอร์ผู้แจ้ง</Th>
+                    <Th>ผู้สร้าง</Th>
+                    <Th>ผู้รับผิดชอบ</Th>
+                    <Th>สร้างเมื่อ</Th>
+                    <Th>อัปเดตสถานะ</Th>
+                    <Th>ดูรายละเอียด</Th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredTickets.map((t) => (
+                  {tickets.map((t) => (
                     <tr
                       key={t.id}
                       className="border-t border-gray-200 hover:bg-gray-100 transition-colors"
@@ -363,22 +365,22 @@ export default function AgentTicketsPage() {
                         </span>
                       </Td>
                       <Td>
-                        <span className="font-mono font-semibold text-gray-700">
+                        <span className="font-mono font-semibold text-gray-800 text-xl">
                           {String(t.id).padStart(7, "0")}
                         </span>
                       </Td>
                       <Td>
-                        <span className="font-medium text-gray-900">
+                        <span className="font-semibold text-gray-900">
                           {t.title}
                         </span>
                       </Td>
                       <Td>
-                        <span className="text-gray-600 line-clamp-2">
+                        <span className="text-gray-700 line-clamp-2">
                           {t.detail}
                         </span>
                       </Td>
                       <Td>
-                        <span className="font-mono text-gray-700">
+                        <span className="font-mono text-gray-800">
                           {t.tel || "-"}
                         </span>
                       </Td>
@@ -386,16 +388,14 @@ export default function AgentTicketsPage() {
                       <Td>
                         <span
                           className={
-                            t.assignedTo?.name
-                              ? "text-green-700 font-medium"
-                              : ""
+                            t.assignedTo?.name ? "text-green-700 font-semibold" : ""
                           }
                         >
                           {t.assignedTo?.name || "-"}
                         </span>
                       </Td>
                       <Td>
-                        <span className="text-gray-600 text-xs">
+                        <span className="text-gray-700 text-base">
                           {formatDate(t.createdAt)}
                         </span>
                       </Td>
@@ -409,7 +409,7 @@ export default function AgentTicketsPage() {
                             )
                           }
                           disabled={savingId === t.id}
-                          className="px-2 py-1 rounded-full border border-gray-300 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="px-3 py-2 rounded-full border border-gray-300 text-base bg-white focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <option value="OPEN">{STATUS_LABELS.OPEN}</option>
                           <option value="IN_PROGRESS">
@@ -424,9 +424,9 @@ export default function AgentTicketsPage() {
                         <button
                           type="button"
                           onClick={() => handleInfo(t.id)}
-                          className="px-3 py-1.5 rounded-full border border-gray-300 bg-white cursor-pointer text-xs hover:bg-gray-50 inline-flex items-center text-center transition-colors"
+                          className="px-4 py-2 rounded-full border border-gray-300 bg-white cursor-pointer text-base hover:bg-gray-50 inline-flex items-center text-center transition-colors"
                         >
-                          <MdInfo className="mr-1" /> รายละเอียด
+                          <MdInfo className="mr-2" /> ดูรายละเอียด
                         </button>
                       </Td>
                     </tr>
@@ -436,9 +436,9 @@ export default function AgentTicketsPage() {
             )}
           </div>
 
-          {!loading && filteredTickets.length > 0 && (
-            <div className="mt-3 text-sm text-gray-600 text-right">
-              แสดง {filteredTickets.length} จาก {tickets.length} คำร้อง
+          {!loading && tickets.length > 0 && (
+            <div className="mt-4 text-base text-gray-700 text-right">
+              แสดง {tickets.length} รายการ
             </div>
           )}
         </div>

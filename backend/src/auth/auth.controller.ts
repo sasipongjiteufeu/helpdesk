@@ -1,7 +1,5 @@
-// auth.controller.ts
 import { Controller, Get, Req, Res, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { Domain } from 'domain';
 import { UserService } from 'src/user/user.service';
 
 @Controller('auth')
@@ -39,23 +37,27 @@ export class AuthController {
       user: req.user,
     };
   }
+
   // GET /auth/google/redirect  -> callback from Google
-  // auth.controller.ts
   @Get('google/redirect')
   @UseGuards(AuthGuard('google'))
   async googleRedirect(@Req() req, @Res() res) {
     try {
-      const { email, providerId } = req.user ?? {};
-      const user = await this.user.findOrCreateGoogleUser(email, providerId); // Will throw on non-@sru.ac.th (your service already enforces)
+      const user = req.user;
+      if (user?.unauthorized) {
+        return res.redirect(
+          `${process.env.FRONTEND_URL}/forbidden?reason=unauthorized`,
+        );
+      }
+      const { email, providerId } = user ?? {};
+
       if (!email || !providerId) {
-        // If Google didn’t give us what we need
         return res.redirect(
           `${process.env.FRONTEND_URL}/forbidden?reason=missing_profile`,
         );
       }
 
-      // If you're using sessions, make sure the user is logged into the session:
-      // (Only needed if your Google strategy didn't already call req.logIn)
+      // Persisted in strategy already; just ensure session is set
       await new Promise<void>((resolve, reject) =>
         req.logIn(user, (err) => (err ? reject(err) : resolve())),
       );
@@ -74,12 +76,12 @@ export class AuthController {
         );
       }
 
-      // if multiple roles → let user choose
+      // if multiple roles => let user choose
       if (names.length > 1) {
         return res.redirect(`${process.env.FRONTEND_URL}/choose-role`);
       }
 
-      // single role → straight redirect
+      // single role => straight redirect
       const only = names[0] as keyof typeof roleToPath;
       const path = roleToPath[only] ?? '/user';
       return res.redirect(`${process.env.FRONTEND_URL}${path}`);
@@ -100,7 +102,7 @@ export class AuthController {
       req.session.destroy(() => {
         res.clearCookie('__host.sid');
 
-        return res.json({ message: 'ออกจากระบบ' });
+        return res.json({ message: '�,-�,-�,?�,^�,��,?�,��,��,s�,s' });
       });
     });
   }
