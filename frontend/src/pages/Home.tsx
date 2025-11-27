@@ -1,8 +1,6 @@
-// src/pages/User.tsx
-import { useEffect, useState } from "react";
+// src/pages/Home.tsx
+import { useEffect, useMemo, useState } from "react";
 import { API_BASE } from "../lib/api";
-import { useRequireAuth } from "../hooks/useRequireAuth";
-
 import AppHeaderBackend from "../components/AppHeaderBackend";
 
 type TicketStatus = "OPEN" | "IN_PROGRESS" | "RESOLVED";
@@ -14,12 +12,21 @@ interface Ticket {
   tel?: string | null;
   status: TicketStatus;
   createdAt: string;
-  assignedTo?: { email?: string | null; name: string } | null;
-  lastStatusChangedBy?: { email?: string | null } | null;
+  assignedTo?: { email?: string | null; name?: string | null } | null;
 }
 
-export default function UserTicketsPage() {
-  const { user } = useRequireAuth();
+const STATUS_LABELS: Record<TicketStatus, string> = {
+  OPEN: "เปิด",
+  IN_PROGRESS: "กำลังดำเนินการ",
+  RESOLVED: "ปิดแล้ว",
+};
+
+interface SessionUser {
+  email?: string;
+}
+
+export default function Home() {
+  const [sessionUser, setSessionUser] = useState<SessionUser | null>(null);
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -31,157 +38,164 @@ export default function UserTicketsPage() {
       const data = await res.json();
       setTickets(data.items ?? []);
     } catch (e: any) {
-      setError(e.message || "fetch error");
+      setError(e.message || "ไม่สามารถดึงข้อมูลได้");
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
+    // try to read current session, but don't block
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/auth/me`, {
+          credentials: "include",
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setSessionUser({ email: data?.email });
+        } else {
+          setSessionUser(null);
+        }
+      } catch {
+        setSessionUser(null);
+      }
+    })();
+
     loadTickets();
-    // Auto refresh every 5 minutes (300000 milliseconds)
     const intervalId = setInterval(() => {
       loadTickets();
     }, 300000);
-
-    // Cleanup interval on component unmount
     return () => clearInterval(intervalId);
   }, []);
 
-  function StatusBadge({ status }: { status: TicketStatus }) {
-    const baseClasses =
-      "px-2.5 py-1 rounded-full font-semibold text-xs inline-block";
+  const todayActiveCount = useMemo(() => {
+    const today = new Date().toDateString();
+    return tickets.filter(
+      (t) =>
+        t.status === "IN_PROGRESS" &&
+        new Date(t.createdAt).toDateString() === today,
+    ).length;
+  }, [tickets]);
 
+  function StatusBadge({ status }: { status: TicketStatus }) {
+    const base =
+      "px-3 py-1.5 rounded-full font-semibold text-sm inline-flex items-center gap-2 shadow-sm";
+    const dot = "inline-block w-2.5 h-2.5 rounded-full";
     switch (status) {
       case "OPEN":
         return (
-          <span className={`${baseClasses} bg-yellow-400 text-white`}>
-            {/* {status}  */}
-            เปิด
+          <span className={`${base} bg-amber-100 text-amber-900`}>
+            <span className={`${dot} bg-amber-500`} /> {STATUS_LABELS.OPEN}
           </span>
         );
       case "IN_PROGRESS":
         return (
-          <span className={`${baseClasses} bg-blue-500 text-white`}>
-            {/* {status}  */}
-            กำลังดำเนินการ
+          <span className={`${base} bg-blue-100 text-blue-900`}>
+            <span className={`${dot} bg-blue-500`} /> {STATUS_LABELS.IN_PROGRESS}
           </span>
         );
       case "RESOLVED":
         return (
-          <span className={`${baseClasses} bg-green-500 text-white`}>
-            {/* {status}  */}
-            แก้ไขแล้ว
+          <span className={`${base} bg-emerald-100 text-emerald-900`}>
+            <span className={`${dot} bg-emerald-500`} /> {STATUS_LABELS.RESOLVED}
           </span>
         );
       default:
-        return <span className={baseClasses}>{status}</span>;
+        return <span className={base}>{status}</span>;
     }
   }
 
-  {
-    /* Loading State */
-  }
-  {
-    loading && (
-      <div className="mb-6 text-center py-8">
-        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto mb-3"></div>
-        <p className="text-gray-600">กำลังโหลดข้อมูล...</p>
-      </div>
-    );
+  function formatDate(dateString: string): string {
+    const date = new Date(dateString);
+    return date.toLocaleString("th-TH", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 p-6">
-      <div className="max-w-full container mx-auto bg-white rounded-2xl shadow-2xl p-5">
-        {/* Header */}
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 via-white to-gray-100 py-10 px-4 text-gray-900">
+      <div className="max-w-7xl mx-auto bg-white/80 backdrop-blur rounded-3xl shadow-[0_25px_80px_-40px_rgba(15,23,42,0.35)] border border-gray-100 px-8 py-6">
+        <AppHeaderBackend user={sessionUser} title="Public" />
 
-        <AppHeaderBackend user={user} title="Pubilc" />
-
-        {/* Section Title */}
-        <div className="my-4 flex  flex-col-reverse md:flex-row justify-between">
-          <h2 className="text-2xl font-semibold m-0">
-            รายการแจ้งปัญหา{" "}
-            <span className="mr-1">
-              จำนวน ticket ที่กำลังดำเนินการของวันนี้
-            </span>
-            <span>
-              <span className="text-blue-500">
-                {
-                  tickets.filter(
-                    (t) =>
-                      t.status === "IN_PROGRESS" &&
-                      new Date(t.createdAt).toDateString() ===
-                        new Date().toDateString()
-                  ).length
-                }
-              </span>
-
-              <span className="ml-1">ticket</span>
-            </span>
+        <div className="mt-6 flex flex-col gap-3">
+          <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight">
+            รายการแจ้งปัญหา
           </h2>
+          <p className="text-lg text-gray-600">
+            จำนวน ticket ที่กำลังดำเนินการของวันนี้{" "}
+            <span className="font-semibold text-emerald-700">
+              {todayActiveCount} ticket
+            </span>
+          </p>
         </div>
 
-        {/* Error */}
-        {error && <p className="text-red-500 mt-2">{error}</p>}
+        {error && (
+          <div className="mt-4 rounded-2xl bg-red-50 border border-red-100 px-4 py-3 text-red-800">
+            {error}
+          </div>
+        )}
 
-        {/* Ticket Table */}
-        <div className="rounded-xl border border-gray-200 bg-gray-50 p-3 overflow-x-auto">
-          <table className="w-full border-collapse text-sm bg-gray-200">
-            <thead>
-              <tr className="bg-gray-200">
-                <th className="text-left p-2 border-b-2 text-xl  border-gray-800">
-                  สถานะคำร้อง
-                </th>
-                <th className="text-left p-2 border-b-2 text-xl border-gray-800">
-                  Ticket ID
-                </th>
-                <th className="text-left p-2 border-b-2 text-xl border-gray-800">
-                  หัวข้อ
-                </th>
-                <th className="text-left p-2 border-b-2 text-xl border-gray-800">
-                  รายระเอียดคำร้อง
-                </th>
-                <th className="text-left p-2 border-b-2 text-xl border-gray-800">
-                  รับงาน / แก้ไขสถานะโดย
-                </th>
-
-                <th className="text-left p-2 border-b-2 text-xl border-gray-800">
-                  สร้าง ณ วันที่
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {tickets.map((t) => {
-                return (
-                  <tr
-                    key={t.id}
-                    className="border-t border-gray-200 hover:bg-gray-100 bg-gray-100 transition-colors"
-                  >
-                    <td className="p-2 border-b border-gray-300 text-lg  align-top">
-                      <StatusBadge status={t.status} />
-                    </td>
-                    <td className="p-2 border-b border-gray-300 text-lg">
-                      {String(t.id).padStart(7, "0")}
-                    </td>
-                    <td className="p-2 border-b border-gray-300 text-lg">
-                      {t.title}
-                    </td>
-                    <td className="p-2 border-b border-gray-300 text-lg">
-                      {t.detail}
-                    </td>
-                    <td className="p-2 border-b border-gray-300 text-lg">
-                      {t.assignedTo?.name ?? "-"}
-                    </td>
-
-                    <td className="p-2 border-b border-gray-300 text-lg">
-                      {new Date(t.createdAt).toLocaleString()}
+        <div className="mt-5 rounded-2xl border border-gray-200 bg-gray-50/60 overflow-hidden shadow-inner">
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse">
+              <thead className="bg-gray-200/80 text-left text-gray-800 text-base md:text-lg">
+                <tr>
+                  <th className="px-4 py-3 font-semibold">สถานะคำร้อง</th>
+                  <th className="px-4 py-3 font-semibold">Ticket ID</th>
+                  <th className="px-4 py-3 font-semibold">หัวข้อ</th>
+                  <th className="px-4 py-3 font-semibold">รายละเอียดคำร้อง</th>
+                  <th className="px-4 py-3 font-semibold">
+                    รับงาน / แก้ไขสถานะโดย
+                  </th>
+                  <th className="px-4 py-3 font-semibold">สร้าง ณ วันที่</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200 bg-white text-base md:text-lg">
+                {loading ? (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
+                      กำลังโหลดข้อมูล...
                     </td>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                ) : tickets.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
+                      ยังไม่มีรายการ
+                    </td>
+                  </tr>
+                ) : (
+                  tickets.map((t) => (
+                    <tr
+                      key={t.id}
+                      className="hover:bg-gray-50 transition-colors"
+                    >
+                      <td className="px-4 py-3">
+                        <StatusBadge status={t.status} />
+                      </td>
+                      <td className="px-4 py-3 font-mono font-semibold text-gray-800">
+                        {String(t.id).padStart(7, "0")}
+                      </td>
+                      <td className="px-4 py-3 font-semibold text-gray-900">
+                        {t.title}
+                      </td>
+                      <td className="px-4 py-3 text-gray-700">{t.detail}</td>
+                      <td className="px-4 py-3 text-gray-800">
+                        {t.assignedTo?.name || "-"}
+                      </td>
+                      <td className="px-4 py-3 text-gray-700 whitespace-nowrap">
+                        {formatDate(t.createdAt)}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
