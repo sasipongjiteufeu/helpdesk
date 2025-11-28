@@ -204,6 +204,10 @@ export default function AdminStatsPage() {
     setToDate(value);
   }
 
+  function handleDownloadPage() {
+    window.print();
+  }
+
   const fromObj = new Date(fromDate + "T00:00:00");
   const toObj = new Date(toDate + "T00:00:00");
 
