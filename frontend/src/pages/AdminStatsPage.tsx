@@ -6,6 +6,7 @@ import { useNavigate } from "react-router-dom";
 import AppHeaderBackend from "../components/AppHeaderBackend";
 import { MdArrowBack, MdRefresh } from "react-icons/md";
 
+
 interface MonthlyItem {
   month: number;
   count: number;
@@ -72,6 +73,12 @@ export default function AdminStatsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  function savePageForPrint() {
+    setTimeout(() => {
+      window.print();
+    }, 100);
+  }
+  
   // ---- helper: format duration safely ----
   const formatDuration = (seconds?: number | null): string => {
     if (seconds == null) return "—";
@@ -204,9 +211,7 @@ export default function AdminStatsPage() {
     setToDate(value);
   }
 
-  function handleDownloadPage() {
-    window.print();
-  }
+
 
   const fromObj = new Date(fromDate + "T00:00:00");
   const toObj = new Date(toDate + "T00:00:00");
@@ -257,7 +262,7 @@ export default function AdminStatsPage() {
     icon?: string;
   }) {
     return (
-      <div className="relative max-w-full p-6 bg-gradient-to-br from-white to-gray-50 border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-shadow">
+      <div className="relative max-w-full p-6 bg-gradient-to-br from-white to-gray-50 border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-shadow print-avoid-break">
         {icon && (
           <div className="absolute top-4 right-4 text-3xl opacity-10">
             {icon}
@@ -311,11 +316,31 @@ export default function AdminStatsPage() {
     "ธ.ค.",
   ];
 
-  const rangeText = `ช่วงวันที่ ${fromDate} ถึง ${toDate}`;
+  const rangeText = `?,S?1^?,?... ${fromDate} ?,-?,? ${toDate}`;
+
+  const printStyles = `
+    @page {
+      size: A4;
+      margin: 12mm;
+    }
+    @media print {
+      body {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+        background: #f3f4f6;
+      }
+      .no-print { display: none !important; }
+      .print-avoid-break {
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
+    }
+  `;
 
   return (
     <div className="min-h-screen flex flex-col justify-center items-center bg-gray-100 p-6 box-border font-sans">
-      <div className="container mx-auto bg-white rounded-2xl shadow-2xl p-5">
+      <style>{printStyles}</style>
+      <div className="container mx-auto bg-white rounded-2xl shadow-2xl p-5 print-avoid-break">
         <AppHeaderBackend user={user} title={"ADMIN"} />
 
         {/* Main Content */}
@@ -332,6 +357,12 @@ export default function AdminStatsPage() {
               <p className="text-xs text-gray-400 mt-0.5">{rangeText}</p>
             </div>
             <div className="flex gap-3 items-center flex-wrap">
+              <button
+                onClick={savePageForPrint}
+                className="py-2 px-4 rounded-lg bg-blue-600 text-white hover:bg-blue-700 shadow transition-all no-print"
+              >
+                Save / Print this page
+              </button>
               <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
                 <label className="text-sm font-medium text-gray-700">
                   จากวันที่:
@@ -389,7 +420,7 @@ export default function AdminStatsPage() {
           {!loading && !error && (
             <>
               {hasAnyData && rangeStats ? (
-                <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 print-avoid-break">
                   <StatCard
                     title="เวลาเฉลี่ยในการดำเนินการครั้งแรก"
                     value={formatDuration(
@@ -432,7 +463,7 @@ export default function AdminStatsPage() {
           {!loading && !error && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Bar Chart */}
-              <div className="rounded-2xl border border-gray-200 bg-gradient-to-br from-gray-50 to-white p-6 shadow-sm min-h-[280px]">
+              <div className="rounded-2xl border border-gray-200 bg-gradient-to-br from-gray-50 to-white p-6 shadow-sm min-h-[280px] print-avoid-break">
                 <h3 className="mt-0 mb-2 text-xl font-bold text-gray-800">
                   📈 จำนวนคำร้องแยกตามเดือน
                 </h3>
@@ -452,9 +483,8 @@ export default function AdminStatsPage() {
                               <div
                                 className="w-[70%] rounded-t-lg bg-gradient-to-t from-green-600 to-green-400 transition-all duration-300 hover:from-green-700 hover:to-green-500 cursor-pointer shadow-sm"
                                 style={{ height: `${h}px` }}
-                                title={`${monthNames[m.month - 1]}: ${
-                                  m.count
-                                } คำร้อง`}
+                                title={`${monthNames[m.month - 1]}: ${m.count
+                                  } คำร้อง`}
                               >
                                 <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-gray-800 text-white text-xs py-1 px-2 rounded whitespace-nowrap">
                                   {m.count} คำร้อง
@@ -480,7 +510,7 @@ export default function AdminStatsPage() {
               </div>
 
               {/* Pie Chart */}
-              <div className="rounded-2xl border border-gray-200 bg-gradient-to-br from-gray-50 to-white p-6 shadow-sm min-h-[280px]">
+              <div className="rounded-2xl border border-gray-200 bg-gradient-to-br from-gray-50 to-white p-6 shadow-sm min-h-[280px] print-avoid-break">
                 <h3 className="mt-0 mb-1 text-xl font-bold text-gray-800">
                   🥧 สถานะคำร้องในเดือน{monthForPieName}
                 </h3>
@@ -495,17 +525,13 @@ export default function AdminStatsPage() {
                         className="w-[200px] h-[200px] rounded-full shadow-lg"
                         style={{
                           background: `conic-gradient(
-                            #22c55e 0deg ${
-                              (ms.RESOLVED / totalMonth) * 360
+                            #22c55e 0deg ${(ms.RESOLVED / totalMonth) * 360
                             }deg,
-                            #3b82f6 ${
-                              (ms.RESOLVED / totalMonth) * 360
-                            }deg ${
-                            ((ms.RESOLVED + ms.IN_PROGRESS) / totalMonth) * 360
-                          }deg,
-                            #facc15 ${
-                              ((ms.RESOLVED + ms.IN_PROGRESS) / totalMonth) *
-                              360
+                            #3b82f6 ${(ms.RESOLVED / totalMonth) * 360
+                            }deg ${((ms.RESOLVED + ms.IN_PROGRESS) / totalMonth) * 360
+                            }deg,
+                            #facc15 ${((ms.RESOLVED + ms.IN_PROGRESS) / totalMonth) *
+                            360
                             }deg 360deg
                           )`,
                         }}
@@ -554,7 +580,7 @@ export default function AdminStatsPage() {
 
           {/* Agent stats table */}
           {!loading && !error && (
-            <div className="mt-8 rounded-2xl border border-gray-200 bg-gradient-to-br from-gray-50 to-white p-6 shadow-sm">
+            <div className="mt-8 rounded-2xl border border-gray-200 bg-gradient-to-br from-gray-50 to-white p-6 shadow-sm print-avoid-break">
               <h3 className="mt-0 mb-1 text-xl font-bold text-gray-800">
                 👩‍💻 สถานะคำร้องตามเจ้าหน้าที่ (Agent)
               </h3>
@@ -629,7 +655,7 @@ export default function AdminStatsPage() {
           <button
             type="button"
             onClick={() => nav("/admin")}
-            className="mt-6 py-2 px-5 rounded-lg border border-gray-300 bg-white cursor-pointer hover:bg-gray-50 transition-all inline-flex items-center text-center font-medium shadow-sm hover:shadow"
+            className="mt-6 py-2 px-5 rounded-lg border border-gray-300 bg-white cursor-pointer hover:bg-gray-50 transition-all inline-flex items-center text-center font-medium shadow-sm hover:shadow no-print"
           >
             <MdArrowBack className="mr-2" /> กลับหน้าหลัก ADMIN
           </button>
@@ -638,3 +664,4 @@ export default function AdminStatsPage() {
     </div>
   );
 }
+
