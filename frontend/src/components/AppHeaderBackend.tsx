@@ -55,7 +55,7 @@ export default function AppHeaderBackend({
     <div className="flex flex-col md:flex-row justify-between items-center border-b border-gray-200 pb-3">
       <div className="flex items-center gap-3">
         <img src={logoSRU} alt="SRU Logo" className="h-14 w-auto" />
-        <span className="text-3xl font-bold">HelpDesk {title}</span>
+        <span className="text-3xl font-bold">SRU แจ้งปัญหา IT {title}</span>
       </div>
 
       <div className="flex flex-col md:flex-row gap-4 items-center">
