@@ -1,5 +1,8 @@
 // src/pages/Login.tsx
 import "animate.css";
+import logoArit from '../assets/logo-ARIT.png';
+import logoSru from '../assets/logo-sru-png.png';
+
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
 
@@ -22,12 +25,12 @@ export default function Login() {
         {/* โลโก้ ARIT + SRU */}
         <div className="flex items-center justify-center gap-6 mb-5">
           <img
-            src="/logo-ARIT.png"
+            src={logoArit}
             alt="ARIT Logo"
             className="h-[70px] object-contain animate__animated animate__fadeInUp animate__fast"
           />
           <img
-            src="/logo-sru-png.png"
+            src={logoSru}
             alt="Suratthani Rajabhat University Logo"
             className="h-[110px] object-contain animate__animated animate__fadeInUp animate__fast"
           />

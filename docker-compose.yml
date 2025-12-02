@@ -1,67 +1,42 @@
 version: "3.9"
 
 services:
-  db:
-    image: mysql:8.0
-    container_name: helpdesk-mysql
-    restart: unless-stopped
-    environment:
-      MYSQL_ROOT_PASSWORD: your_strong_root_password
-      MYSQL_DATABASE: helpdesk_db
-      MYSQL_USER: helpdesk_user
-      MYSQL_PASSWORD: your_strong_user_password
-    # ถ้าไม่จำเป็นต้องต่อจากข้างนอก (เช่น จากเครื่องส่วนตัว)
-    # แนะนำให้ bind แค่ 127.0.0.1 เพื่อความปลอดภัย
-    ports:
-      - "127.0.0.1:3306:3306"
-    volumes:
-      - mysql-data:/var/lib/mysql
-
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     container_name: helpdesk-backend
-    # ให้รับ request แค่จากเครื่อง host (Nginx จะมาเรียก)
     ports:
       - "127.0.0.1:3000:3000"
     environment:
-      # ฝั่ง backend ใช้ URL นี้ตอน redirect / CORS
+      # === Frontend URL ===
       - FRONTEND_URL=https://itsupport.sru.ac.th
 
       # === Google OAuth ===
       - GOOGLE_CLIENT_ID=587858471059-3higpfbv1pnrdiok0ds0v0459n30btei.apps.googleusercontent.com
-      # (อันนี้อย่าเอาไป commit public repo นะ)
       - GOOGLE_CLIENT_SECRET=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
-
-      # สำคัญ: callback ต้องเป็น URL ที่ Google ยิงกลับมาจริง
-      # และต้องไปแก้ใน Google Cloud Console ให้ตรงกันด้วย
       - GOOGLE_CALLBACK_URL=https://itsupport.sru.ac.th/api/auth/google/redirect
 
       - NODE_ENV=production
-
-      # ตอนนี้ยังคง false ไว้ก่อนกัน login พัง
-      # ถ้า migrate เป็น HTTPS เรียบร้อยแล้วค่อยลอง true ทีหลังได้
       - COOKIE_SECURE=false
-
       - JWT_SECRET=CCISRUCOM
       - JWT_EXPIRES_IN=7d
 
-      # DB connection (ใช้ service name db)
-      - DATABASE_HOST=db
+      # === Use REAL Database ===
+      - DATABASE_HOST=localhost
       - DATABASE_PORT=3306
-      - DATABASE_USER=helpdesk_user
-      - DATABASE_PASSWORD=your_strong_user_password
-      - DATABASE_NAME=helpdesk_db
+      - DATABASE_USER=itsupport_user
+      - DATABASE_PASSWORD=OLSsQ_D}u6w=?u}#
+      - DATABASE_NAME=itsupport_db
 
-      # SMTP
+      # === SMTP Email ===
       - SMTP_HOST=smtp.gmail.com
       - SMTP_PORT=465
       - SMTP_USER=beermini991@gmail.com
       - SMTP_PASS=djasuhdowsxcoevb
       - SMTP_FROM=beermini991@gmail.com
 
-      # Telegram
+      # === Telegram ===
       - TELEGRAM_BOT_TOKEN=8350312225:AAEaJ0eZeJ1Oxy7EubTON27ZIPodRxTzCnA
       - TELEGRAM_CHAT_ID=-4828646624
 
@@ -77,10 +52,8 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        # ให้ React ยิง API ผ่าน Nginx ที่ /api
         VITE_API_BASE_URL: https://itsupport.sru.ac.th/api
     container_name: helpdesk-frontend
-    # เปิดให้ Nginx บน host ยิงเข้าเท่านั้น
     ports:
       - "127.0.0.1:8080:80"
     environment:
@@ -88,6 +61,3 @@ services:
     depends_on:
       - backend
     restart: unless-stopped
-
-volumes:
-  mysql-data:
