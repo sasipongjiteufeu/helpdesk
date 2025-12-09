@@ -19,8 +19,8 @@ import { FilterTicketDto } from './dto/filter-ticket.dto';
 @Controller('tickets')
 
 export class TicketController {
-  constructor(private readonly svc: TicketService) {}
-  
+  constructor(private readonly svc: TicketService) { }
+
 
   // Create (multipart form: title, detail, tal?, picture?)
   @Post()
@@ -45,7 +45,15 @@ export class TicketController {
       limit: limit ? parseInt(limit, 10) : 20,
     });
   }
-
+  
+@Post('public')
+findAllPublicPost(
+  @Body() body: { page?: number; limit?: number },
+) {
+  const page = body.page ?? 1;
+  const limit = body.limit ?? 20;
+  return this.svc.findAllPublicPost({ page, limit }); // 👈 use the new method
+}
   // Public list (no auth) for landing page
   @Get('public')
   findAllPublic(@Query('page') page?: string, @Query('limit') limit?: string) {
@@ -63,6 +71,16 @@ export class TicketController {
     return this.svc.filterFor(req.user, dto);
   }
 
+  @Post('mine')
+  @UseGuards(AuthenticatedGuard, RolesGuard)
+  @Roles(RoleEnum.USER, RoleEnum.AGENT, RoleEnum.ADMIN)
+  findAllMine(@Req() req: any, @Body() body: { page?: number; limit?: number }) {
+    const page = body.page ?? 1;
+    const limit = body.limit ?? 20;
+    return this.svc.findAllMine(req.user, { page, limit });
+  }
+
+
   // Get one (owner or staff)
   @Get(':id')
   @UseGuards(AuthenticatedGuard, RolesGuard)
@@ -72,7 +90,7 @@ export class TicketController {
   }
 
   // Get raw picture bytes (204 if none)
-@Get(':id/picture')
+  @Get(':id/picture')
   @UseGuards(AuthenticatedGuard, RolesGuard)
   @Roles(RoleEnum.USER, RoleEnum.AGENT, RoleEnum.ADMIN)
   async getPicture(@Param('id') id: number, @Req() req: any, @Res() res: express.Response) {
@@ -102,8 +120,8 @@ export class TicketController {
     const absPath = img.path && path.isAbsolute(img.path)
       ? img.path
       : img.path
-      ? path.join(process.cwd(), img.path)
-      : null;
+        ? path.join(process.cwd(), img.path)
+        : null;
 
     if (!absPath || !fs.existsSync(absPath)) {
       return res.status(204).send();
@@ -148,7 +166,7 @@ export class TicketController {
   @Patch(':id/status')
   @Roles(RoleEnum.AGENT, RoleEnum.ADMIN)
   changeStatus(@Param('id') id: number, @Body() dto: CreateTicketDto, @Req() req,) {
-    return this.svc.changeStatusFor(id,req.user,dto);
+    return this.svc.changeStatusFor(id, req.user, dto);
   }
 
   // Delete (admin; or owner if OPEN & unassigned)
@@ -158,6 +176,6 @@ export class TicketController {
   remove(@Param('id') id: number, @Req() req: any) {
     return this.svc.removeFor(req.user, id);
   }
-  
-  
+
+
 }

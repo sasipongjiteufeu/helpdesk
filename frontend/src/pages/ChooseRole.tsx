@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { API_BASE } from "../lib/api";
 import logoSRU from "../assets/logo-sru-png.png";
-import logoARIT from "../assets/logo-ARIT.png";
+import CCI from "../assets/CCI.png";
 import { FaUser } from "react-icons/fa6";
 import { RiAdminFill } from "react-icons/ri";
 import { MdDeveloperMode } from "react-icons/md";
@@ -83,14 +83,14 @@ export default function ChooseRole() {
         {/* โลโก้ ARIT + SRU */}
         <div className="flex items-center justify-center gap-6 mb-6 animate__animated animate__fadeInUp">
           <img
-            src={logoARIT}
-            alt="ARIT Logo"
-            className="h-[70px] object-contain"
-          />
-          <img
             src={logoSRU}
             alt="Suratthani Rajabhat University Logo"
             className="h-[110px] object-contain"
+          />
+          <img
+            src={CCI}
+            alt="CCI Logo"
+            className="h-[70px] object-contain"
           />
         </div>
 
@@ -136,7 +136,7 @@ export default function ChooseRole() {
                   {role === "ADMIN"
                     ? "ผู้ดูแลระบบ"
                     : role === "AGENT"
-                    ? "เจ้าหน้าที่พัฒนาระบบ (จนท.ศูนย์คอม)"
+                    ? "เจ้าหน้าที่ศูนย์คอม"
                     : "ผู้ใช้งานทั่วไป"}
                 </button>
               ))}

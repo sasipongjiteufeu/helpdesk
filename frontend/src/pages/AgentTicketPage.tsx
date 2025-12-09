@@ -4,8 +4,8 @@ import { useNavigate } from "react-router-dom";
 import { API_BASE } from "../lib/api";
 import { useRequireAuth } from "../hooks/useRequireAuth";
 import AppHeaderBackend from "../components/AppHeaderBackend";
-import { MdInfo, MdRefresh } from "react-icons/md";
-
+import { MdInfo, MdRefresh, MdHome} from "react-icons/md";
+import { FaUserShield } from "react-icons/fa";
 type TicketStatus = "OPEN" | "IN_PROGRESS" | "RESOLVED" | "COMMIT";
 
 interface Ticket {
@@ -28,15 +28,15 @@ interface Ticket {
 type Filter = "ACTIVE" | "OPEN" | "IN_PROGRESS" | "COMMIT" | "ALL";
 
 const STATUS_LABELS: Record<TicketStatus, string> = {
-  OPEN: "เปิด",
+  OPEN: "รอดำเนินการ",
   IN_PROGRESS: "กำลังดำเนินการ",
   RESOLVED: "ปิดแล้ว",
   COMMIT: "มอบหมายให้ฉัน",
 };
 
 const FILTER_LABELS: Record<Filter, string> = {
-  ACTIVE: "เปิด + กำลังดำเนินการ",
-  OPEN: "เปิด",
+  ACTIVE: "รอดำเนินการ + กำลังดำเนินการ",
+  OPEN: "รอดำเนินการ",
   IN_PROGRESS: "กำลังดำเนินการ",
   COMMIT: "ตั๋วที่รับผิดชอบ (ฉัน)",
   ALL: "ทั้งหมด",
@@ -196,11 +196,10 @@ export default function AgentTicketsPage() {
       <button
         type="button"
         onClick={onClick}
-        className={`px-4 py-2 rounded-full border font-semibold cursor-pointer transition-all text-lg tracking-wide ${
-          active
+        className={`px-4 py-2 rounded-full border font-semibold cursor-pointer transition-all text-lg tracking-wide ${active
             ? "border-green-600 bg-green-500 text-white shadow-md"
             : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-        }`}
+          }`}
       >
         {label}
         {count !== undefined && (
@@ -253,7 +252,25 @@ export default function AgentTicketsPage() {
     <div className="min-h-screen flex flex-col justify-stretch items-center bg-gradient-to-b from-gray-50 via-white to-gray-100 p-6 text-lg">
       <div className="w-full bg-white/85 backdrop-blur rounded-3xl shadow-[0_25px_80px_-40px_rgba(15,23,42,0.35)] border border-gray-100 p-6 mt-2">
         <AppHeaderBackend user={user} title={"AGENT"} />
+        <div className="flex flex-wrap gap-3 mt-4">
+          <button
+            onClick={() => (window.location.href = "/")}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gray-800 text-white hover:bg-gray-900 shadow transition active:scale-[0.98]"
+          >
+            <MdHome className="text-xl" />
+            <span>หน้าสาธารณะ</span>
+          </button>
 
+          {user?.roles && user.roles.length > 1 && (
+            <button
+              onClick={() => (window.location.href = "/choose-role")}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 shadow transition active:scale-[0.98]"
+            >
+              <FaUserShield className="text-xl" />
+              <span>เลือกบทบาท</span>
+            </button>
+          )}
+        </div>
         <div className="mt-4">
           <div className="flex items-center justify-between mb-4 gap-4 flex-wrap">
             <h2 className="mt-0 mb-0 text-3xl font-bold text-gray-900 tracking-tight">
@@ -283,33 +300,33 @@ export default function AgentTicketsPage() {
                 label={FILTER_LABELS.ACTIVE}
                 count={counts.active}
                 active={filter === "ACTIVE"}
-              onClick={() => setFilter("ACTIVE")}
-            />
-            <FilterButton
-              label={FILTER_LABELS.OPEN}
-              count={counts.open}
-              active={filter === "OPEN"}
-              onClick={() => setFilter("OPEN")}
-            />
-            <FilterButton
-              label={FILTER_LABELS.IN_PROGRESS}
-              count={counts.inProgress}
-              active={filter === "IN_PROGRESS"}
-              onClick={() => setFilter("IN_PROGRESS")}
-            />
+                onClick={() => setFilter("ACTIVE")}
+              />
+              <FilterButton
+                label={FILTER_LABELS.OPEN}
+                count={counts.open}
+                active={filter === "OPEN"}
+                onClick={() => setFilter("OPEN")}
+              />
+              <FilterButton
+                label={FILTER_LABELS.IN_PROGRESS}
+                count={counts.inProgress}
+                active={filter === "IN_PROGRESS"}
+                onClick={() => setFilter("IN_PROGRESS")}
+              />
 
               <FilterButton
-              label={FILTER_LABELS.COMMIT}
-              count={counts.commit}
-              active={filter === "COMMIT"}
-              onClick={() => setFilter("COMMIT")}
-            />
-            <FilterButton
-              label={FILTER_LABELS.ALL}
-              count={counts.all}
-              active={filter === "ALL"}
-              onClick={() => setFilter("ALL")}
-            />
+                label={FILTER_LABELS.COMMIT}
+                count={counts.commit}
+                active={filter === "COMMIT"}
+                onClick={() => setFilter("COMMIT")}
+              />
+              <FilterButton
+                label={FILTER_LABELS.ALL}
+                count={counts.all}
+                active={filter === "ALL"}
+                onClick={() => setFilter("ALL")}
+              />
             </div>
 
             <div className="ml-auto flex gap-2">

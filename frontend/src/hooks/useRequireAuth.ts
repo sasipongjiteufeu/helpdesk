@@ -61,7 +61,7 @@ export function useRequireAuth() {
             location.pathname === "/forbidden";
 
           if (!isOnPublicPage) {
-            navigate("/login", { replace: true });
+            navigate("/", { replace: true });
           }
           return;
         }

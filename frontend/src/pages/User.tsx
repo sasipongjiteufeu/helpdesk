@@ -4,8 +4,8 @@ import { Link, useNavigate } from "react-router-dom";
 import { API_BASE } from "../lib/api";
 import { useRequireAuth } from "../hooks/useRequireAuth";
 import AppHeaderBackend from "../components/AppHeaderBackend";
-import { MdDelete, MdOutlineAddCircle } from "react-icons/md";
-import { FaCircleInfo } from "react-icons/fa6";
+import { MdDelete, MdHome, MdOutlineAddCircle } from "react-icons/md";
+import { FaCircleInfo, FaUserShield } from "react-icons/fa6";
 import Swal from "sweetalert2";
 
 type TicketStatus = "OPEN" | "IN_PROGRESS" | "RESOLVED";
@@ -21,7 +21,7 @@ interface Ticket {
 }
 
 const STATUS_LABELS: Record<TicketStatus, string> = {
-  OPEN: "เปิด",
+  OPEN: "รอดำเนินการ",
   IN_PROGRESS: "กำลังดำเนินการ",
   RESOLVED: "ปิดแล้ว",
 };
@@ -36,8 +36,17 @@ export default function UserTicketsPage() {
   async function loadTickets() {
     try {
       setLoading(true);
-      const res = await fetch(`${API_BASE}/tickets?page=1&limit=50`, {
+      const res = await fetch(`${API_BASE}/tickets/mine`, {
+        method: "POST",
         credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: user?.email,
+          page: 1,
+          limit: 50
+        }),
       });
       const data = await res.json();
       setTickets(data.items ?? []);
@@ -64,6 +73,17 @@ export default function UserTicketsPage() {
         new Date(t.createdAt).toDateString() === today,
     ).length;
   }, [tickets]);
+
+
+  const todaywaitingCount = useMemo(() => {
+    const today = new Date().toDateString();
+    return tickets.filter(
+      (t) =>
+        t.status === "OPEN" &&
+        new Date(t.createdAt).toDateString() === today,
+    ).length;
+  }, [tickets]);
+
 
   if (authLoading || !user) {
     return (
@@ -154,7 +174,27 @@ export default function UserTicketsPage() {
     <div className="min-h-screen bg-gradient-to-b from-gray-50 via-white to-gray-100 py-10 px-4 text-gray-900">
       <div className=" mx-auto bg-white/85 backdrop-blur rounded-3xl shadow-[0_25px_80px_-40px_rgba(15,23,42,0.35)] border border-gray-100 px-8 py-6">
         <AppHeaderBackend user={user} title={"USER"} />
+        <div className="flex flex-wrap gap-3 mt-4">
 
+          <button
+            onClick={() => (window.location.href = "/")}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gray-800 text-white hover:bg-gray-900 shadow transition active:scale-[0.98]"
+          >
+            <MdHome className="text-xl" />
+            <span>หน้าสาธารณะ</span>
+          </button>
+
+          {user?.roles && user.roles.length > 1 && (
+            <button
+              onClick={() => (window.location.href = "/choose-role")}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 shadow transition active:scale-[0.98]"
+            >
+              <FaUserShield className="text-xl" />
+              <span>เลือกบทบาท</span>
+            </button>
+          )}
+
+        </div>
         <div className="mt-6 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           <div>
             <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight">
@@ -163,10 +203,18 @@ export default function UserTicketsPage() {
             <p className="text-lg text-gray-600">
               วันนี้มีคำร้องที่กำลังดำเนินการ{" "}
               <span className="font-semibold text-emerald-700">
-                {todayActiveCount} ticket
+                {todayActiveCount} งาน
+              </span>
+            </p>
+
+            <p className="text-lg text-gray-600">
+              จำนวนงานที่รอดำเนินการของวันนี้{" "}
+              <span className="font-semibold text-emerald-700">
+                {todaywaitingCount} งาน
               </span>
             </p>
           </div>
+
           <Link
             to={"/user/create"}
             className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-full font-semibold inline-flex items-center gap-2 shadow-md transition-colors"
@@ -250,11 +298,10 @@ export default function UserTicketsPage() {
                                 canDelete ? () => handleDelete(t.id) : undefined
                               }
                               disabled={!canDelete}
-                              className={`px-3 py-2 rounded-full text-sm font-semibold inline-flex items-center gap-2 transition-colors ${
-                                canDelete
+                              className={`px-3 py-2 rounded-full text-sm font-semibold inline-flex items-center gap-2 transition-colors ${canDelete
                                   ? "bg-rose-100 text-rose-700 hover:bg-rose-200"
                                   : "bg-gray-200 text-gray-400 cursor-not-allowed"
-                              }`}
+                                }`}
                               title={
                                 canDelete
                                   ? "ลบคำร้อง"

@@ -2,8 +2,7 @@
 import "animate.css";
 import logoArit from '../assets/logo-ARIT.png';
 import logoSru from '../assets/logo-sru-png.png';
-
-
+import CCI from '../assets/CCI.png';
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
 
 export default function Login() {
@@ -27,22 +26,31 @@ export default function Login() {
           <img
             src={logoArit}
             alt="ARIT Logo"
-            className="h-[70px] object-contain animate__animated animate__fadeInUp animate__fast"
+            className="h-[40px] object-contain animate__animated animate__fadeInUp animate__fast"
           />
           <img
             src={logoSru}
             alt="Suratthani Rajabhat University Logo"
-            className="h-[110px] object-contain animate__animated animate__fadeInUp animate__fast"
+            className="h-[100px] object-contain animate__animated animate__fadeInUp animate__fast"
           />
+          <img
+            src={CCI}
+            alt="CCI Logo"
+            className="h-[100px] object-contain animate__animated animate__fadeInUp animate__fast"
+          />
+
         </div>
 
         {/* ข้อความชื่อระบบ */}
         <div className="animate__animated animate__fadeInUp">
           <h1 className="text-2xl m-0 mb-1 text-gray-900">
-            ระบบบริการ Helpdesk
+            ระบบรับเรื่องและแก้ไขปัญหาไอที
+          </h1>
+          <h1 className = "text-2xl m-0 mb-1 text-gray-900">
+          ศูนย์คอมพิวเตอร์
           </h1>
           <p className="m-0 text-sm text-gray-600">
-            สำนักงานวิทยบริการและเทคโนโลยีสารสนเทศ
+            สำนักวิทยบริการและเทคโนโลยีสารสนเทศ
           </p>
           <p className="m-0 text-sm text-gray-600">
             มหาวิทยาลัยราชภัฏสุราษฎร์ธานี

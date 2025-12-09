@@ -133,7 +133,7 @@ export class TicketService {
     }
     return savedTicket;
   }
-
+  
   private async notifyAgentsAboutNewTicket(ticket: Ticket) {
     const agents = await this.users
       .createQueryBuilder('u')
@@ -146,7 +146,55 @@ export class TicketService {
 
     await this.email.notifyAgentsNewTicket(emails, ticket);
   }
+  
+  async findAllPublicPost(opts?: { page?: number; limit?: number }) {
+  const page = Math.max(1, opts?.page ?? 1);
+  const limit = Math.min(100, Math.max(1, opts?.limit ?? 20));
 
+  // 🕒 today range [start, end)
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+
+  const end = new Date(start);
+  end.setDate(end.getDate() + 1); // exclusive next day
+
+  const qb = this.repo
+    .createQueryBuilder('t')
+    .select([
+      't.id',
+      't.title',
+      't.detail',
+      't.status',
+      't.createdAt',
+      't.updatedAt',
+      't.resolvedAt',
+    ])
+    // OPEN + IN_PROGRESS → always show
+    .where('t.status IN (:...active)', {
+      active: [TicketStatus.OPEN, TicketStatus.IN_PROGRESS],
+    })
+    // OR RESOLVED but only if resolvedAt is today
+    .orWhere(
+      `t.status = :resolved
+       AND t.resolvedAt IS NOT NULL
+       AND t.resolvedAt >= :start
+       AND t.resolvedAt < :end`,
+      {
+        resolved: TicketStatus.RESOLVED,
+        start,
+        end,
+      },
+    )
+    .orderBy('t.createdAt', 'DESC')
+    .take(limit)
+    .skip((page - 1) * limit);
+
+  const [items, total] = await qb.getManyAndCount();
+
+  return { items, total, page, limit };
+
+}
+/*Note it not use anymore because it was GET. it will slow that facth data*/
   async findAllPublic(opts?: { page?: number; limit?: number }) {
     const page = Math.max(1, opts?.page ?? 1);
     const limit = Math.min(100, Math.max(1, opts?.limit ?? 20));
@@ -169,6 +217,23 @@ export class TicketService {
 
     return { items, total, page, limit };
   }
+/*end here*/
+
+async findAllMine(user: User, opts?: { page?: number; limit?: number }) {
+  const page = Math.max(1, opts?.page ?? 1);
+  const limit = Math.min(100, Math.max(1, opts?.limit ?? 20));
+
+  const [items, total] = await this.repo.findAndCount({
+    where: { createdBy: { id: user.id } },   // 👈 always only the owner
+    order: { createdAt: 'DESC' },
+    take: limit,
+    skip: (page - 1) * limit,
+    relations: ['assignedTo', 'createdBy', 'lastStatusChangedBy'],
+  });
+
+  return { items, total, page, limit };
+  } 
+
 
   async findAllFor(user: User, opts?: { page?: number; limit?: number }) {
     const page = Math.max(1, opts?.page ?? 1);

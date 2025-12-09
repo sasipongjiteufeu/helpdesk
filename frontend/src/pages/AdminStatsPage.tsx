@@ -82,12 +82,13 @@ export default function AdminStatsPage() {
   // ---- helper: format duration safely ----
   const formatDuration = (seconds?: number | null): string => {
     if (seconds == null) return "—";
+    const s = Math.abs(seconds);
     if (seconds === 0) return "0 วินาที";
 
-    const days = Math.floor(seconds / 86400);
-    const hours = Math.floor((seconds % 86400) / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = Math.floor(seconds % 60);
+    const days = Math.floor(s / 86400);
+    const hours = Math.floor((s % 86400) / 3600);
+    const minutes = Math.floor((s % 3600) / 60);
+    const secs = Math.floor(s % 60);
 
     const parts: string[] = [];
     if (days > 0) parts.push(`${days} วัน`);
@@ -316,7 +317,7 @@ export default function AdminStatsPage() {
     "ธ.ค.",
   ];
 
-  const rangeText = `?,S?1^?,?... ${fromDate} ?,-?,? ${toDate}`;
+  const rangeText = `ช่วงวันที่ ${fromDate} ถึงวันที่ ${toDate}`;
 
   const printStyles = `
     @page {

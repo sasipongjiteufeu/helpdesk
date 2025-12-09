@@ -1,12 +1,12 @@
 /* ------------------ Role choose page ------------------ */
+
 @import "tailwindcss";
 
-@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700&display=swap');
-
 body {
-  font-family: 'Manrope', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: 'Kanit', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   font-size: 18px;
   line-height: 1.6;
   background: #f7fafc;
   color: #1f2937;
 }
+
