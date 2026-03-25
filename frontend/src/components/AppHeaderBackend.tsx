@@ -1,6 +1,6 @@
 import axios from "axios";
 import { API_BASE } from "../lib/api";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import logoSRU from "../assets/logo-sru-png.png";
 import Swal from "sweetalert2";
 import { MdOutlineLogout } from "react-icons/md";
@@ -20,6 +20,11 @@ export default function AppHeaderBackend({
   title,
 }: AppHeaderBackendProps) {
   const navigate = useNavigate();
+
+    const handleLogin = () => {
+    // ไปที่ backend Google OAuth โดยตรง
+    window.location.href = `${API_BASE}/auth/google`;
+  };
 
   const logout = async () => {
     try {
@@ -44,7 +49,7 @@ export default function AppHeaderBackend({
           withCredentials: true,
         });
         console.log(response);
-        navigate("/login");
+        navigate("/");
       }
     } catch (error) {
       console.error(error);
@@ -55,7 +60,7 @@ export default function AppHeaderBackend({
     <div className="flex flex-col md:flex-row justify-between items-center border-b border-gray-200 pb-3">
       <div className="flex items-center gap-3">
         <img src={logoSRU} alt="SRU Logo" className="h-14 w-auto" />
-        <span className="text-3xl font-bold">ระบบรับเรื่องและแก้ไขปัญหาไอที {title}</span>
+        <span className="text-3xl font-bold">ระบบรับเรื่องและแก้ไขปัญหาไอที มหาวิทยาลัยราชภัฏสุราษฎร์ธานี {title}</span>
       </div>
 
       <div className="flex flex-col md:flex-row gap-4 items-center">
@@ -73,12 +78,12 @@ export default function AppHeaderBackend({
         
         {!user && (
           <>
-            <Link
-              to={"/login"}
+            <button
+              onClick={handleLogin}
               className="px-3.5 py-1.5 rounded-full border border-gray-300 bg-white hover:bg-gray-50 cursor-pointer inline-flex items-center text-center"
             >
-              เข้าสู่ระบบ
-            </Link>
+             เข้าสู่ระบบด้วยอีเมลมหาวิทยาลัย
+            </button>
           </>
         )}
       </div>
