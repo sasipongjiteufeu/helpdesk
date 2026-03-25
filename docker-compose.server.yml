@@ -19,7 +19,8 @@ services:
       # === Google OAuth ===
       - GOOGLE_CLIENT_ID=587858471059-3higpfbv1pnrdiok0ds0v0459n30btei.apps.googleusercontent.com
       - GOOGLE_CLIENT_SECRET=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
-      - GOOGLE_CALLBACK_URL=http://localhost:3000/auth/google/redirect
+      - GOOGLE_CALLBACK_URL=https://itsupport.sru.ac.th/auth/google/redirect
+      # GOOGLE_CALLBACK_URL=http://localhost:3000/auth/google/redirect
 
       - NODE_ENV=production
       - COOKIE_SECURE=false
