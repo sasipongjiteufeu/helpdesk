@@ -47,9 +47,15 @@ export class UserService {
     name?: string | null,
     avatarUrl?: string | null,
   ) {
-    if (!email?.endsWith('@sru.ac.th')) {
-      throw new UnauthorizedException('Unauthorized domain');
-    } //check if that use @sru.ac.th Doman?
+  
+  const allowed =
+    email?.endsWith('@sru.ac.th') ||
+    email?.endsWith('@student.sru.ac.th')||
+    email?.endsWith('@creditbank.sru.ac.th');
+
+  if (!allowed) {
+    throw new UnauthorizedException('Unauthorized domain');
+  } //check if that use @sru.ac.th Doman?
     let user = await this.findByEmailWithRoles(email);
 
     if (user) {

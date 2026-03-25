@@ -6,10 +6,10 @@ services:
     container_name: helpdesk-db
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: your_root_password
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD_ENV} # 👈 ใช้จาก .env
       MYSQL_DATABASE: helpdesk_db          # 👈 ให้ตรงกับ backend
       MYSQL_USER: helpdesk_user            # 👈 ให้ตรงกับ backend
-      MYSQL_PASSWORD: your_strong_user_password
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD_ENV} # 👈 ใช้จาก .env
     volumes:
       - db_data:/var/lib/mysql
     networks:
@@ -30,13 +30,13 @@ services:
       - FRONTEND_URL=http://localhost:8080
 
       # === Google OAuth ===
-      - GOOGLE_CLIENT_ID=587858471059-3higpfbv1pnrdiok0ds0v0459n30btei.apps.googleusercontent.com
-      - GOOGLE_CLIENT_SECRET=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
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID_ENV} # 👈 ใช้จาก .env
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET_ENV} # 👈 ใช้จาก .env
       - GOOGLE_CALLBACK_URL=http://localhost:3000/auth/google/redirect
 
       - NODE_ENV=production
       - COOKIE_SECURE=false
-      - JWT_SECRET=CCISRUCOM
+      - JWT_SECRET=${JWT_SECRET_ENV} # 👈 ใช้จาก .env
       - JWT_EXPIRES_IN=7d
 
       # === Use REAL Database ===
@@ -47,15 +47,15 @@ services:
       - DATABASE_NAME=helpdesk_db
 
       # === SMTP Email ===
-      - SMTP_HOST=smtp.gmail.com
-      - SMTP_PORT=465
-      - SMTP_USER=beermini991@gmail.com
-      - SMTP_PASS=djasuhdowsxcoevb
-      - SMTP_FROM=beermini991@gmail.com
+      - SMTP_HOST=${SMTP_HOST_ENV} # 👈 ใช้จาก .env
+      - SMTP_PORT=${SMTP_PORT_ENV} # 👈 ใช้จาก .env
+      - SMTP_USER=${SMTP_USER_ENV} # 👈 ใช้จาก .env
+      - SMTP_PASS=${SMTP_PASS_ENV}
+      - SMTP_FROM=${SMTP_FROM_ENV}
 
       # === Telegram ===
-      - TELEGRAM_BOT_TOKEN=8350312225:AAEaJ0eZeJ1Oxy7EubTON27ZIPodRxTzCnA
-      - TELEGRAM_CHAT_ID=-4828646624
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN_ENV} # 👈 ใช้จาก .env
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID_ENV} # 👈 ใช้จาก .env
 
     restart: unless-stopped
     command: >
@@ -63,7 +63,7 @@ services:
         node dist/seeds/seed-roles.js &&
         node dist/main.js
       "
-    networks:                # 👈 เพิ่มตรงนี้
+    networks:               
       - helpdesk-net    
 
   frontend:

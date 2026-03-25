@@ -34,7 +34,7 @@ export class User {
   name: string | null;
 
   // 👇 NEW: Google profile picture url
-  @Column({ name: 'AvatarUrl', type: 'varchar', length: 512, nullable: true })
+  @Column({ name: 'AvatarUrl', type: 'text', nullable: true })
   avatarUrl: string | null;
   
   @ManyToMany(() => Role, (r) => r.users, { eager: true })

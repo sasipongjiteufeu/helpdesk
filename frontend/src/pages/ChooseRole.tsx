@@ -115,15 +115,41 @@ export default function ChooseRole() {
             {!loading &&
               roles.map((role) => (
                 <button
-                  className={`text-white bg-gradient-to-r  ${
-                    role === "ADMIN"
-                      ? "from-rose-500 via-rose-600 to-pink-600 hover:from-rose-600 hover:via-rose-700 hover:to-pink-700 focus:ring-rose-300 shadow-rose-200"
-                      : role === "AGENT"
-                      ? "from-blue-500 via-blue-600 to-indigo-600 hover:from-blue-600 hover:via-blue-700 hover:to-indigo-700 focus:ring-blue-300 shadow-blue-200"
-                      : "from-emerald-500 via-emerald-600 to-teal-600 hover:from-emerald-600 hover:via-emerald-700 hover:to-teal-700 focus:ring-emerald-300 shadow-emerald-200"
-                  } focus:ring-4 focus:outline-none font-semibold rounded-lg text-base px-6 py-3 text-center shadow-lg transition-all duration-300 transform hover:scale-105 hover:shadow-xl active:scale-95 inline-flex items-center justify-center gap-3 w-full leading-tight whitespace-normal`}
-                  onClick={() => go(role)}
                   key={role}
+                  onClick={() => go(role)}
+                  className={`
+    inline-flex w-full items-center justify-center gap-3
+    rounded-lg px-6 py-3 text-base font-semibold leading-tight
+    text-white shadow-lg whitespace-normal
+    focus:outline-none focus:ring-4
+    transition-all duration-300 transform
+    hover:scale-105 hover:shadow-xl active:scale-95
+
+    ${role === "ADMIN"
+                      ? `
+          bg-rose-600                    /* ✅ solid color for mobile */
+          md:bg-gradient-to-r            /* gradients only on md+ */
+          md:from-rose-500 md:via-rose-600 md:to-pink-600
+          md:hover:from-rose-600 md:hover:via-rose-700 md:hover:to-pink-700
+          focus:ring-rose-300
+        `
+                      : role === "AGENT"
+                        ? `
+          bg-blue-600
+          md:bg-gradient-to-r
+          md:from-blue-500 md:via-blue-600 md:to-indigo-600
+          md:hover:from-blue-600 md:hover:via-blue-700 md:hover:to-indigo-700
+          focus:ring-blue-300
+        `
+                        : `
+          bg-emerald-600
+          md:bg-gradient-to-r
+          md:from-emerald-500 md:via-emerald-600 md:to-teal-600
+          md:hover:from-emerald-600 md:hover:via-emerald-700 md:hover:to-teal-700
+          focus:ring-emerald-300
+        `
+                    }
+  `}
                 >
                   {role === "ADMIN" ? (
                     <RiAdminFill />
@@ -136,8 +162,8 @@ export default function ChooseRole() {
                   {role === "ADMIN"
                     ? "ผู้ดูแลระบบ"
                     : role === "AGENT"
-                    ? "เจ้าหน้าที่ศูนย์คอม"
-                    : "ผู้ใช้งานทั่วไป"}
+                      ? "เจ้าหน้าที่ศูนย์คอม"
+                      : "ผู้ใช้งานทั่วไป"}
                 </button>
               ))}
           </div>
