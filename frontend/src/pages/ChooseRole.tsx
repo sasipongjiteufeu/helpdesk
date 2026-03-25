@@ -162,8 +162,18 @@ export default function ChooseRole() {
                   {role === "ADMIN"
                     ? "ผู้ดูแลระบบ"
                     : role === "AGENT"
+<<<<<<< HEAD
                       ? "เจ้าหน้าที่ศูนย์คอม"
                       : "ผู้ใช้งานทั่วไป"}
+=======
+<<<<<<< HEAD
+                    ? "เจ้าหน้าที่ศูนย์คอม"
+                    : "ผู้ใช้งานทั่วไป"}
+=======
+                      ? "เจ้าหน้าที่ศูนย์คอม"
+                      : "ผู้ใช้งานทั่วไป"}
+>>>>>>> bca176c (update from server)
+>>>>>>> e82fe78 (fix backend config again)
                 </button>
               ))}
           </div>
