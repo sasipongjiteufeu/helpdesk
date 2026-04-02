@@ -6,6 +6,7 @@ import session from 'express-session';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  app.setGlobalPrefix('api');
   const isProd = process.env.NODE_ENV === 'production';
   const secureCookie =
   process.env.COOKIE_SECURE !== undefined
