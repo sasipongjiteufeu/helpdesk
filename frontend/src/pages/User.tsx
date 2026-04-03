@@ -231,17 +231,17 @@ export default function UserTicketsPage() {
 
         <div className="mt-5 rounded-2xl border border-gray-200 bg-gray-50/60 overflow-hidden shadow-inner">
           <div className="overflow-x-auto">
-            <table className="w-full border-collapse">
+            <table className="w-full min-w-[1120px] table-fixed border-collapse">
               <thead className="bg-gray-200/80 text-left text-gray-800 text-base md:text-lg">
                 <tr>
-                  <th className="px-4 py-3 font-semibold">สถานะ</th>
-                  <th className="px-4 py-3 font-semibold">Ticket ID</th>
-                  <th className="px-4 py-3 font-semibold">หัวข้อ</th>
-                  <th className="px-4 py-3 font-semibold">รายละเอียด</th>
-                  <th className="px-4 py-3 font-semibold">เบอร์ติดต่อ</th>
-                  <th className="px-4 py-3 font-semibold">ผู้รับผิดชอบ</th>
-                  <th className="px-4 py-3 font-semibold">สร้างเมื่อ</th>
-                  <th className="px-4 py-3 font-semibold text-right">จัดการ</th>
+                  <th className="w-28 px-4 py-3 font-semibold">สถานะ</th>
+                  <th className="w-28 px-4 py-3 font-semibold">Ticket ID</th>
+                  <th className="w-40 px-4 py-3 font-semibold">หัวข้อ</th>
+                  <th className="w-[34%] px-4 py-3 font-semibold">รายละเอียด</th>
+                  <th className="w-32 px-4 py-3 font-semibold">เบอร์ติดต่อ</th>
+                  <th className="w-36 px-4 py-3 font-semibold">ผู้รับผิดชอบ</th>
+                  <th className="w-40 px-4 py-3 font-semibold">สร้างเมื่อ</th>
+                  <th className="w-44 px-4 py-3 font-semibold text-right">จัดการ</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 bg-white text-base md:text-lg">
@@ -265,26 +265,28 @@ export default function UserTicketsPage() {
                         key={t.id}
                         className="hover:bg-gray-50 transition-colors"
                       >
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3 align-top">
                           <StatusBadge status={t.status} />
                         </td>
-                        <td className="px-4 py-3 font-mono font-semibold text-gray-800">
+                        <td className="px-4 py-3 align-top font-mono font-semibold text-gray-800 whitespace-nowrap">
                           {String(t.id).padStart(7, "0")}
                         </td>
-                        <td className="px-4 py-3 font-semibold text-gray-900">
+                        <td className="px-4 py-3 align-top font-semibold text-gray-900 break-words [overflow-wrap:anywhere]">
                           {t.title}
                         </td>
-                        <td className="px-4 py-3 text-gray-700">{t.detail}</td>
-                        <td className="px-4 py-3 text-gray-700">
+                        <td className="px-4 py-3 align-top text-gray-700 whitespace-normal break-words leading-relaxed [overflow-wrap:anywhere]">
+                          {t.detail}
+                        </td>
+                        <td className="px-4 py-3 align-top text-gray-700 break-words [overflow-wrap:anywhere]">
                           {t.tel ?? "-"}
                         </td>
-                        <td className="px-4 py-3 text-gray-800">
+                        <td className="px-4 py-3 align-top text-gray-800 break-words [overflow-wrap:anywhere]">
                           {t.assignedTo?.name || "-"}
                         </td>
-                        <td className="px-4 py-3 text-gray-700 whitespace-nowrap">
+                        <td className="px-4 py-3 align-top text-gray-700 whitespace-nowrap">
                           {formatDate(t.createdAt)}
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3 align-top">
                           <div className="flex justify-end gap-2">
                             <button
                               onClick={() => navigate(`/user/ticket/${t.id}`)}
