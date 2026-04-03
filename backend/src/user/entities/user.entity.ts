@@ -1,4 +1,3 @@
-
 import {
   Column,
   CreateDateColumn,
@@ -53,4 +52,6 @@ export class User {
 createdAt: Date;
   //RoleEnum: any;
 
+
 }
+

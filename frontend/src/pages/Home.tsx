@@ -14,6 +14,7 @@ interface Ticket {
   tel?: string | null;
   status: TicketStatus;
   createdAt: string;
+  resolvedAt?: string | null;
 }
 
 const STATUS_LABELS: Record<TicketStatus, string> = {
