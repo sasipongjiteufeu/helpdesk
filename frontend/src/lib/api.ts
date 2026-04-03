@@ -1,4 +1,12 @@
-export const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+const rawApiBase =
+  (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim() ||
+  'http://localhost:3000';
+
+const normalizedApiBase = rawApiBase.replace(/\/+$/, '');
+
+export const API_BASE = normalizedApiBase.endsWith('/api')
+  ? normalizedApiBase
+  : `${normalizedApiBase}/api`;
 
 export type RoleEnum = 'USER' | 'AGENT' | 'ADMIN';
 

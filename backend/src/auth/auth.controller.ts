@@ -38,7 +38,7 @@ export class AuthController {
     };
   }
 
-  // GET /auth/google/redirect  -> callback from Google
+  // GET /api/auth/google/redirect  -> callback from Google
   @Get('google/redirect')
   @UseGuards(AuthGuard('google'))
   async googleRedirect(@Req() req, @Res() res) {

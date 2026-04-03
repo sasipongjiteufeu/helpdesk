@@ -3,7 +3,7 @@ import "animate.css";
 import logoArit from '../assets/logo-ARIT.png';
 import logoSru from '../assets/logo-sru-png.png';
 import CCI from '../assets/CCI.png';
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
+import { API_BASE } from "../lib/api";
 
 export default function Login() {
   const handleLogin = () => {
