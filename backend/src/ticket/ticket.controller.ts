@@ -71,6 +71,7 @@ findAllPublicPost(
     return this.svc.filterFor(req.user, dto);
   }
 
+
   @Post('mine')
   @UseGuards(AuthenticatedGuard, RolesGuard)
   @Roles(RoleEnum.USER, RoleEnum.AGENT, RoleEnum.ADMIN)

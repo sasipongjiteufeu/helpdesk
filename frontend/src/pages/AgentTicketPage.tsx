@@ -1,12 +1,14 @@
 // src/pages/AgentTicketPage.tsx
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { API_BASE } from "../lib/api";
-import { useRequireAuth } from "../hooks/useRequireAuth";
-import AppHeaderBackend from "../components/AppHeaderBackend";
-import { MdInfo, MdRefresh, MdHome} from "react-icons/md";
+import { MdHome, MdInfo, MdRefresh } from "react-icons/md";
 import { FaUserShield } from "react-icons/fa";
-type TicketStatus = "OPEN" | "IN_PROGRESS" | "RESOLVED" | "COMMIT";
+import AppHeaderBackend from "../components/AppHeaderBackend";
+import { useRequireAuth } from "../hooks/useRequireAuth";
+import { API_BASE } from "../lib/api";
+
+type TicketStatus = "OPEN" | "IN_PROGRESS" | "RESOLVED";
+type AppliedFilter = "OPEN" | "IN_PROGRESS" | "RESOLVED" | "COMMIT" | "FINISHED_BY_ME" | "IN_PROGRESS_BY_ME" | "ALL";
 
 interface Ticket {
   id: number;
@@ -22,38 +24,103 @@ interface Ticket {
     id: string;
   } | null;
   lastStatusChangedBy?: { email?: string | null } | null;
-  commit_By?: number | null;
 }
-
-type Filter = "ACTIVE" | "OPEN" | "IN_PROGRESS" | "COMMIT" | "ALL";
-
-const STATUS_LABELS: Record<TicketStatus, string> = {
-  OPEN: "รอดำเนินการ",
-  IN_PROGRESS: "กำลังดำเนินการ",
-  RESOLVED: "ปิดแล้ว",
-  COMMIT: "มอบหมายให้ฉัน",
-};
-
-const FILTER_LABELS: Record<Filter, string> = {
-  ACTIVE: "รอดำเนินการ + กำลังดำเนินการ",
-  OPEN: "รอดำเนินการ",
-  IN_PROGRESS: "กำลังดำเนินการ",
-  COMMIT: "ตั๋วที่รับผิดชอบ (ฉัน)",
-  ALL: "ทั้งหมด",
-};
 
 interface FilterResponse {
   items: Ticket[];
   total: number;
   page: number;
   limit: number;
-  counts: {
-    active: number;
-    open: number;
-    inProgress: number;
-    commit: number;
-    all: number;
-  };
+}
+
+interface FetchTicketsOptions {
+  filters: AppliedFilter[];
+  searchTerm: string;
+  page: number;
+}
+
+const PAGE_SIZE = 20;
+
+const STATUS_LABELS: Record<TicketStatus, string> = {
+  OPEN: "รอดำเนินการ",
+  IN_PROGRESS: "กำลังดำเนินการ",
+  RESOLVED: "เสร็จสิ้น",
+};
+
+function buildPaginationItems(currentPage: number, totalPages: number) {
+  if (totalPages <= 7) {
+    return Array.from({ length: totalPages }, (_, index) => index + 1);
+  }
+
+  const items: Array<number | "ellipsis-left" | "ellipsis-right"> = [1];
+  const start = Math.max(2, currentPage - 1);
+  const end = Math.min(totalPages - 1, currentPage + 1);
+
+  if (start > 2) {
+    items.push("ellipsis-left");
+  }
+
+  for (let value = start; value <= end; value += 1) {
+    items.push(value);
+  }
+
+  if (end < totalPages - 1) {
+    items.push("ellipsis-right");
+  }
+
+  items.push(totalPages);
+  return items;
+}
+
+function FilterCheckBox(props: {
+  label: string;
+  checked: boolean;
+  onChange: () => void;
+}) {
+  const { label, checked, onChange } = props;
+
+  return (
+    <label className="flex items-center gap-2 cursor-pointer">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={onChange}
+        className="form-checkbox h-5 w-5 text-blue-600 rounded"
+      />
+      <span className="text-lg">{label}</span>
+    </label>
+  );
+}
+
+function Td({ children }: { children: React.ReactNode }) {
+  return <td className="p-2 text-xl align-top leading-relaxed">{children}</td>;
+}
+
+function getStatusClass(status: TicketStatus): string {
+  const base = "px-3 py-1.5 rounded-full font-semibold text-sm inline-block";
+
+  switch (status) {
+    case "OPEN":
+      return `${base} bg-yellow-400 text-gray-900`;
+    case "IN_PROGRESS":
+      return `${base} bg-blue-500 text-white`;
+    case "RESOLVED":
+      return `${base} bg-green-500 text-white`;
+    default:
+      return base;
+  }
+}
+
+function formatDate(dateString: string): string {
+  const date = new Date(dateString);
+
+  return date.toLocaleString("th-TH", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 export default function AgentTicketsPage() {
@@ -63,32 +130,90 @@ export default function AgentTicketsPage() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<Filter>("ACTIVE");
+  const [showOpen, setShowOpen] = useState(true);
+  const [showInProgress, setShowInProgress] = useState(true);
+  const [showResolved, setShowResolved] = useState(false);
+  const [showCommit, setShowCommit] = useState(false);
+  const [showFinishedByMe, setShowFinishedByMe] = useState(false);
+  const [showInProgressByMe, setShowInProgressByMe] = useState(false);
+  const [showAll, setShowAll] = useState(false);
   const [savingId, setSavingId] = useState<number | null>(null);
   const [search, setSearch] = useState("");
-  const [counts, setCounts] = useState({
-    active: 0,
-    open: 0,
-    inProgress: 0,
-    commit: 0,
-    all: 0,
-  });
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+
+  const buildSelectedFilters = useCallback(
+    (
+      overrides: Partial<{
+        open: boolean;
+        inProgress: boolean;
+        resolved: boolean;
+        commit: boolean;
+        finishedByMe: boolean;
+        inProgressByMe: boolean;
+        all: boolean;
+      }> = {},
+    ): AppliedFilter[] => {
+      const nextAll = overrides.all ?? showAll;
+      
+      // If "ALL" is selected, return just ["ALL"]
+      if (nextAll) {
+        return ["ALL"];
+      }
+      
+      const nextOpen = overrides.open ?? showOpen;
+      const nextInProgress = overrides.inProgress ?? showInProgress;
+      const nextResolved = overrides.resolved ?? showResolved;
+      const nextCommit = overrides.commit ?? showCommit;
+      const nextFinishedByMe = overrides.finishedByMe ?? showFinishedByMe;
+      const nextInProgressByMe = overrides.inProgressByMe ?? showInProgressByMe;
+      const nextFilters: AppliedFilter[] = [];
+
+      if (nextOpen) nextFilters.push("OPEN");
+      if (nextInProgress) nextFilters.push("IN_PROGRESS");
+      if (nextResolved) nextFilters.push("RESOLVED");
+      if (nextCommit) nextFilters.push("COMMIT");
+      if (nextFinishedByMe) nextFilters.push("FINISHED_BY_ME");
+      if (nextInProgressByMe) nextFilters.push("IN_PROGRESS_BY_ME");
+
+      return nextFilters.length === 0 ? ["ALL"] : nextFilters;
+    },
+    [showCommit, showInProgress, showOpen, showResolved, showFinishedByMe, showInProgressByMe, showAll],
+  );
+
+  const selectedFilters = useMemo(
+    () => buildSelectedFilters(),
+    [buildSelectedFilters],
+  );
+  const totalPages = useMemo(
+    () => Math.max(1, Math.ceil(total / PAGE_SIZE)),
+    [total],
+  );
+  const paginationItems = useMemo(
+    () => buildPaginationItems(page, totalPages),
+    [page, totalPages],
+  );
 
   const fetchTickets = useCallback(
-    async (nextFilter: Filter = filter, searchTerm: string = search) => {
+    async function loadTickets({
+      filters,
+      searchTerm,
+      page: nextPage,
+    }: FetchTicketsOptions) {
       try {
         setLoading(true);
         setError(null);
 
+        const trimmedSearch = searchTerm.trim();
         const res = await fetch(`${API_BASE}/tickets/filter`, {
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            filter: nextFilter,
-            search: searchTerm.trim() || undefined,
-            page: 1,
-            limit: 100,
+            filters,
+            search: trimmedSearch || undefined,
+            page: nextPage,
+            limit: PAGE_SIZE,
           }),
         });
 
@@ -97,16 +222,21 @@ export default function AgentTicketsPage() {
         }
 
         const data = (await res.json()) as FilterResponse;
-        setTickets(data.items ?? []);
-        if (data.counts) {
-          setCounts({
-            active: data.counts.active ?? 0,
-            open: data.counts.open ?? 0,
-            inProgress: data.counts.inProgress ?? 0,
-            commit: data.counts.commit ?? 0,
-            all: data.counts.all ?? 0,
+        const nextTotal = data.total ?? 0;
+        const nextTotalPages = Math.max(1, Math.ceil(nextTotal / PAGE_SIZE));
+
+        if (nextPage > nextTotalPages) {
+          setPage(nextTotalPages);
+          return loadTickets({
+            filters,
+            searchTerm,
+            page: nextTotalPages,
           });
         }
+
+        setTickets(data.items ?? []);
+        setTotal(nextTotal);
+        setPage(data.page ?? nextPage);
       } catch (e: any) {
         console.error(e);
         setError(e.message ?? "โหลดรายการไม่สำเร็จ");
@@ -114,34 +244,45 @@ export default function AgentTicketsPage() {
         setLoading(false);
       }
     },
-    [filter, search]
+    [],
   );
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      fetchTickets(filter, search);
+      fetchTickets({
+        filters: selectedFilters,
+        searchTerm: search,
+        page: 1,
+      });
     }, 300);
+
     return () => clearTimeout(timer);
-  }, [filter, search, fetchTickets]);
+  }, [fetchTickets, search, selectedFilters]);
 
   useEffect(() => {
     const intervalId = setInterval(() => {
-      fetchTickets(filter, search);
+      fetchTickets({
+        filters: selectedFilters,
+        searchTerm: search,
+        page,
+      });
     }, 300000);
+
     return () => clearInterval(intervalId);
-  }, [filter, search, fetchTickets]);
+  }, [fetchTickets, page, search, selectedFilters]);
 
   const handleInfo = useCallback(
     (id: number) => {
       nav(`/agent/ticket/${id}`);
     },
-    [nav]
+    [nav],
   );
 
   const handleStatusChange = useCallback(
     async (id: number, next: TicketStatus) => {
       try {
         setSavingId(id);
+
         const res = await fetch(`${API_BASE}/tickets/${id}/status`, {
           method: "PATCH",
           credentials: "include",
@@ -150,12 +291,14 @@ export default function AgentTicketsPage() {
         });
 
         if (!res.ok) {
-          throw new Error(
-            `อัปเดตสถานะไม่สำเร็จ (${res.status})`
-          );
+          throw new Error(`อัปเดตสถานะไม่สำเร็จ (${res.status})`);
         }
 
-        await fetchTickets(filter, search);
+        await fetchTickets({
+          filters: selectedFilters,
+          searchTerm: search,
+          page,
+        });
       } catch (e: any) {
         alert(e.message ?? "อัปเดตสถานะไม่สำเร็จ");
         console.error(e);
@@ -163,15 +306,31 @@ export default function AgentTicketsPage() {
         setSavingId(null);
       }
     },
-    [fetchTickets]
+    [fetchTickets, page, search, selectedFilters],
   );
 
   const handleSearchChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      const term = e.target.value;
-      setSearch(term);
+      setSearch(e.target.value);
+      setPage(1);
     },
-    []
+    [],
+  );
+
+  const handlePageChange = useCallback(
+    (nextPage: number) => {
+      if (loading || nextPage === page || nextPage < 1 || nextPage > totalPages) {
+        return;
+      }
+
+      setPage(nextPage);
+      fetchTickets({
+        filters: selectedFilters,
+        searchTerm: search,
+        page: nextPage,
+      });
+    },
+    [fetchTickets, loading, page, search, selectedFilters, totalPages],
   );
 
   if (authLoading || !user) {
@@ -185,73 +344,11 @@ export default function AgentTicketsPage() {
     );
   }
 
-  function FilterButton(props: {
-    label: string;
-    count?: number;
-    active: boolean;
-    onClick: () => void;
-  }) {
-    const { label, count, active, onClick } = props;
-    return (
-      <button
-        type="button"
-        onClick={onClick}
-        className={`px-4 py-2 rounded-full border font-semibold cursor-pointer transition-all text-lg tracking-wide ${active
-            ? "border-green-600 bg-green-500 text-white shadow-md"
-            : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-          }`}
-      >
-        {label}
-        {count !== undefined && (
-          <span className={`ml-1.5 ${active ? "text-white" : "text-gray-500"}`}>
-            ({count})
-          </span>
-        )}
-      </button>
-    );
-  }
-
-  function Th({ children }: { children: React.ReactNode }) {
-    return (
-      <th className="text-left p-3 text-2xl border-b border-gray-300 whitespace-nowrap font-semibold text-gray-800">
-        {children}
-      </th>
-    );
-  }
-
-  function Td({ children }: { children: React.ReactNode }) {
-    return <td className="p-2 text-xl align-top leading-relaxed">{children}</td>;
-  }
-
-  function getStatusClass(status: TicketStatus): string {
-    const base = "px-3 py-1.5 rounded-full font-semibold text-sm inline-block";
-    switch (status) {
-      case "OPEN":
-        return `${base} bg-yellow-400 text-gray-900`;
-      case "IN_PROGRESS":
-        return `${base} bg-blue-500 text-white`;
-      case "RESOLVED":
-        return `${base} bg-green-500 text-white`;
-      default:
-        return base;
-    }
-  }
-
-  function formatDate(dateString: string): string {
-    const date = new Date(dateString);
-    return date.toLocaleString("th-TH", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  }
-
   return (
     <div className="min-h-screen flex flex-col justify-stretch items-center bg-gradient-to-b from-gray-50 via-white to-gray-100 p-6 text-lg">
       <div className="w-full bg-white/85 backdrop-blur rounded-3xl shadow-[0_25px_80px_-40px_rgba(15,23,42,0.35)] border border-gray-100 p-6 mt-2">
-        <AppHeaderBackend user={user} title={"AGENT"} />
+        <AppHeaderBackend user={user} title="AGENT" />
+
         <div className="flex flex-wrap gap-3 mt-4">
           <button
             onClick={() => (window.location.href = "/")}
@@ -271,6 +368,7 @@ export default function AgentTicketsPage() {
             </button>
           )}
         </div>
+
         <div className="mt-4">
           <div className="flex items-center justify-between mb-4 gap-4 flex-wrap">
             <h2 className="mt-0 mb-0 text-3xl font-bold text-gray-900 tracking-tight">
@@ -278,7 +376,13 @@ export default function AgentTicketsPage() {
             </h2>
             <button
               type="button"
-              onClick={() => fetchTickets(filter, search)}
+              onClick={() =>
+                fetchTickets({
+                  filters: selectedFilters,
+                  searchTerm: search,
+                  page,
+                })
+              }
               disabled={loading}
               className="px-4 py-2 rounded-full border border-gray-300 bg-white hover:bg-gray-50 text-base font-semibold flex items-center gap-2 transition-all disabled:opacity-50"
             >
@@ -295,40 +399,72 @@ export default function AgentTicketsPage() {
           )}
 
           <div className="flex gap-2 mb-4 items-center flex-wrap">
-            <div className="flex gap-2 flex-wrap">
-              <FilterButton
-                label={FILTER_LABELS.ACTIVE}
-                count={counts.active}
-                active={filter === "ACTIVE"}
-                onClick={() => setFilter("ACTIVE")}
-              />
-              <FilterButton
-                label={FILTER_LABELS.OPEN}
-                count={counts.open}
-                active={filter === "OPEN"}
-                onClick={() => setFilter("OPEN")}
-              />
-              <FilterButton
-                label={FILTER_LABELS.IN_PROGRESS}
-                count={counts.inProgress}
-                active={filter === "IN_PROGRESS"}
-                onClick={() => setFilter("IN_PROGRESS")}
-              />
+            
 
-              <FilterButton
-                label={FILTER_LABELS.COMMIT}
-                count={counts.commit}
-                active={filter === "COMMIT"}
-                onClick={() => setFilter("COMMIT")}
+            <div className="flex gap-2 flex-wrap">
+              <FilterCheckBox
+                label="ทั้งหมด"
+                checked={showAll}
+                onChange={() => {
+                  setPage(1);
+                  setShowAll((value) => !value);
+                  if (!showAll) {
+                    setShowOpen(false);
+                    setShowInProgress(false);
+                    setShowResolved(false);
+                    setShowCommit(false);
+                    setShowFinishedByMe(false);
+                    setShowInProgressByMe(false);
+                  }
+                }}
               />
-              <FilterButton
-                label={FILTER_LABELS.ALL}
-                count={counts.all}
-                active={filter === "ALL"}
-                onClick={() => setFilter("ALL")}
+              <FilterCheckBox
+                label="รอดำเนินการ"
+                checked={showOpen && !showAll}
+                onChange={() => {
+                  setPage(1);
+                  setShowAll(false);
+                  setShowOpen((value) => !value);
+                }}
+              />
+              <FilterCheckBox
+                label="กำลังดำเนินการ"
+                checked={showInProgress && !showAll}
+                onChange={() => {
+                  setPage(1);
+                  setShowAll(false);
+                  setShowInProgress((value) => !value);
+                }}
+              />
+              <FilterCheckBox
+                label="เสร็จสิ้น"
+                checked={showResolved && !showAll}
+                onChange={() => {
+                  setPage(1);
+                  setShowAll(false);
+                  setShowResolved((value) => !value);
+                }}
+              />
+              <FilterCheckBox
+                label="กำลังดำเนินการโดยฉัน"
+                checked={showInProgressByMe && !showAll}
+                onChange={() => {
+                  setPage(1);
+                  setShowAll(false);
+                  setShowInProgressByMe((value) => !value);
+                }}
+              />
+              <FilterCheckBox
+                label="เสร็จสิ้นโดยฉัน"
+                checked={showFinishedByMe && !showAll}
+                onChange={() => {
+                  setPage(1);
+                  setShowAll(false);
+                  setShowFinishedByMe((value) => !value);
+                }}
               />
             </div>
-
+            
             <div className="ml-auto flex gap-2">
               <input
                 type="text"
@@ -340,7 +476,7 @@ export default function AgentTicketsPage() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 overflow-x-auto">
+          <div className="mt-6 sm:mt-8 rounded-2xl border border-gray-200 bg-gray-50/70 overflow-hidden shadow-inner">
             {loading ? (
               <div className="text-center py-10">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
@@ -356,91 +492,109 @@ export default function AgentTicketsPage() {
               </div>
             ) : (
               <table className="w-full border-collapse text-base">
-                <thead>
+                <thead className="bg-gray-200/80 text-left text-gray-800 text-base md:text-lg">
                   <tr className="bg-gray-200">
-                    <Th>สถานะ</Th>
-                    <Th>Ticket ID</Th>
-                    <Th>หัวข้อ</Th>
-                    <Th>รายละเอียด</Th>
-                    <Th>เบอร์ผู้แจ้ง</Th>
-                    <Th>ผู้สร้าง</Th>
-                    <Th>ผู้รับผิดชอบ</Th>
-                    <Th>สร้างเมื่อ</Th>
-                    <Th>อัปเดตสถานะ</Th>
-                    <Th>ดูรายละเอียด</Th>
+                    <th className="px-3 sm:px-4 lg:px-5 py-3 sm:py-4 font-semibold text-left whitespace-nowrap">
+                      สถานะ
+                    </th>
+                    <th className="px-3 sm:px-4 lg:px-5 py-3 sm:py-4 font-semibold text-left whitespace-nowrap">
+                      Ticket ID
+                    </th>
+                    <th className="px-3 sm:px-4 lg:px-5 py-3 sm:py-4 font-semibold text-left whitespace-nowrap">
+                      หัวข้อ
+                    </th>
+                    <th className="px-3 sm:px-4 lg:px-5 py-3 sm:py-4 font-semibold text-left w-[35%] md:w-[40%]">
+                      รายละเอียด
+                    </th>
+                    <th className="px-3 sm:px-4 lg:px-5 py-3 sm:py-4 font-semibold text-left whitespace-nowrap">
+                      เบอร์ผู้แจ้ง
+                    </th>
+                    <th className="px-3 sm:px-4 lg:px-5 py-3 sm:py-4 font-semibold text-left whitespace-nowrap">
+                      ผู้สร้าง
+                    </th>
+                    <th className="px-3 sm:px-4 lg:px-5 py-3 sm:py-4 font-semibold text-left whitespace-nowrap">
+                      ผู้รับผิดชอบ
+                    </th>
+                    <th className="px-3 sm:px-4 lg:px-5 py-3 sm:py-4 font-semibold text-left whitespace-nowrap">
+                      สร้างเมื่อ
+                    </th>
+                    <th className="px-3 sm:px-4 lg:px-5 py-3 sm:py-4 font-semibold text-left whitespace-nowrap">
+                      อัปเดตสถานะ
+                    </th>
+                    <th className="px-3 sm:px-4 lg:px-5 py-3 sm:py-4 font-semibold text-left whitespace-nowrap">
+                      ดูรายละเอียด
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {tickets.map((t) => (
+                  {tickets.map((ticket) => (
                     <tr
-                      key={t.id}
+                      key={ticket.id}
                       className="border-t border-gray-200 hover:bg-gray-100 transition-colors"
                     >
                       <Td>
-                        <span className={getStatusClass(t.status)}>
-                          {STATUS_LABELS[t.status]}
+                        <span className={getStatusClass(ticket.status)}>
+                          {STATUS_LABELS[ticket.status]}
                         </span>
                       </Td>
                       <Td>
                         <span className="font-mono font-semibold text-gray-800 text-xl">
-                          {String(t.id).padStart(7, "0")}
+                          {String(ticket.id).padStart(7, "0")}
                         </span>
                       </Td>
                       <Td>
                         <span className="font-semibold text-gray-900">
-                          {t.title}
+                          {ticket.title}
                         </span>
                       </Td>
                       <Td>
                         <span className="text-gray-700 line-clamp-2">
-                          {t.detail}
+                          {ticket.detail}
                         </span>
                       </Td>
                       <Td>
                         <span className="font-mono text-gray-800">
-                          {t.tel || "-"}
+                          {ticket.tel || "-"}
                         </span>
                       </Td>
-                      <Td>{t.createdBy?.name || "-"}</Td>
+                      <Td>{ticket.createdBy?.name || "-"}</Td>
                       <Td>
                         <span
                           className={
-                            t.assignedTo?.name ? "text-green-700 font-semibold" : ""
+                            ticket.assignedTo?.name
+                              ? "text-green-700 font-semibold"
+                              : ""
                           }
                         >
-                          {t.assignedTo?.name || "-"}
+                          {ticket.assignedTo?.name || "-"}
                         </span>
                       </Td>
                       <Td>
                         <span className="text-gray-700 text-base">
-                          {formatDate(t.createdAt)}
+                          {formatDate(ticket.createdAt)}
                         </span>
                       </Td>
                       <Td>
                         <select
-                          value={t.status}
+                          value={ticket.status}
                           onChange={(e) =>
                             handleStatusChange(
-                              t.id,
-                              e.target.value as TicketStatus
+                              ticket.id,
+                              e.target.value as TicketStatus,
                             )
                           }
-                          disabled={savingId === t.id}
+                          disabled={savingId === ticket.id}
                           className="px-3 py-2 rounded-full border border-gray-300 text-base bg-white focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <option value="OPEN">{STATUS_LABELS.OPEN}</option>
-                          <option value="IN_PROGRESS">
-                            {STATUS_LABELS.IN_PROGRESS}
-                          </option>
-                          <option value="RESOLVED">
-                            {STATUS_LABELS.RESOLVED}
-                          </option>
+                          <option value="IN_PROGRESS">{STATUS_LABELS.IN_PROGRESS}</option>
+                          <option value="RESOLVED">{STATUS_LABELS.RESOLVED}</option>
                         </select>
                       </Td>
                       <Td>
                         <button
                           type="button"
-                          onClick={() => handleInfo(t.id)}
+                          onClick={() => handleInfo(ticket.id)}
                           className="px-4 py-2 rounded-full border border-gray-300 bg-white cursor-pointer text-base hover:bg-gray-50 inline-flex items-center text-center transition-colors"
                         >
                           <MdInfo className="mr-2" /> ดูรายละเอียด
@@ -453,9 +607,59 @@ export default function AgentTicketsPage() {
             )}
           </div>
 
-          {!loading && tickets.length > 0 && (
-            <div className="mt-4 text-base text-gray-700 text-right">
-              แสดง {tickets.length} รายการ
+          {!loading && total > 0 && (
+            <div className="mt-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              {totalPages > 1 && (
+                <div className="flex items-center justify-end gap-2 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => handlePageChange(page - 1)}
+                    disabled={loading || page === 1}
+                    className="px-3 py-2 rounded-full border border-gray-300 bg-white text-base font-semibold transition-all hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Previous
+                  </button>
+
+                  {paginationItems.map((item, index) =>
+                    typeof item === "number" ? (
+                      <button
+                        key={item}
+                        type="button"
+                        onClick={() => handlePageChange(item)}
+                        disabled={loading || item === page}
+                        className={`min-w-11 px-3 py-2 rounded-full border text-base font-semibold transition-all ${
+                          item === page
+                            ? "border-green-600 bg-green-500 text-white cursor-default"
+                            : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                        }`}
+                      >
+                        {item}
+                      </button>
+                    ) : (
+                      <span
+                        key={`${item}-${index}`}
+                        className="px-2 text-gray-500 text-lg"
+                      >
+                        ...
+                      </span>
+                    ),
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => handlePageChange(page + 1)}
+                    disabled={loading || page === totalPages}
+                    className="px-3 py-2 rounded-full border border-gray-300 bg-white text-base font-semibold transition-all hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Next
+                  </button>
+                </div>
+              )}
+
+              <div className="text-base text-gray-700">
+                Showing {(page - 1) * PAGE_SIZE + 1}-
+                {(page - 1) * PAGE_SIZE + tickets.length} of {total}
+              </div>
             </div>
           )}
         </div>

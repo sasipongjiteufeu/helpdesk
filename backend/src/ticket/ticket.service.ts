@@ -52,7 +52,7 @@ export class TicketService {
     const isOwner = t.createdBy.id === user.id;
 
     if (!isStaff && !isOwner) {
-      throw new ForbiddenException('Not your ticket');
+      throw new ForbiddenException('Not your ticket or You are not staff');
     }
 
     // return lightweight DTOs with file paths (no base64 to avoid overload)
@@ -256,28 +256,110 @@ async findAllMine(user: User, opts?: { page?: number; limit?: number }) {
     return { items, total, page, limit };
   }
 
-  private applyFilter(qb: any, filter: TicketFilterName, user?: User) {
-    switch (filter) {
-      case 'ACTIVE':
-        qb.andWhere('t.status IN (:...active)', {
-          active: [TicketStatus.OPEN, TicketStatus.IN_PROGRESS],
-        });
-        break;
-      case 'OPEN':
-        qb.andWhere('t.status = :open', { open: TicketStatus.OPEN });
-        break;
-      case 'IN_PROGRESS':
-        qb.andWhere('t.status = :prog', { prog: TicketStatus.IN_PROGRESS });
-        break;
-      case 'COMMIT':
-        qb.andWhere('t.status != :res', { res: TicketStatus.RESOLVED });
-        if (user?.id) {
-          qb.andWhere('assignedTo.id = :me', { me: user.id });
-        }
-        break;
-      case 'ALL':
-      default:
-        break;
+  private normalizeFilters(filters?: TicketFilterName | TicketFilterName[]) {
+    const rawFilters = Array.isArray(filters) ? filters : filters ? [filters] : [];
+    const normalized = new Set<TicketFilterName>();
+
+    for (const filter of rawFilters) {
+      switch (filter) {
+        case 'ACTIVE':
+          normalized.add('OPEN');
+          normalized.add('IN_PROGRESS');
+          break;
+        case 'FINISHED_BY_ME':
+          normalized.add('FINISHED_BY_ME');
+          break;
+        case 'COMMIT':
+          normalized.add('COMMIT');
+          break;
+        case 'IN_PROGRESS_BY_ME':
+          normalized.add('IN_PROGRESS_BY_ME');
+          break;
+        case 'ALL':
+        case undefined:
+          break;
+        default:
+          normalized.add(filter);
+          break;
+      }
+    }
+
+    return [...normalized];
+  }
+
+  private applyFilters(qb: any, filters: TicketFilterName[], user?: User) {
+    const normalized = this.normalizeFilters(filters);
+    if (!normalized.length) return;
+
+    const clauses: string[] = [];
+    const params: Record<string, any> = {};
+    let paramCounter = 0;
+
+    if (normalized.includes('OPEN')) {
+      const key = `openStatus${paramCounter++}`;
+      clauses.push(`t.status = :${key}`);
+      params[key] = TicketStatus.OPEN;
+    }
+
+    if (normalized.includes('IN_PROGRESS')) {
+      const key = `inProgressStatus${paramCounter++}`;
+      clauses.push(`t.status = :${key}`);
+      params[key] = TicketStatus.IN_PROGRESS;
+    }
+
+    if (normalized.includes('RESOLVED')) {
+      const key = `resolvedStatus${paramCounter++}`;
+      clauses.push(`t.status = :${key}`);
+      params[key] = TicketStatus.RESOLVED;
+    }
+
+    if (normalized.includes('COMMIT')) {
+      if (user?.id) {
+        const statusKey = `commitStatus${paramCounter}`;
+        const userKey = `commitUser${paramCounter}`;
+        paramCounter++;
+        clauses.push(
+          `(t.status = :${statusKey} AND assignedTo.id = :${userKey})`,
+        );
+        params[statusKey] = TicketStatus.IN_PROGRESS;
+        params[userKey] = user.id;
+      } else {
+        clauses.push('1 = 0');
+      }
+    }
+
+    if (normalized.includes('IN_PROGRESS_BY_ME')) {
+      if (user?.id) {
+        const statusKey = `inProgressByMeStatus${paramCounter}`;
+        const userKey = `inProgressByMeUser${paramCounter}`;
+        paramCounter++;
+        clauses.push(
+          `(t.status = :${statusKey} AND assignedTo.id = :${userKey})`,
+        );
+        params[statusKey] = TicketStatus.IN_PROGRESS;
+        params[userKey] = user.id;
+      } else {
+        clauses.push('1 = 0');
+      }
+    }
+
+    if (normalized.includes('FINISHED_BY_ME')) {
+      if (user?.id) {
+        const statusKey = `finishedByMeStatus${paramCounter}`;
+        const userKey = `finishedByMeUser${paramCounter}`;
+        paramCounter++;
+        clauses.push(
+          `(t.status = :${statusKey} AND lastStatusChangedBy.id = :${userKey})`,
+        );
+        params[statusKey] = TicketStatus.RESOLVED;
+        params[userKey] = user.id;
+      } else {
+        clauses.push('1 = 0');
+      }
+    }
+
+    if (clauses.length > 0) {
+      qb.andWhere(`(${clauses.join(' OR ')})`, params);
     }
   }
 
@@ -286,25 +368,38 @@ async findAllMine(user: User, opts?: { page?: number; limit?: number }) {
     const s = search.trim();
     if (!s) return;
 
-    const numericId = Number(s);
+    const numericId = /^\d+$/.test(s) ? Number(s) : null;
     const like = `%${s.toLowerCase()}%`;
+    const digits = s.replace(/\D/g, '');
+    const clauses = [
+      'LOWER(t.title) LIKE :like',
+      'LOWER(t.detail) LIKE :like',
+      'LOWER(createdBy.name) LIKE :like',
+      'LOWER(createdBy.email) LIKE :like',
+      'LOWER(assignedTo.name) LIKE :like',
+      'LOWER(assignedTo.email) LIKE :like',
+    ];
+    const params: Record<string, string | number> = { like };
 
-    qb.andWhere(
-      `(t.title LIKE :like OR t.detail LIKE :like OR LOWER(createdBy.name) LIKE :like OR LOWER(assignedTo.name) LIKE :like OR t.tel LIKE :tel${
-        Number.isFinite(numericId) ? ' OR t.id = :tid' : ''
-      })`,
-      {
-        like,
-        tel: `%${s.replace(/\D/g, '')}%`,
-        tid: numericId,
-      },
-    );
+    if (digits) {
+      clauses.push('t.tel LIKE :tel');
+      params.tel = `%${digits}%`;
+    }
+
+    if (numericId !== null) {
+      clauses.push('t.id = :tid');
+      params.tid = numericId;
+    }
+
+    qb.andWhere(`(${clauses.join(' OR ')})`, params);
   }
-
+  
   async filterFor(user: User, dto: FilterTicketDto) {
     const page = Math.max(1, dto.page ?? 1);
     const limit = Math.min(100, Math.max(1, dto.limit ?? 20));
-    const filter = dto.filter ?? 'ALL';
+    const filters = this.normalizeFilters(
+      dto.filters?.length ? dto.filters : dto.filter,
+    );
     const search = dto.search;
 
     const isStaff = hasAnyRole(user, [RoleEnum.AGENT, RoleEnum.ADMIN]);
@@ -313,6 +408,7 @@ async findAllMine(user: User, opts?: { page?: number; limit?: number }) {
       .createQueryBuilder('t')
       .leftJoinAndSelect('t.assignedTo', 'assignedTo')
       .leftJoinAndSelect('t.createdBy', 'createdBy')
+      .leftJoin('t.lastStatusChangedBy', 'lastStatusChangedBy')
       .orderBy('t.createdAt', 'DESC');
 
     if (!isStaff) {
@@ -324,7 +420,7 @@ async findAllMine(user: User, opts?: { page?: number; limit?: number }) {
 
     // items query = base + selected filter
     const itemsQb = baseQb.clone();
-    this.applyFilter(itemsQb, filter, user);
+    this.applyFilters(itemsQb, filters, user);
     const [items, total] = await itemsQb
       .take(limit)
       .skip((page - 1) * limit)
@@ -332,18 +428,29 @@ async findAllMine(user: User, opts?: { page?: number; limit?: number }) {
 
     // counts: always start from base (search + scope), then apply each filter
     const countFor = async (f: TicketFilterName) => {
-      const qb = baseQb.clone();
-      qb.skip(undefined).take(undefined);
-      qb.expressionMap.parameters = { ...baseQb.expressionMap.parameters };
-      this.applyFilter(qb, f, user);
+      const qb = this.repo
+        .createQueryBuilder('t')
+        .leftJoinAndSelect('t.assignedTo', 'assignedTo')
+        .leftJoinAndSelect('t.createdBy', 'createdBy')
+        .leftJoin('t.lastStatusChangedBy', 'lastStatusChangedBy');
+      
+      if (!isStaff) {
+        qb.andWhere('createdBy.id = :uid', { uid: user.id });
+      }
+      
+      this.applySearch(qb, search);
+      this.applyFilters(qb, [f], user);
       return qb.getCount();
     };
 
-    const [active, open, inProgress, commit, all] = await Promise.all([
+    const [active, open, inProgress, resolved, finishedByMe, commit, inProgressByMe, all] = await Promise.all([
       countFor('ACTIVE'),
       countFor('OPEN'),
       countFor('IN_PROGRESS'),
+      countFor('RESOLVED'),
+      countFor('FINISHED_BY_ME'),
       countFor('COMMIT'),
+      countFor('IN_PROGRESS_BY_ME'),
       countFor('ALL'),
     ]);
 
@@ -352,7 +459,7 @@ async findAllMine(user: User, opts?: { page?: number; limit?: number }) {
       total,
       page,
       limit,
-      counts: { active, open, inProgress, commit, all },
+      counts: { active, open, inProgress, resolved, finishedByMe, commit, inProgressByMe, all },
     };
   }
 

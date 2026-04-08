@@ -5,10 +5,14 @@ export type TicketFilterName =
   | 'ACTIVE'
   | 'OPEN'
   | 'IN_PROGRESS'
-  | 'COMMIT';
+  | 'RESOLVED'
+  | 'FINISHED_BY_ME'
+  | 'COMMIT'
+  | 'IN_PROGRESS_BY_ME';
 
 export class FilterTicketDto {
   filter?: TicketFilterName;
+  filters?: TicketFilterName[];
   search?: string;
   page?: number;
   limit?: number;
