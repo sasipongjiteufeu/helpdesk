@@ -185,7 +185,7 @@ export default function TicketConversation({
       setMessages(data.items);
       markTicketMessagesAsRead(ticketId).catch(() => undefined);
     } catch (e: any) {
-      setError(e.message ?? "เนเธซเธฅเธ”เธเนเธญเธเธงเธฒเธกเนเธกเนเธชเธณเน€เธฃเนเธ");
+      setError(e.message ?? "โหลดข้อความไม่สำเร็จ");
     } finally {
       setLoading(false);
     }
@@ -208,7 +208,7 @@ export default function TicketConversation({
           markTicketMessagesAsRead(ticketId).catch(() => undefined);
         }
       } catch (e: any) {
-        if (!cancelled) setError(e.message ?? "เนเธซเธฅเธ”เธเนเธญเธเธงเธฒเธกเนเธกเนเธชเธณเน€เธฃเนเธ");
+        if (!cancelled) setError(e.message ?? "โหลดข้อความไม่สำเร็จ");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -252,7 +252,7 @@ export default function TicketConversation({
       setMessage("");
       setFiles([]);
     } catch (e: any) {
-      setError(e.message ?? "เธชเนเธเธเนเธญเธเธงเธฒเธกเนเธกเนเธชเธณเน€เธฃเนเธ");
+      setError(e.message ?? "ส่งข้อความไม่สำเร็จ");
     } finally {
       setSending(false);
     }
@@ -261,7 +261,7 @@ export default function TicketConversation({
   return (
     <section className="flex h-full min-h-[34rem] min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm xl:min-h-[650px]">
       <div className="shrink-0 border-b border-slate-200 px-4 py-3">
-        <h3 className="m-0 text-lg font-semibold text-slate-950">เธเธฒเธฃเธชเธเธ—เธเธฒ</h3>
+        <h3 className="m-0 text-lg font-semibold text-slate-950">การสนทนา</h3>
         <p className="m-0 text-xs text-slate-500">
           Ticket #{String(ticketId).padStart(7, "0")}
         </p>
@@ -282,7 +282,7 @@ export default function TicketConversation({
             <TicketConversationSkeleton />
           </div>
         ) : messages.length === 0 ? (
-          <EmptyState title="เธขเธฑเธเนเธกเนเธกเธตเธเนเธญเธเธงเธฒเธกเนเธ Ticket เธเธตเน" />
+          <EmptyState title="ยังไม่มีข้อความใน Ticket นี้" />
         ) : (
           messages.map((item) => {
             const mine = item.sender?.id === currentUser.id;
@@ -298,10 +298,10 @@ export default function TicketConversation({
                 >
                   <div className={cx("mb-1 text-xs", mine ? "text-blue-100" : "text-slate-500")}>
                     <span className="font-semibold">
-                      {item.sender?.name || item.sender?.email || "เนเธกเนเธ—เธฃเธฒเธเธเธนเนเธชเนเธ"}
+                      {item.sender?.name || item.sender?.email || "ไม่ทราบผู้ส่ง"}
                     </span>
-                    <span> โ€ข {roleText(item.sender)}</span>
-                    <span> โ€ข {new Date(item.createdAt).toLocaleString("th-TH")}</span>
+                    <span> • {roleText(item.sender)}</span>
+                    <span> • {new Date(item.createdAt).toLocaleString("th-TH")}</span>
                   </div>
                   {item.message && (
                     <div className="whitespace-pre-wrap break-words text-sm leading-6">
@@ -330,7 +330,7 @@ export default function TicketConversation({
       {files.length > 0 && (
         <div className="shrink-0 border-t border-slate-200 bg-white px-4 py-3">
           <div className="mb-2 text-xs font-semibold text-slate-500">
-            เนเธเธฅเนเธ—เธตเนเน€เธฅเธทเธญเธ {files.length}/10
+            ไฟล์ที่เลือก {files.length}/10
           </div>
           <div className="flex flex-wrap gap-2">
             {files.map((file, index) => (
@@ -343,7 +343,7 @@ export default function TicketConversation({
                   type="button"
                   onClick={() => removeFile(index)}
                   className="grid h-5 w-5 place-items-center rounded-full hover:bg-slate-200"
-                  aria-label={`เธฅเธ ${file.name}`}
+                  aria-label={`ลบ ${file.name}`}
                 >
                   <MdClose />
                 </button>
@@ -367,8 +367,8 @@ export default function TicketConversation({
             type="button"
             onClick={() => fileInputRef.current?.click()}
             className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-slate-300 bg-white text-slate-700 transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-100"
-            aria-label="เนเธเธเนเธเธฅเน"
-            title="เนเธเธเนเธเธฅเน"
+            aria-label="แนบไฟล์"
+            title="แนบไฟล์"
           >
             <MdAttachFile className="text-xl" />
           </button>
@@ -377,15 +377,15 @@ export default function TicketConversation({
             onChange={(e) => setMessage(e.target.value.slice(0, 5000))}
             rows={2}
             maxLength={5000}
-            placeholder="เธเธดเธกเธเนเธเนเธญเธเธงเธฒเธก..."
+            placeholder="พิมพ์ข้อความ..."
             className="min-h-11 max-h-32 flex-1 resize-none overflow-y-auto rounded-2xl border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
           />
           <button
             type="submit"
             disabled={!canSend || sending}
             className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-blue-600 text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-200"
-            aria-label="เธชเนเธเธเนเธญเธเธงเธฒเธก"
-            title="เธชเนเธเธเนเธญเธเธงเธฒเธก"
+            aria-label="ส่งข้อความ"
+            title="ส่งข้อความ"
           >
             {sending ? (
               <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/40 border-t-white" />
