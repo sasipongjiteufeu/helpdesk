@@ -1,5 +1,10 @@
 // src/ticket/ticket.service.ts
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, FindOptionsWhere } from 'typeorm';
 import { Ticket, TicketStatus } from './entities/ticket.entity';
@@ -8,17 +13,27 @@ import { User } from 'src/user/entities/user.entity';
 import { RoleEnum } from 'src/role/entities/role.enum';
 import { hasAnyRole, hasRole } from 'src/auth/role.utile';
 import { TicketImage } from './entities/ticket-image.entity';
+import { TicketParticipant } from './entities/ticket-participant.entity';
 import { EmailService } from 'src/email/email.service';
 import { TelegramNotifyService } from 'src/telegram-notify/telegram-notify.service';
 import * as fs from 'fs';
 import * as path from 'path';
 import { FilterTicketDto, TicketFilterName } from './dto/filter-ticket.dto';
+import { LeaveTicketDto } from './dto/leave-ticket.dto';
+import { ListTicketParticipantsDto } from './dto/list-ticket-participants.dto';
+import {
+  canAccessTicket,
+  canJoinTicket,
+  isTicketAssignedAgent,
+} from './ticket-permissions';
 
 @Injectable()
 export class TicketService {
   constructor(
     @InjectRepository(Ticket) private readonly repo: Repository<Ticket>,
     @InjectRepository(TicketImage) private readonly images: Repository<TicketImage>,
+    @InjectRepository(TicketParticipant)
+    private readonly participants: Repository<TicketParticipant>,
     @InjectRepository(User) private readonly users: Repository<User>,
     private readonly email: EmailService,
     private readonly telegramNotify: TelegramNotifyService,
@@ -40,18 +55,45 @@ export class TicketService {
     }
   }
 
+  private normalizePage(value: unknown, fallback: number) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback;
+  }
+
+  private normalizeLimit(value: unknown, fallback: number, max: number) {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+    return Math.min(max, Math.floor(parsed));
+  }
+
+  private toUserSummary(user: User | null | undefined) {
+    if (!user) return null;
+    return {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      avatarUrl: user.avatarUrl,
+    };
+  }
+
+  private participantDto(participant: TicketParticipant) {
+    return {
+      id: participant.id,
+      agent: this.toUserSummary(participant.agent),
+      joinedAt: participant.joinedAt,
+      isPrimary: false,
+    };
+  }
+
   async getAllImagesFor(user: User, id: number) {
     const t = await this.repo.findOne({
       where: { id },
-      relations: ['images', 'createdBy', 'assignedTo'],
+      relations: ['images', 'createdBy', 'assignedTo', 'participants', 'participants.agent'],
     });
 
     if (!t) throw new NotFoundException('Ticket not found');
 
-    const isStaff = hasAnyRole(user, [RoleEnum.AGENT, RoleEnum.ADMIN]);
-    const isOwner = t.createdBy.id === user.id;
-
-    if (!isStaff && !isOwner) {
+    if (!canAccessTicket(user, t)) {
       throw new ForbiddenException('Not your ticket or You are not staff');
     }
 
@@ -228,7 +270,13 @@ async findAllMine(user: User, opts?: { page?: number; limit?: number }) {
     order: { createdAt: 'DESC' },
     take: limit,
     skip: (page - 1) * limit,
-    relations: ['assignedTo', 'createdBy', 'lastStatusChangedBy'],
+    relations: [
+      'assignedTo',
+      'createdBy',
+      'lastStatusChangedBy',
+      'participants',
+      'participants.agent',
+    ],
   });
 
   return { items, total, page, limit };
@@ -250,7 +298,13 @@ async findAllMine(user: User, opts?: { page?: number; limit?: number }) {
       order: { createdAt: 'DESC' },
       take: limit,
       skip: (page - 1) * limit,
-      relations: ['assignedTo', 'createdBy', 'lastStatusChangedBy'],
+      relations: [
+        'assignedTo',
+        'createdBy',
+        'lastStatusChangedBy',
+        'participants',
+        'participants.agent',
+      ],
     });
 
     return { items, total, page, limit };
@@ -319,7 +373,7 @@ async findAllMine(user: User, opts?: { page?: number; limit?: number }) {
         const userKey = `commitUser${paramCounter}`;
         paramCounter++;
         clauses.push(
-          `(t.status = :${statusKey} AND assignedTo.id = :${userKey})`,
+          `(t.status = :${statusKey} AND (assignedTo.id = :${userKey} OR (participantAgent.id = :${userKey} AND participants.isActive = true)))`,
         );
         params[statusKey] = TicketStatus.IN_PROGRESS;
         params[userKey] = user.id;
@@ -334,7 +388,7 @@ async findAllMine(user: User, opts?: { page?: number; limit?: number }) {
         const userKey = `inProgressByMeUser${paramCounter}`;
         paramCounter++;
         clauses.push(
-          `(t.status = :${statusKey} AND assignedTo.id = :${userKey})`,
+          `(t.status = :${statusKey} AND (assignedTo.id = :${userKey} OR (participantAgent.id = :${userKey} AND participants.isActive = true)))`,
         );
         params[statusKey] = TicketStatus.IN_PROGRESS;
         params[userKey] = user.id;
@@ -408,6 +462,8 @@ async findAllMine(user: User, opts?: { page?: number; limit?: number }) {
       .createQueryBuilder('t')
       .leftJoinAndSelect('t.assignedTo', 'assignedTo')
       .leftJoinAndSelect('t.createdBy', 'createdBy')
+      .leftJoinAndSelect('t.participants', 'participants')
+      .leftJoinAndSelect('participants.agent', 'participantAgent')
       .leftJoin('t.lastStatusChangedBy', 'lastStatusChangedBy')
       .orderBy('t.createdAt', 'DESC');
 
@@ -432,6 +488,8 @@ async findAllMine(user: User, opts?: { page?: number; limit?: number }) {
         .createQueryBuilder('t')
         .leftJoinAndSelect('t.assignedTo', 'assignedTo')
         .leftJoinAndSelect('t.createdBy', 'createdBy')
+        .leftJoinAndSelect('t.participants', 'participants')
+        .leftJoinAndSelect('participants.agent', 'participantAgent')
         .leftJoin('t.lastStatusChangedBy', 'lastStatusChangedBy');
       
       if (!isStaff) {
@@ -466,12 +524,18 @@ async findAllMine(user: User, opts?: { page?: number; limit?: number }) {
   async findOneFor(user: User, id: number) {
     const t = await this.repo.findOne({
       where: { id },
-      relations: ['createdBy', 'assignedTo', 'images', 'lastStatusChangedBy'],
+      relations: [
+        'createdBy',
+        'assignedTo',
+        'images',
+        'lastStatusChangedBy',
+        'participants',
+        'participants.agent',
+      ],
     });
     if (!t) throw new NotFoundException('Ticket not found');
 
-    const isStaff = hasAnyRole(user, [RoleEnum.AGENT, RoleEnum.ADMIN]);
-    if (!isStaff && t.createdBy.id !== user.id) {
+    if (!canAccessTicket(user, t)) {
       throw new ForbiddenException('Not your ticket');
     }
     return t;
@@ -532,6 +596,149 @@ async findAllMine(user: User, opts?: { page?: number; limit?: number }) {
 
     t.assignedTo = assignee;
     return this.repo.save(t);
+  }
+
+  async joinTicket(ticketId: number, user: User) {
+    const ticket = await this.repo.findOne({
+      where: { id: ticketId },
+      relations: ['assignedTo', 'participants', 'participants.agent'],
+    });
+
+    if (!ticket) throw new NotFoundException('Ticket not found');
+
+    if (!canJoinTicket(user, ticket)) {
+      throw new BadRequestException('Ticket must be IN_PROGRESS to join');
+    }
+
+    if (isTicketAssignedAgent(user, ticket)) {
+      return {
+        success: true,
+        message: 'Already primary assigned agent',
+        ticketId: ticket.id,
+        agentId: user.id,
+        joinedAt: new Date(),
+      };
+    }
+
+    const activeParticipant = (ticket.participants ?? []).find(
+      (participant) => participant.isActive && participant.agent?.id === user.id,
+    );
+
+    if (activeParticipant) {
+      return {
+        success: true,
+        message: 'Already joined ticket',
+        ticketId: ticket.id,
+        agentId: user.id,
+        joinedAt: activeParticipant.joinedAt,
+      };
+    }
+
+    const participant = await this.participants.save(
+      this.participants.create({
+        ticket,
+        agent: user,
+        joinedBy: user,
+        joinedAt: new Date(),
+        isActive: true,
+      }),
+    );
+
+    return {
+      success: true,
+      message: 'Joined ticket successfully',
+      ticketId: ticket.id,
+      agentId: user.id,
+      joinedAt: participant.joinedAt,
+    };
+  }
+
+  async leaveTicket(ticketId: number, user: User, dto: LeaveTicketDto = {}) {
+    const ticket = await this.repo.findOne({
+      where: { id: ticketId },
+      relations: ['assignedTo'],
+    });
+
+    if (!ticket) throw new NotFoundException('Ticket not found');
+
+    const isAdmin = hasRole(user, RoleEnum.ADMIN);
+    const targetAgentId = isAdmin && dto.agentId ? dto.agentId : user.id;
+
+    if (!isAdmin && dto.agentId && dto.agentId !== user.id) {
+      throw new ForbiddenException('Only admin can remove another agent');
+    }
+
+    if (ticket.assignedTo?.id === targetAgentId) {
+      throw new BadRequestException('Primary assigned agent cannot leave');
+    }
+
+    const participant = await this.participants.findOne({
+      where: {
+        ticket: { id: ticket.id },
+        agent: { id: targetAgentId },
+        isActive: true,
+      },
+      relations: ['agent'],
+    });
+
+    if (!participant) {
+      return {
+        success: true,
+        message: 'Agent is not an active participant',
+      };
+    }
+
+    participant.isActive = false;
+    await this.participants.save(participant);
+
+    return {
+      success: true,
+      message: 'Left ticket successfully',
+    };
+  }
+
+  async listParticipantsForTicket(
+    user: User,
+    ticketId: number,
+    dto: ListTicketParticipantsDto = {},
+  ) {
+    const ticket = await this.repo.findOne({
+      where: { id: ticketId },
+      relations: [
+        'createdBy',
+        'assignedTo',
+        'participants',
+        'participants.agent',
+      ],
+    });
+
+    if (!ticket) throw new NotFoundException('Ticket not found');
+
+    if (!canAccessTicket(user, ticket)) {
+      throw new ForbiddenException('Not your ticket');
+    }
+
+    const page = this.normalizePage(dto.page, 1);
+    const limit = this.normalizeLimit(dto.limit, 50, 100);
+    const [items, total] = await this.participants.findAndCount({
+      where: {
+        ticket: { id: ticket.id },
+        isActive: true,
+      },
+      relations: ['agent'],
+      order: { joinedAt: 'ASC' },
+      take: limit,
+      skip: (page - 1) * limit,
+    });
+
+    return {
+      items: items.map((participant) => this.participantDto(participant)),
+      primaryAgent: this.toUserSummary(ticket.assignedTo),
+      page,
+      limit,
+      total,
+      totalPages: total > 0 ? Math.ceil(total / limit) : 0,
+    };
   }
 
   async changeStatusFor(

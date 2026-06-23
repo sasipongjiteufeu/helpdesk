@@ -1,7 +1,12 @@
 // src/pages/AgentTicketInfoPage.tsx
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { API_BASE } from "../lib/api";
+import {
+  API_BASE,
+  joinTicket,
+  postTicketParticipantsList,
+  TicketParticipant,
+} from "../lib/api";
 import { useRequireAuth } from "../hooks/useRequireAuth";
 import AppHeaderBackend from "../components/AppHeaderBackend";
 import { MdArrowBack } from "react-icons/md";
@@ -10,7 +15,10 @@ import TicketConversation from "../components/TicketConversation";
 type TicketStatus = "OPEN" | "IN_PROGRESS" | "RESOLVED";
 
 interface TicketUserRef {
+  id?: string;
   name?: string | null;
+  email?: string | null;
+  avatarUrl?: string | null;
 }
 
 interface Ticket {
@@ -94,6 +102,8 @@ export default function AgentTicketInfoPage() {
 
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [attachments, setAttachments] = useState<TicketImageDto[]>([]);
+  const [participants, setParticipants] = useState<TicketParticipant[]>([]);
+  const [joining, setJoining] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -151,6 +161,22 @@ export default function AgentTicketInfoPage() {
           const imgs = (await imgRes.json()) as TicketImageDto[];
           if (!cancelled) setAttachments(imgs);
         }
+
+        const participantRes = await fetch(
+          `${API_BASE}/tickets/${id}/participants/list`,
+          {
+            method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ page: 1, limit: 50 }),
+          },
+        );
+        if (!participantRes.ok) {
+          if (!cancelled) setParticipants([]);
+        } else {
+          const participantData = await participantRes.json();
+          if (!cancelled) setParticipants(participantData.items ?? []);
+        }
       } catch (e: any) {
         console.error(e);
         if (!cancelled) setError(e.message ?? "Failed to load ticket");
@@ -174,6 +200,43 @@ export default function AgentTicketInfoPage() {
 
   function handleExit() {
     nav("/agent");
+  }
+
+  const isStaff = user.roles?.some(
+    (role) => role.name === "AGENT" || role.name === "ADMIN",
+  );
+  const isPrimaryAgent = ticket?.assignedTo?.id === user.id;
+  const isActiveParticipant = participants.some(
+    (participant) => participant.agent?.id === user.id,
+  );
+  const canJoin =
+    Boolean(isStaff) &&
+    ticket?.status === "IN_PROGRESS" &&
+    !isPrimaryAgent &&
+    !isActiveParticipant;
+
+  async function handleJoinTicket() {
+    if (!id) return;
+
+    try {
+      setJoining(true);
+      setError(null);
+      await joinTicket(id);
+
+      const [ticketRes, participantData] = await Promise.all([
+        fetch(`${API_BASE}/tickets/${id}`, { credentials: "include" }),
+        postTicketParticipantsList(id, { page: 1, limit: 50 }),
+      ]);
+
+      if (ticketRes.ok) {
+        setTicket((await ticketRes.json()) as Ticket);
+      }
+      setParticipants(participantData.items ?? []);
+    } catch (e: any) {
+      setError(e.message ?? "Failed to join ticket");
+    } finally {
+      setJoining(false);
+    }
   }
 
   function getStatusClassName(status: TicketStatus): string {
@@ -319,6 +382,59 @@ export default function AgentTicketInfoPage() {
                   </button>
                 </div>
               </div>
+
+              <section className="rounded-xl border border-gray-200 bg-white p-4 md:col-span-2">
+                <h3 className="m-0 text-lg font-semibold text-gray-900">
+                  Primary / participants
+                </h3>
+                <div className="mt-3 text-sm text-gray-700">
+                  Primary:{" "}
+                  <span className="font-semibold">
+                    {ticket.assignedTo?.name || ticket.assignedTo?.email || "-"}
+                  </span>
+                </div>
+                <div className="mt-3">
+                  <div className="text-sm font-semibold text-gray-700">
+                    Participants
+                  </div>
+                  {participants.length === 0 ? (
+                    <div className="mt-1 text-sm text-gray-500">none</div>
+                  ) : (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {participants.map((participant) => (
+                        <span
+                          key={participant.id}
+                          className="rounded-full bg-blue-50 px-3 py-1 text-sm font-semibold text-blue-800"
+                        >
+                          {participant.agent?.name ||
+                            participant.agent?.email ||
+                            "Unknown agent"}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {isPrimaryAgent && (
+                  <div className="mt-3 text-sm font-semibold text-green-700">
+                    You are the primary agent for this ticket.
+                  </div>
+                )}
+                {isActiveParticipant && !isPrimaryAgent && (
+                  <div className="mt-3 text-sm font-semibold text-blue-700">
+                    You have joined this ticket.
+                  </div>
+                )}
+                {canJoin && (
+                  <button
+                    type="button"
+                    onClick={handleJoinTicket}
+                    disabled={joining}
+                    className="mt-4 rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-300"
+                  >
+                    {joining ? "Joining..." : "Join Ticket"}
+                  </button>
+                )}
+              </section>
 
               <TicketConversation ticketId={ticket.id} currentUser={user} />
             </section>

@@ -10,6 +10,7 @@ import {
 } from 'typeorm';
 import { Role } from 'src/role/entities/role.entity';
 import { TicketMessage } from 'src/ticket/entities/ticket-message.entity';
+import { TicketParticipant } from 'src/ticket/entities/ticket-participant.entity';
 
 @Entity('users')
 export class User {
@@ -55,6 +56,9 @@ createdAt: Date;
 
   @OneToMany(() => TicketMessage, (message) => message.sender)
   ticketMessages: TicketMessage[];
+
+  @OneToMany(() => TicketParticipant, (participant) => participant.agent)
+  ticketParticipants: TicketParticipant[];
 
 }
 

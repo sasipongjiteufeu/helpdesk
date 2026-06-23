@@ -8,6 +8,10 @@ import { TicketService } from './ticket.service';
 import { TicketMessageService } from './ticket-message.service';
 import { CreateTicketDto } from './dto/create-ticket.dto';
 import { CreateTicketMessageDto } from './dto/create-ticket-message.dto';
+import { ListTicketMessagesDto } from './dto/list-ticket-messages.dto';
+import { ListMessageAttachmentsDto } from './dto/list-message-attachments.dto';
+import { LeaveTicketDto } from './dto/leave-ticket.dto';
+import { ListTicketParticipantsDto } from './dto/list-ticket-participants.dto';
 import { AuthenticatedGuard } from 'src/auth/guards/authenticated.guard';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { Roles } from 'src/auth/decorators/roles.decorator';
@@ -84,6 +88,35 @@ findAllPublicPost(
     return this.svc.findAllMine(req.user, { page, limit });
   }
 
+  @Post(':ticketId/join')
+  @UseGuards(AuthenticatedGuard, RolesGuard)
+  @Roles(RoleEnum.AGENT, RoleEnum.ADMIN)
+  joinTicket(@Param('ticketId') ticketId: number, @Req() req: any) {
+    return this.svc.joinTicket(ticketId, req.user);
+  }
+
+  @Post(':ticketId/leave')
+  @UseGuards(AuthenticatedGuard, RolesGuard)
+  @Roles(RoleEnum.AGENT, RoleEnum.ADMIN)
+  leaveTicket(
+    @Param('ticketId') ticketId: number,
+    @Body() dto: LeaveTicketDto,
+    @Req() req: any,
+  ) {
+    return this.svc.leaveTicket(ticketId, req.user, dto);
+  }
+
+  @Post(':ticketId/participants/list')
+  @UseGuards(AuthenticatedGuard, RolesGuard)
+  @Roles(RoleEnum.USER, RoleEnum.AGENT, RoleEnum.ADMIN)
+  listParticipants(
+    @Param('ticketId') ticketId: number,
+    @Body() dto: ListTicketParticipantsDto,
+    @Req() req: any,
+  ) {
+    return this.svc.listParticipantsForTicket(req.user, ticketId, dto);
+  }
+
 
   // Get one (owner or staff)
   @Get(':id')
@@ -142,11 +175,15 @@ findAllPublicPost(
     return this.svc.getAllImagesFor(req.user, id);
   }
 
-  @Get(':ticketId/messages')
+  @Post(':ticketId/messages/list')
   @UseGuards(AuthenticatedGuard, RolesGuard)
   @Roles(RoleEnum.USER, RoleEnum.AGENT, RoleEnum.ADMIN)
-  getMessages(@Param('ticketId') ticketId: number, @Req() req: any) {
-    return this.messages.findAllForTicket(req.user, ticketId);
+  listMessages(
+    @Param('ticketId') ticketId: number,
+    @Body() dto: ListTicketMessagesDto,
+    @Req() req: any,
+  ) {
+    return this.messages.listForTicket(req.user, ticketId, dto);
   }
 
   @Post(':ticketId/messages')
@@ -209,6 +246,23 @@ findAllPublicPost(
       `inline; filename="${encodeURIComponent(attachment.originalName)}"`,
     );
     return res.sendFile(absPath);
+  }
+
+  @Post(':ticketId/messages/:messageId/attachments/list')
+  @UseGuards(AuthenticatedGuard, RolesGuard)
+  @Roles(RoleEnum.USER, RoleEnum.AGENT, RoleEnum.ADMIN)
+  listMessageAttachments(
+    @Param('ticketId') ticketId: number,
+    @Param('messageId') messageId: string,
+    @Body() dto: ListMessageAttachmentsDto,
+    @Req() req: any,
+  ) {
+    return this.messages.listAttachmentsForMessage(
+      req.user,
+      ticketId,
+      messageId,
+      dto,
+    );
   }
 
   @Delete(':ticketId/messages/:messageId')

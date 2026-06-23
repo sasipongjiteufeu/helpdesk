@@ -14,6 +14,7 @@ import { TelegramNotifyModule } from 'src/telegram-notify/telegram-notify.module
 import { TicketMessage } from './entities/ticket-message.entity';
 import { TicketMessageAttachment } from './entities/ticket-message-attachment.entity';
 import { TicketMessageService } from './ticket-message.service';
+import { TicketParticipant } from './entities/ticket-participant.entity';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { TicketMessageService } from './ticket-message.service';
       TicketImage,
       TicketMessage,
       TicketMessageAttachment,
+      TicketParticipant,
     ]),
     MulterModule.register({
       storage: diskStorage({

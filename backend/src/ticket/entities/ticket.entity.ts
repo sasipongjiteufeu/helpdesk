@@ -7,6 +7,7 @@ import { User } from 'src/user/entities/user.entity';
 import { TicketStatus } from './ticket-state.enum';
 import { TicketImage } from './ticket-image.entity';     // 👈 import
 import { TicketMessage } from './ticket-message.entity';
+import { TicketParticipant } from './ticket-participant.entity';
 
 @Entity('Ticket')
 export class Ticket {
@@ -85,6 +86,11 @@ export class Ticket {
 
   @OneToMany(() => TicketMessage, message => message.ticket, { cascade: true })
   messages: TicketMessage[];
+
+  @OneToMany(() => TicketParticipant, participant => participant.ticket, {
+    cascade: true,
+  })
+  participants: TicketParticipant[];
 }
 
 export { TicketStatus };

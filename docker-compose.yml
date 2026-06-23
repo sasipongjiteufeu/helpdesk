@@ -17,6 +17,21 @@ services:
       - helpdesk-net
     ports:
       - "3306:3306"      
+  phpmyadmin:
+    image: phpmyadmin:5
+    container_name: helpdesk-phpmyadmin
+    restart: unless-stopped
+    depends_on:
+      - db
+    environment:
+      PMA_HOST: db
+      PMA_PORT: 3306
+      UPLOAD_LIMIT: 64M
+    ports:
+      - "8081:80"
+    networks:
+      - helpdesk-net
+
   backend:
     build:
       context: ./backend

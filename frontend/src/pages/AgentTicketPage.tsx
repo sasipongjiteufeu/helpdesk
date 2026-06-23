@@ -23,6 +23,14 @@ interface Ticket {
     name?: string | null;
     id: string;
   } | null;
+  participants?: Array<{
+    isActive?: boolean;
+    agent?: {
+      id?: string;
+      email?: string | null;
+      name?: string | null;
+    } | null;
+  }>;
   lastStatusChangedBy?: { email?: string | null } | null;
 }
 
@@ -109,6 +117,39 @@ function getStatusClass(status: TicketStatus): string {
     default:
       return base;
   }
+}
+
+function getAgentWorkBadge(ticket: Ticket, userId?: string) {
+  if (!userId) return null;
+  if (ticket.assignedTo?.id === userId) {
+    return (
+      <span className="mt-2 inline-block rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-800">
+        Primary agent
+      </span>
+    );
+  }
+
+  const isParticipant = ticket.participants?.some(
+    (participant) => participant.isActive && participant.agent?.id === userId,
+  );
+
+  if (isParticipant) {
+    return (
+      <span className="mt-2 inline-block rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-800">
+        Participant
+      </span>
+    );
+  }
+
+  if (ticket.status === "IN_PROGRESS" && ticket.assignedTo?.id) {
+    return (
+      <span className="mt-2 inline-block rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700">
+        Not joined
+      </span>
+    );
+  }
+
+  return null;
 }
 
 function formatDate(dateString: string): string {
@@ -568,6 +609,7 @@ export default function AgentTicketsPage() {
                         >
                           {ticket.assignedTo?.name || "-"}
                         </span>
+                        <div>{getAgentWorkBadge(ticket, user.id)}</div>
                       </Td>
                       <Td>
                         <span className="text-gray-700 text-base">

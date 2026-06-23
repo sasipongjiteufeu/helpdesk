@@ -4,7 +4,8 @@ import {
   API_BASE,
   createTicketMessage,
   getAttachmentUrl,
-  getTicketMessages,
+  postTicketMessagesList,
+  RoleEnum,
   TicketMessage,
   TicketMessageAttachment,
   User,
@@ -22,8 +23,13 @@ function formatBytes(size: number) {
   return `${(size / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function roleText(user: User) {
-  return user.roles?.map((role) => role.name).filter(Boolean).join(", ") || "USER";
+function roleText(user: { roles?: RoleEnum[] | { name?: RoleEnum }[] }) {
+  return (
+    user.roles
+      ?.map((role) => (typeof role === "string" ? role : role.name))
+      .filter(Boolean)
+      .join(", ") || "USER"
+  );
 }
 
 function attachmentHref(
@@ -31,9 +37,18 @@ function attachmentHref(
   messageId: string,
   attachment: TicketMessageAttachment,
 ) {
-  return attachment.url
-    ? `${API_BASE}${attachment.url}`
-    : getAttachmentUrl(ticketId, messageId, attachment.id);
+  if (!attachment.url) {
+    return getAttachmentUrl(ticketId, messageId, attachment.id);
+  }
+
+  if (attachment.url.startsWith("http")) {
+    return attachment.url;
+  }
+
+  const apiOrigin = API_BASE.replace(/\/api$/, "");
+  return attachment.url.startsWith("/api/")
+    ? `${apiOrigin}${attachment.url}`
+    : `${API_BASE}${attachment.url}`;
 }
 
 function AttachmentList({
@@ -105,8 +120,13 @@ export default function TicketConversation({
       try {
         setLoading(true);
         setError(null);
-        const data = await getTicketMessages(ticketId);
-        if (!cancelled) setMessages(data);
+        const data = await postTicketMessagesList(ticketId, {
+          page: 1,
+          limit: 50,
+          search: "",
+          sort: "ASC",
+        });
+        if (!cancelled) setMessages(data.items);
       } catch (e: any) {
         if (!cancelled) setError(e.message ?? "Failed to load messages");
       } finally {

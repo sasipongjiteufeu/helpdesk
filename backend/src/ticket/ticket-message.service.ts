@@ -12,8 +12,11 @@ import { TicketMessage } from './entities/ticket-message.entity';
 import { TicketMessageAttachment } from './entities/ticket-message-attachment.entity';
 import { User } from 'src/user/entities/user.entity';
 import { RoleEnum } from 'src/role/entities/role.enum';
-import { hasAnyRole, hasRole } from 'src/auth/role.utile';
+import { hasRole } from 'src/auth/role.utile';
 import { CreateTicketMessageDto } from './dto/create-ticket-message.dto';
+import { ListTicketMessagesDto } from './dto/list-ticket-messages.dto';
+import { ListMessageAttachmentsDto } from './dto/list-message-attachments.dto';
+import { canAccessTicket } from './ticket-permissions';
 
 @Injectable()
 export class TicketMessageService {
@@ -39,19 +42,42 @@ export class TicketMessageService {
   private async getTicketForAccess(user: User, ticketId: number) {
     const ticket = await this.tickets.findOne({
       where: { id: ticketId },
-      relations: ['createdBy', 'assignedTo'],
+      relations: ['createdBy', 'assignedTo', 'participants', 'participants.agent'],
     });
 
     if (!ticket) throw new NotFoundException('Ticket not found');
 
-    const isStaff = hasAnyRole(user, [RoleEnum.AGENT, RoleEnum.ADMIN]);
-    const isOwner = ticket.createdBy?.id === user.id;
-
-    if (!isStaff && !isOwner) {
+    if (!canAccessTicket(user, ticket)) {
       throw new ForbiddenException('Not your ticket');
     }
 
     return ticket;
+  }
+
+  private normalizePage(value: unknown, fallback: number) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback;
+  }
+
+  private normalizeLimit(value: unknown, fallback: number, max: number) {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+    return Math.min(max, Math.floor(parsed));
+  }
+
+  private toAttachmentDto(
+    attachment: TicketMessageAttachment,
+    ticketId: number,
+    messageId: string,
+  ) {
+    return {
+      id: attachment.id,
+      originalName: attachment.originalName,
+      filename: attachment.filename,
+      mimeType: attachment.mimeType,
+      size: attachment.size,
+      url: `/api/tickets/${ticketId}/messages/${messageId}/attachments/${attachment.id}`,
+    };
   }
 
   private toDto(message: TicketMessage, ticketId: number) {
@@ -65,28 +91,51 @@ export class TicketMessageService {
         name: message.sender.name,
         email: message.sender.email,
         avatarUrl: message.sender.avatarUrl,
-        roles: message.sender.roles,
+        roles: message.sender.roles?.map((role) => role.name) ?? [],
       },
-      attachments: (message.attachments ?? []).map((attachment) => ({
-        id: attachment.id,
-        originalName: attachment.originalName,
-        filename: attachment.filename,
-        mimeType: attachment.mimeType,
-        size: attachment.size,
-        url: `/tickets/${ticketId}/messages/${message.id}/attachments/${attachment.id}`,
-      })),
+      attachments: (message.attachments ?? []).map((attachment) =>
+        this.toAttachmentDto(attachment, ticketId, message.id),
+      ),
     };
   }
 
-  async findAllForTicket(user: User, ticketId: number) {
+  async listForTicket(
+    user: User,
+    ticketId: number,
+    dto: ListTicketMessagesDto = {},
+  ) {
     const ticket = await this.getTicketForAccess(user, ticketId);
-    const messages = await this.messages.find({
-      where: { ticket: { id: ticket.id } },
-      relations: ['sender', 'sender.roles', 'attachments'],
-      order: { createdAt: 'ASC', attachments: { createdAt: 'ASC' } },
-    });
+    const page = this.normalizePage(dto.page, 1);
+    const limit = this.normalizeLimit(dto.limit, 50, 100);
+    const sort = dto.sort === 'DESC' ? 'DESC' : 'ASC';
+    const search = dto.search?.trim();
 
-    return messages.map((message) => this.toDto(message, ticket.id));
+    const qb = this.messages
+      .createQueryBuilder('message')
+      .leftJoinAndSelect('message.sender', 'sender')
+      .leftJoinAndSelect('sender.roles', 'senderRoles')
+      .leftJoinAndSelect('message.attachments', 'attachments')
+      .where('message.ticket = :ticketId', { ticketId: ticket.id })
+      .orderBy('message.createdAt', sort)
+      .addOrderBy('attachments.createdAt', 'ASC')
+      .skip((page - 1) * limit)
+      .take(limit);
+
+    if (search) {
+      qb.andWhere('LOWER(message.message) LIKE :search', {
+        search: `%${search.toLowerCase()}%`,
+      });
+    }
+
+    const [items, total] = await qb.getManyAndCount();
+
+    return {
+      items: items.map((message) => this.toDto(message, ticket.id)),
+      page,
+      limit,
+      total,
+      totalPages: total > 0 ? Math.ceil(total / limit) : 0,
+    };
   }
 
   async createForTicket(
@@ -154,6 +203,40 @@ export class TicketMessageService {
 
     if (!attachment) throw new NotFoundException('Attachment not found');
     return attachment;
+  }
+
+  async listAttachmentsForMessage(
+    user: User,
+    ticketId: number,
+    messageId: string,
+    dto: ListMessageAttachmentsDto = {},
+  ) {
+    const ticket = await this.getTicketForAccess(user, ticketId);
+    const message = await this.messages.findOne({
+      where: { id: messageId, ticket: { id: ticket.id } },
+      select: { id: true },
+    });
+
+    if (!message) throw new NotFoundException('Message not found');
+
+    const page = this.normalizePage(dto.page, 1);
+    const limit = this.normalizeLimit(dto.limit, 20, 100);
+    const [items, total] = await this.attachments.findAndCount({
+      where: { message: { id: message.id } },
+      order: { createdAt: 'ASC' },
+      take: limit,
+      skip: (page - 1) * limit,
+    });
+
+    return {
+      items: items.map((attachment) =>
+        this.toAttachmentDto(attachment, ticket.id, message.id),
+      ),
+      page,
+      limit,
+      total,
+      totalPages: total > 0 ? Math.ceil(total / limit) : 0,
+    };
   }
 
   async removeFor(user: User, ticketId: number, messageId: string) {
