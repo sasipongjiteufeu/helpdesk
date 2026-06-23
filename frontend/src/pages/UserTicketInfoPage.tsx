@@ -5,6 +5,7 @@ import { API_BASE } from "../lib/api";
 import { useRequireAuth } from "../hooks/useRequireAuth";
 import AppHeaderBackend from "../components/AppHeaderBackend";
 import { MdArrowBack } from "react-icons/md";
+import TicketConversation from "../components/TicketConversation";
 
 type TicketStatus = "OPEN" | "IN_PROGRESS" | "RESOLVED";
 
@@ -166,7 +167,7 @@ export default function UserTicketInfoPage() {
           {loading || !ticket ? (
             <p>กำลังดาวโหลด...</p>
           ) : (
-            <section className="rounded-xl border  border-gray-200 bg-gray-50 p-4 grid-cols-1   grid md:grid-cols-3  gap-6">
+            <section className="rounded-xl border  border-gray-200 bg-gray-50 p-4 grid-cols-1   grid md:grid-cols-4  gap-6">
               {/* LEFT: attachments */}
               <div className="flex flex-col gap-3 max-h-[70vh] overflow-y-auto pr-1">
                 {attachments.length === 0 ? (
@@ -245,6 +246,8 @@ export default function UserTicketInfoPage() {
                   </button>
                 </div>
               </div>
+
+              <TicketConversation ticketId={ticket.id} currentUser={user} />
             </section>
           )}
         </div>

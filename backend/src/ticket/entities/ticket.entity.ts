@@ -2,11 +2,11 @@
 import {
   Column, CreateDateColumn, Entity, Index, JoinColumn, ManyToOne,
   PrimaryGeneratedColumn, UpdateDateColumn, OneToMany,   // 👈 add OneToMany
-  Generated
 } from 'typeorm';
 import { User } from 'src/user/entities/user.entity';
 import { TicketStatus } from './ticket-state.enum';
 import { TicketImage } from './ticket-image.entity';     // 👈 import
+import { TicketMessage } from './ticket-message.entity';
 
 @Entity('Ticket')
 export class Ticket {
@@ -28,11 +28,11 @@ export class Ticket {
   // @Column({ name: 'Picture', type: 'longblob', nullable: true })
   // picture: Buffer | null;
 
-  @ManyToOne(() => User, { eager: true, nullable: false })
+  @ManyToOne(() => User, { nullable: false })
   @JoinColumn({ name: 'ByUser' })
   createdBy: User;
 
-  @ManyToOne(() => User, { eager: true, nullable: true })
+  @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: 'Commit_By' })
   assignedTo: User | null;
 
@@ -57,9 +57,10 @@ export class Ticket {
     onUpdate: 'CURRENT_TIMESTAMP(3)',
   })
   updatedAt: Date;
-  @ManyToOne(() => User, { eager: true, nullable: true })
-@JoinColumn({ name: 'lastStatusChangedBy' })
-lastStatusChangedBy?: User | null;
+  
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'lastStatusChangedBy' })
+  lastStatusChangedBy?: User | null;
 
   @Column({
     name: 'First_In_Progress_At',
@@ -81,6 +82,9 @@ lastStatusChangedBy?: User | null;
   // 👇 MULTI-IMAGE RELATION
   @OneToMany(() => TicketImage, img => img.ticket, { cascade: true })
   images: TicketImage[];
+
+  @OneToMany(() => TicketMessage, message => message.ticket, { cascade: true })
+  messages: TicketMessage[];
 }
 
 export { TicketStatus };

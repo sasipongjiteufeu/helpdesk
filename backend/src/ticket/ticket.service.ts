@@ -660,7 +660,7 @@ async findAllMine(user: User, opts?: { page?: number; limit?: number }) {
   async removeFor(user: User, id: number) {
     const t = await this.repo.findOne({
       where: { id },
-      relations: ['images'],
+      relations: ['createdBy', 'assignedTo', 'images'],
     });
     if (!t) throw new NotFoundException('Ticket not found');
 

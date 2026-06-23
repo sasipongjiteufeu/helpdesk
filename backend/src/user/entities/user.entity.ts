@@ -5,10 +5,11 @@ import {
   Index,
   JoinTable,
   ManyToMany,
-  ManyToOne,
+  OneToMany,
   PrimaryGeneratedColumn,
 } from 'typeorm';
 import { Role } from 'src/role/entities/role.entity';
+import { TicketMessage } from 'src/ticket/entities/ticket-message.entity';
 
 @Entity('users')
 export class User {
@@ -52,6 +53,8 @@ export class User {
 createdAt: Date;
   //RoleEnum: any;
 
+  @OneToMany(() => TicketMessage, (message) => message.sender)
+  ticketMessages: TicketMessage[];
 
 }
 

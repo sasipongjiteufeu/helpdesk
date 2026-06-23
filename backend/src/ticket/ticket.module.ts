@@ -11,10 +11,19 @@ import { TicketController } from './ticket.controller';
 import { TicketImage } from './entities/ticket-image.entity';
 import { EmailService } from 'src/email/email.service';
 import { TelegramNotifyModule } from 'src/telegram-notify/telegram-notify.module';
+import { TicketMessage } from './entities/ticket-message.entity';
+import { TicketMessageAttachment } from './entities/ticket-message-attachment.entity';
+import { TicketMessageService } from './ticket-message.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Ticket, User, TicketImage]),
+    TypeOrmModule.forFeature([
+      Ticket,
+      User,
+      TicketImage,
+      TicketMessage,
+      TicketMessageAttachment,
+    ]),
     MulterModule.register({
       storage: diskStorage({
         destination: (req, file, cb) => {
@@ -32,7 +41,7 @@ import { TelegramNotifyModule } from 'src/telegram-notify/telegram-notify.module
     }),TelegramNotifyModule
   ],
   controllers: [TicketController],
-  providers: [TicketService, EmailService],
+  providers: [TicketService, TicketMessageService, EmailService],
   exports: [TicketService],
 })
 export class TicketModule {}

@@ -1,17 +1,17 @@
 import {
-  Controller, Get, Post, Body, Param, Patch, Delete, Query, Req, Res,
-  UseGuards, UploadedFile, UseInterceptors,
-  UploadedFiles
+  BadRequestException, Controller, Get, Post, Body, Param, Patch, Delete,
+  Query, Req, Res, UseGuards, UseInterceptors, UploadedFiles
 } from '@nestjs/common';
 import express from 'express';
-import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
+import { FilesInterceptor } from '@nestjs/platform-express';
 import { TicketService } from './ticket.service';
+import { TicketMessageService } from './ticket-message.service';
 import { CreateTicketDto } from './dto/create-ticket.dto';
+import { CreateTicketMessageDto } from './dto/create-ticket-message.dto';
 import { AuthenticatedGuard } from 'src/auth/guards/authenticated.guard';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { Roles } from 'src/auth/decorators/roles.decorator';
 import { RoleEnum } from 'src/role/entities/role.enum';
-import { get } from 'axios';
 import * as path from 'path';
 import * as fs from 'fs';
 import { FilterTicketDto } from './dto/filter-ticket.dto';
@@ -19,7 +19,10 @@ import { FilterTicketDto } from './dto/filter-ticket.dto';
 @Controller('tickets')
 
 export class TicketController {
-  constructor(private readonly svc: TicketService) { }
+  constructor(
+    private readonly svc: TicketService,
+    private readonly messages: TicketMessageService,
+  ) { }
 
 
   // Create (multipart form: title, detail, tal?, picture?)
@@ -137,6 +140,86 @@ findAllPublicPost(
   @Roles(RoleEnum.USER, RoleEnum.AGENT, RoleEnum.ADMIN)
   getAllImages(@Param('id') id: number, @Req() req: any) {
     return this.svc.getAllImagesFor(req.user, id);
+  }
+
+  @Get(':ticketId/messages')
+  @UseGuards(AuthenticatedGuard, RolesGuard)
+  @Roles(RoleEnum.USER, RoleEnum.AGENT, RoleEnum.ADMIN)
+  getMessages(@Param('ticketId') ticketId: number, @Req() req: any) {
+    return this.messages.findAllForTicket(req.user, ticketId);
+  }
+
+  @Post(':ticketId/messages')
+  @UseGuards(AuthenticatedGuard, RolesGuard)
+  @Roles(RoleEnum.USER, RoleEnum.AGENT, RoleEnum.ADMIN)
+  @UseInterceptors(FilesInterceptor('attachments', 10, {
+    fileFilter: (req, file, cb) => {
+      const allowed = new Set([
+        'image/png',
+        'image/jpeg',
+        'image/webp',
+        'application/pdf',
+        'text/plain',
+        'application/zip',
+      ]);
+
+      if (!allowed.has(file.mimetype)) {
+        return cb(new BadRequestException('Unsupported attachment type'), false);
+      }
+
+      cb(null, true);
+    },
+  }))
+  createMessage(
+    @Param('ticketId') ticketId: number,
+    @Body() dto: CreateTicketMessageDto,
+    @UploadedFiles() files: Express.Multer.File[],
+    @Req() req: any,
+  ) {
+    return this.messages.createForTicket(req.user, ticketId, dto, files);
+  }
+
+  @Get(':ticketId/messages/:messageId/attachments/:attachmentId')
+  @UseGuards(AuthenticatedGuard, RolesGuard)
+  @Roles(RoleEnum.USER, RoleEnum.AGENT, RoleEnum.ADMIN)
+  async getMessageAttachment(
+    @Param('ticketId') ticketId: number,
+    @Param('messageId') messageId: string,
+    @Param('attachmentId') attachmentId: string,
+    @Req() req: any,
+    @Res() res: express.Response,
+  ) {
+    const attachment = await this.messages.getAttachmentFor(
+      req.user,
+      ticketId,
+      messageId,
+      attachmentId,
+    );
+    const absPath = path.isAbsolute(attachment.path)
+      ? attachment.path
+      : path.join(process.cwd(), attachment.path);
+
+    if (!fs.existsSync(absPath)) {
+      return res.status(404).send();
+    }
+
+    res.setHeader('Content-Type', attachment.mimeType || 'application/octet-stream');
+    res.setHeader(
+      'Content-Disposition',
+      `inline; filename="${encodeURIComponent(attachment.originalName)}"`,
+    );
+    return res.sendFile(absPath);
+  }
+
+  @Delete(':ticketId/messages/:messageId')
+  @UseGuards(AuthenticatedGuard, RolesGuard)
+  @Roles(RoleEnum.USER, RoleEnum.AGENT, RoleEnum.ADMIN)
+  removeMessage(
+    @Param('ticketId') ticketId: number,
+    @Param('messageId') messageId: string,
+    @Req() req: any,
+  ) {
+    return this.messages.removeFor(req.user, ticketId, messageId);
   }
 
 
