@@ -15,6 +15,7 @@ import { TicketMessage } from './entities/ticket-message.entity';
 import { TicketMessageAttachment } from './entities/ticket-message-attachment.entity';
 import { TicketMessageService } from './ticket-message.service';
 import { TicketParticipant } from './entities/ticket-participant.entity';
+import { TicketReadState } from './entities/ticket-read-state.entity';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { TicketParticipant } from './entities/ticket-participant.entity';
       TicketMessage,
       TicketMessageAttachment,
       TicketParticipant,
+      TicketReadState,
     ]),
     MulterModule.register({
       storage: diskStorage({

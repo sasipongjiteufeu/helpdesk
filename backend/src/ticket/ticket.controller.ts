@@ -216,6 +216,13 @@ findAllPublicPost(
     return this.messages.createForTicket(req.user, ticketId, dto, files);
   }
 
+  @Post(':ticketId/messages/read')
+  @UseGuards(AuthenticatedGuard, RolesGuard)
+  @Roles(RoleEnum.USER, RoleEnum.AGENT, RoleEnum.ADMIN)
+  markMessagesRead(@Param('ticketId') ticketId: number, @Req() req: any) {
+    return this.messages.markTicketMessagesAsRead(req.user, ticketId);
+  }
+
   @Get(':ticketId/messages/:messageId/attachments/:attachmentId')
   @UseGuards(AuthenticatedGuard, RolesGuard)
   @Roles(RoleEnum.USER, RoleEnum.AGENT, RoleEnum.ADMIN)

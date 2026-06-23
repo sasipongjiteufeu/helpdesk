@@ -1,7 +1,7 @@
 // src/admin/admin.service.ts
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Between, Repository } from 'typeorm';
+import { Between, Brackets, Repository } from 'typeorm';
 import { User } from 'src/user/entities/user.entity';
 import { Ticket, TicketStatus } from 'src/ticket/entities/ticket.entity';
 import { Role } from 'src/role/entities/role.entity';
@@ -174,39 +174,115 @@ export class AdminService {
 
     return { year, monthly };
   }
-    async getAgentStatusStatsForRange(fromStr: string, toStr: string) {
+  async getAgentStatusStatsForRange(fromStr: string, toStr: string) {
     const from = new Date(fromStr);
     from.setHours(0, 0, 0, 0);
     const to = new Date(toStr);
     to.setHours(23, 59, 59, 999);
 
-    const raw = await this.ticketsRepo
-      .createQueryBuilder('t')
-      .leftJoin('t.assignedTo', 'a')
-      .leftJoin('a.roles', 'r')
-      .where('t.createdAt BETWEEN :from AND :to', { from, to })
-      .andWhere('a.id IS NOT NULL')
-      .andWhere('r.name = :agentRole', { agentRole: RoleEnum.AGENT })
-      .select([
-        'a.id AS agentId',
-        'a.email AS email',
-        'a.name AS name',
-        "SUM(CASE WHEN t.status = 'IN_PROGRESS' THEN 1 ELSE 0 END) AS inProgress",
-        "SUM(CASE WHEN t.status = 'RESOLVED' THEN 1 ELSE 0 END) AS resolved",
-      ])
-      .groupBy('a.id')
-      .addGroupBy('a.email')
-      .addGroupBy('a.name')
-      .orderBy('a.name', 'ASC')
-      .getRawMany();
+    if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) {
+      throw new BadRequestException('Invalid date format, use YYYY-MM-DD');
+    }
+    if (from > to) {
+      throw new BadRequestException('"from" must be before "to"');
+    }
 
-    return raw.map((r) => ({
-      agentId: r.agentId as string,
-      email: r.email as string,
-      name: (r.name as string) ?? null,
-      inProgress: Number(r.inProgress) || 0,
-      resolved: Number(r.resolved) || 0,
-    }));
+    const tickets = await this.ticketsRepo
+      .createQueryBuilder('t')
+      .leftJoinAndSelect('t.assignedTo', 'assignedTo')
+      .leftJoinAndSelect('assignedTo.roles', 'assignedToRoles')
+      .leftJoinAndSelect('t.participants', 'participants')
+      .leftJoinAndSelect('participants.agent', 'participantAgent')
+      .leftJoinAndSelect('participantAgent.roles', 'participantAgentRoles')
+      .where(
+        new Brackets((qb) => {
+          qb.where(
+            `t.status = :inProgressStatus
+             AND COALESCE(t.firstInProgressAt, t.createdAt) BETWEEN :from AND :to`,
+            {
+              inProgressStatus: TicketStatus.IN_PROGRESS,
+              from,
+              to,
+            },
+          ).orWhere(
+            `t.status = :resolvedStatus
+             AND COALESCE(t.resolvedAt, t.updatedAt) BETWEEN :from AND :to`,
+            {
+              resolvedStatus: TicketStatus.RESOLVED,
+              from,
+              to,
+            },
+          );
+        }),
+      )
+      .getMany();
+
+    const hasAgentRole = (user: User | null | undefined) =>
+      Boolean(user?.id && (user.roles ?? []).some((role) => role.name === RoleEnum.AGENT));
+
+    const stats = new Map<
+      string,
+      {
+        agentId: string;
+        email: string;
+        name: string | null;
+        inProgress: number;
+        resolved: number;
+      }
+    >();
+
+    const ensureAgentStats = (agent: User) => {
+      const existing = stats.get(agent.id);
+      if (existing) return existing;
+
+      const next = {
+        agentId: agent.id,
+        email: agent.email,
+        name: agent.name ?? null,
+        inProgress: 0,
+        resolved: 0,
+      };
+      stats.set(agent.id, next);
+      return next;
+    };
+
+    for (const ticket of tickets) {
+      const involvedAgents = new Map<string, User>();
+
+      const assignedAgent = ticket.assignedTo;
+      if (hasAgentRole(assignedAgent) && assignedAgent) {
+        involvedAgents.set(assignedAgent.id, assignedAgent);
+      }
+
+      for (const participant of ticket.participants ?? []) {
+        const agent = participant.agent;
+        if (!hasAgentRole(agent)) continue;
+
+        if (ticket.status === TicketStatus.IN_PROGRESS && participant.isActive) {
+          involvedAgents.set(agent.id, agent);
+        }
+
+        if (ticket.status === TicketStatus.RESOLVED) {
+          involvedAgents.set(agent.id, agent);
+        }
+      }
+
+      for (const agent of involvedAgents.values()) {
+        const row = ensureAgentStats(agent);
+        if (ticket.status === TicketStatus.IN_PROGRESS) {
+          row.inProgress += 1;
+        }
+        if (ticket.status === TicketStatus.RESOLVED) {
+          row.resolved += 1;
+        }
+      }
+    }
+
+    return [...stats.values()].sort((a, b) => {
+      const aKey = (a.name || a.email || '').toLowerCase();
+      const bKey = (b.name || b.email || '').toLowerCase();
+      return aKey.localeCompare(bKey);
+    });
   }
   async getMonthStatusStats(year: number, month: number) {
     const from = new Date(year, month - 1, 1);

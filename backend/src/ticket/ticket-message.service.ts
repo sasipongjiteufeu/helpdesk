@@ -10,6 +10,7 @@ import * as fs from 'fs';
 import { Ticket } from './entities/ticket.entity';
 import { TicketMessage } from './entities/ticket-message.entity';
 import { TicketMessageAttachment } from './entities/ticket-message-attachment.entity';
+import { TicketReadState } from './entities/ticket-read-state.entity';
 import { User } from 'src/user/entities/user.entity';
 import { RoleEnum } from 'src/role/entities/role.enum';
 import { hasRole } from 'src/auth/role.utile';
@@ -26,6 +27,8 @@ export class TicketMessageService {
     private readonly messages: Repository<TicketMessage>,
     @InjectRepository(TicketMessageAttachment)
     private readonly attachments: Repository<TicketMessageAttachment>,
+    @InjectRepository(TicketReadState)
+    private readonly readStates: Repository<TicketReadState>,
   ) {}
 
   private deleteFileIfExists(filePath: string | null | undefined) {
@@ -184,6 +187,42 @@ export class TicketMessageService {
 
     if (!saved) throw new NotFoundException('Message not found');
     return this.toDto(saved, ticket.id);
+  }
+
+  async markTicketMessagesAsRead(user: User, ticketId: number) {
+    const ticket = await this.getTicketForAccess(user, ticketId);
+    const latestMessage = await this.messages.findOne({
+      where: { ticket: { id: ticket.id } },
+      select: { id: true, createdAt: true },
+      order: { createdAt: 'DESC' },
+    });
+    const now = new Date();
+
+    let readState = await this.readStates.findOne({
+      where: {
+        ticket: { id: ticket.id },
+        user: { id: user.id },
+      },
+      relations: ['ticket', 'user'],
+    });
+
+    if (!readState) {
+      readState = this.readStates.create({
+        ticket,
+        user,
+      });
+    }
+
+    readState.lastReadAt = now;
+    readState.lastReadMessageId = latestMessage?.id ?? null;
+    await this.readStates.save(readState);
+
+    return {
+      success: true,
+      ticketId: ticket.id,
+      lastReadAt: readState.lastReadAt,
+      lastReadMessageId: readState.lastReadMessageId,
+    };
   }
 
   async getAttachmentFor(

@@ -1,9 +1,9 @@
 // src/pages/Home.tsx
 import { useEffect, useMemo, useState } from "react";
-import { API_BASE } from "../lib/api";
+import { FaUserShield } from "react-icons/fa";
 import AppHeaderBackend from "../components/AppHeaderBackend";
 import { useRequireAuth } from "../hooks/useRequireAuth";
-import { FaUserShield } from "react-icons/fa";
+import { API_BASE } from "../lib/api";
 
 type TicketStatus = "OPEN" | "IN_PROGRESS" | "RESOLVED";
 
@@ -30,10 +30,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // 👇 use global auth hook (NO redirect on "/")
   const { user, loading: authLoading } = useRequireAuth();
-
-  // 👇 pagination
   const [page, setPage] = useState(1);
 
   async function loadTickets() {
@@ -41,11 +38,10 @@ export default function Home() {
       setLoading(true);
       setError(null);
 
-      // public endpoint (POST)
       const res = await fetch(`${API_BASE}/tickets/public`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ page: 1, limit: 100 }), // get enough items then paginate client-side
+        body: JSON.stringify({ page: 1, limit: 100 }),
       });
 
       if (!res.ok) {
@@ -54,9 +50,6 @@ export default function Home() {
 
       const data = await res.json();
       const items: Ticket[] = data.items ?? [];
-
-      // show only OPEN + IN_PROGRESS for public
-
       setTickets(items);
     } catch (e: any) {
       console.error(e);
@@ -70,11 +63,10 @@ export default function Home() {
     loadTickets();
     const intervalId = setInterval(() => {
       loadTickets();
-    }, 300000); // 5 minutes
+    }, 300000);
     return () => clearInterval(intervalId);
   }, []);
 
-  // total pages from active tickets
   const totalPages = useMemo(
     () => Math.max(1, Math.ceil(tickets.length / ITEMS_PER_PAGE)),
     [tickets.length],
@@ -109,8 +101,9 @@ export default function Home() {
 
   function StatusBadge({ status }: { status: TicketStatus }) {
     const base =
-      "px-3 py-1.5 rounded-full font-semibold text-sm inline-flex items-center gap-2 shadow-sm";
-    const dot = "inline-block w-2.5 h-2.5 rounded-full";
+      "inline-flex min-w-fit shrink-0 items-center gap-2 whitespace-nowrap rounded-full px-3.5 py-1.5 text-sm font-semibold leading-none shadow-sm";
+    const dot = "inline-block h-2.5 w-2.5 shrink-0 rounded-full";
+
     switch (status) {
       case "OPEN":
         return (
@@ -147,141 +140,190 @@ export default function Home() {
     });
   }
 
-  // show same “กำลังตรวจสอบ...” while auth is loading
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-gray-50 via-white to-gray-100 flex items-center justify-center text-gray-900">
+      <div className="grid min-h-screen place-items-center bg-slate-100 px-4 text-slate-900">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto mb-4"></div>
-          <p className="text-lg text-gray-600">กำลังตรวจสอบ...</p>
+          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-slate-200 border-t-blue-600" />
+          <p className="text-base font-medium text-slate-600">กำลังตรวจสอบ...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 via-white to-gray-100 py-10 px-6 text-gray-900">
-      <div className="max-w-7xl mx-auto bg-white/90 backdrop-blur-xl rounded-3xl shadow-[0_15px_60px_-20px_rgba(15,23,42,0.4)] border border-gray-200 px-4 sm:px-8 lg:px-10 py-6 sm:py-8">
-        {/* 👇 now header knows user state → no “เข้าสู่ระบบ” when logged in */}
+    <div className="min-h-screen w-full bg-slate-100 px-4 py-4 text-slate-900 sm:px-6 lg:px-8 xl:px-10">
+      <div className="mx-auto w-full max-w-[1800px] space-y-5">
         <AppHeaderBackend user={user} title="" />
 
-        {/* page-switch buttons under header */}
-        <div className="flex flex-wrap gap-3 mt-4">
-          {/* This page itself is public, so optional; keep only ChooseRole if you like */}
-          {user?.roles && user.roles.length > 1 && (
-            <button
-              onClick={() => (window.location.href = "/choose-role")}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 shadow transition active:scale-[0.98]"
-            >
-              <FaUserShield className="text-xl" />
-              <span>เลือกบทบาท</span>
-            </button>
-          )}
-        </div>
+        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 xl:p-6">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="min-w-0">
+              <p className="m-0 text-sm font-semibold text-blue-600">Helpdesk Dashboard</p>
+              <h2 className="m-0 mt-1 text-2xl font-bold tracking-tight text-slate-950 md:text-3xl">
+                รายการแจ้งปัญหา
+              </h2>
+              <p className="m-0 mt-2 max-w-3xl text-sm leading-6 text-slate-500 sm:text-base">
+                ติดตามสถานะ Ticket ที่เปิดอยู่และงานที่กำลังดำเนินการในระบบ Helpdesk
+              </p>
+            </div>
 
-        <div className="mt-6 sm:mt-8 flex flex-col gap-2">
-          <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight">
-            รายการแจ้งปัญหา
-          </h2>
-          <p className="text-base sm:text-lg text-gray-600">
-            จำนวนงานที่กำลังดำเนินการของวันนี้{" "}
-            <span className="font-semibold text-emerald-700">
-              {todayActiveCount} งาน
-            </span>
-          </p>
+            {user?.roles && user.roles.length > 1 && (
+              <div className="flex flex-wrap gap-2 lg:justify-end">
+                <button
+                  type="button"
+                  onClick={() => (window.location.href = "/choose-role")}
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-blue-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 active:scale-[0.98]"
+                >
+                  <FaUserShield className="text-lg" />
+                  <span>เลือกบทบาท</span>
+                </button>
+              </div>
+            )}
+          </div>
+        </section>
 
-          <p className="text-base sm:text-lg text-gray-600">
-            จำนวนงานที่รอดำเนินการของวันนี้{" "}
-            <span className="font-semibold text-emerald-700">
-              {todaywaitingCount} งาน
-            </span>
-          </p>
-        </div>
+        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="rounded-2xl border border-blue-100 bg-white p-4 shadow-sm sm:p-5">
+            <p className="m-0 text-sm font-semibold text-slate-500">กำลังดำเนินการวันนี้</p>
+            <div className="mt-3 flex items-end justify-between gap-3">
+              <strong className="text-3xl font-bold text-blue-700">{todayActiveCount}</strong>
+              <StatusBadge status="IN_PROGRESS" />
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-amber-100 bg-white p-4 shadow-sm sm:p-5">
+            <p className="m-0 text-sm font-semibold text-slate-500">รอดำเนินการวันนี้</p>
+            <div className="mt-3 flex items-end justify-between gap-3">
+              <strong className="text-3xl font-bold text-amber-700">{todaywaitingCount}</strong>
+              <StatusBadge status="OPEN" />
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:col-span-2 sm:p-5 xl:col-span-1">
+            <p className="m-0 text-sm font-semibold text-slate-500">Ticket ที่แสดงทั้งหมด</p>
+            <div className="mt-3 flex items-end justify-between gap-3">
+              <strong className="text-3xl font-bold text-slate-900">{tickets.length}</strong>
+              <span className="inline-flex min-w-fit shrink-0 items-center whitespace-nowrap rounded-full border border-slate-200 bg-slate-50 px-3.5 py-1.5 text-sm font-semibold leading-none text-slate-700">
+                หน้า {page}/{totalPages}
+              </span>
+            </div>
+          </div>
+        </section>
 
         {error && (
-          <div className="mt-4 rounded-2xl bg-red-50 border border-red-100 px-4 py-3 text-red-800">
+          <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-medium text-red-800">
             {error}
           </div>
         )}
 
-        <div className="mt-6 sm:mt-8 rounded-2xl border border-gray-200 bg-gray-50/70 overflow-hidden shadow-inner">
-          <table className="w-full border-collapse text-xs sm:text-sm md:text-base">
-            <thead className="bg-gray-200/80 text-left text-gray-800 text-base md:text-lg">
-              <tr>
-                <th className="px-3 sm:px-4 lg:px-5 py-3 sm:py-4 font-semibold text-left whitespace-nowrap">
-                  สถานะคำร้อง
-                </th>
-                <th className="px-3 sm:px-4 lg:px-5 py-3 sm:py-4 font-semibold text-left whitespace-nowrap">
-                  Ticket ID
-                </th>
-                <th className="px-3 sm:px-4 lg:px-5 py-3 sm:py-4 font-semibold text-left">
-                  หัวข้อ
-                </th>
-                <th className="px-3 sm:px-4 lg:px-5 py-3 sm:py-4 font-semibold text-left w-[35%] md:w-[40%]">
-                  รายละเอียดคำร้อง
-                </th>
-                <th className="px-3 sm:px-4 lg:px-5 py-3 sm:py-4 font-semibold text-left whitespace-nowrap">
-                  สร้าง ณ วันที่
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200 bg-white text-base md:text-lg">
-              {loading ? (
+        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="flex flex-col gap-2 border-b border-slate-100 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+            <div>
+              <h3 className="m-0 text-lg font-bold text-slate-950">รายการ Ticket สาธารณะ</h3>
+              <p className="m-0 mt-1 text-sm text-slate-500">อัปเดตข้อมูลอัตโนมัติทุก 5 นาที</p>
+            </div>
+            <span className="inline-flex min-w-fit shrink-0 items-center whitespace-nowrap rounded-full border border-slate-200 bg-slate-50 px-3.5 py-1.5 text-sm font-semibold leading-none text-slate-700">
+              {tickets.length} รายการ
+            </span>
+          </div>
+
+          <div className="hidden overflow-x-auto md:block">
+            <table className="w-full min-w-[980px] border-collapse text-sm">
+              <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
                 <tr>
-                  <td
-                    colSpan={5}
-                    className="px-4 py-8 text-center text-gray-500"
-                  >
-                    กำลังโหลดข้อมูล...
-                  </td>
+                  <th className="whitespace-nowrap px-4 py-3">สถานะคำร้อง</th>
+                  <th className="whitespace-nowrap px-4 py-3">Ticket ID</th>
+                  <th className="px-4 py-3">หัวข้อ</th>
+                  <th className="w-[42%] px-4 py-3">รายละเอียดคำร้อง</th>
+                  <th className="whitespace-nowrap px-4 py-3">สร้าง ณ วันที่</th>
                 </tr>
-              ) : tickets.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={5}
-                    className="px-4 py-8 text-center text-gray-500"
-                  >
-                    ยังไม่มีรายการ
-                  </td>
-                </tr>
-              ) : (
-                paginatedTickets.map((t) => (
-                  <tr
-                    key={t.id}
-                    className="hover:bg-gray-50 transition-colors"
-                  >
-                    <td className="px-4 py-3">
-                      <StatusBadge status={t.status} />
-                    </td>
-                    <td className="px-4 py-3 font-mono text-gray-800">
-                      {String(t.id).padStart(7, "0")}
-                    </td>
-                    <td className="px-4 py-3 font-semibold text-gray-900">
-                      {t.title}
-                    </td>
-                    <td className="px-4 py-3 text-gray-700">{t.detail}</td>
-                    <td className="px-4 py-3 text-gray-700 whitespace-nowrap">
-                      {formatDate(t.createdAt)}
+              </thead>
+              <tbody className="divide-y divide-slate-100 bg-white">
+                {loading ? (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-10 text-center text-sm text-slate-500">
+                      กำลังโหลดข้อมูล...
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                ) : tickets.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-10 text-center text-sm text-slate-500">
+                      ยังไม่มีรายการ
+                    </td>
+                  </tr>
+                ) : (
+                  paginatedTickets.map((t) => (
+                    <tr key={t.id} className="transition-colors hover:bg-slate-50">
+                      <td className="whitespace-nowrap px-4 py-4">
+                        <StatusBadge status={t.status} />
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-4 font-mono font-semibold text-slate-700">
+                        {String(t.id).padStart(7, "0")}
+                      </td>
+                      <td className="max-w-[18rem] px-4 py-4 font-semibold text-slate-950">
+                        <div className="line-clamp-2 break-words">{t.title}</div>
+                      </td>
+                      <td className="px-4 py-4 text-slate-600">
+                        <div className="line-clamp-2 break-words">{t.detail}</div>
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-4 text-slate-600">
+                        {formatDate(t.createdAt)}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
 
-        {/* pagination buttons */}
+          <div className="grid gap-3 p-3 md:hidden">
+            {loading ? (
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-500">
+                กำลังโหลดข้อมูล...
+              </div>
+            ) : tickets.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm text-slate-500">
+                ยังไม่มีรายการ
+              </div>
+            ) : (
+              paginatedTickets.map((t) => (
+                <article key={t.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="font-mono text-sm font-semibold text-slate-500">
+                        #{String(t.id).padStart(7, "0")}
+                      </div>
+                      <h3 className="m-0 mt-1 line-clamp-2 text-base font-bold text-slate-950">
+                        {t.title}
+                      </h3>
+                    </div>
+                    <StatusBadge status={t.status} />
+                  </div>
+                  <p className="m-0 mt-3 line-clamp-3 break-words text-sm leading-6 text-slate-600">
+                    {t.detail}
+                  </p>
+                  <div className="mt-3 text-sm text-slate-500">
+                    สร้างเมื่อ: <span className="font-medium text-slate-700">{formatDate(t.createdAt)}</span>
+                  </div>
+                </article>
+              ))
+            )}
+          </div>
+        </section>
+
         {tickets.length > 0 && (
-          <div className="mt-4 flex justify-center flex-wrap gap-2">
+          <div className="flex flex-wrap justify-center gap-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
             {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
               <button
                 key={p}
                 onClick={() => setPage(p)}
                 disabled={p === page}
-                className={`min-w-9 px-3 py-1.5 rounded-lg border text-sm md:text-base ${p === page
-                    ? "bg-blue-600 text-white border-blue-600 cursor-default"
-                    : "bg-white text-gray-700 hover:bg-gray-100 border-gray-300"
-                  }`}
+                className={`h-10 min-w-10 rounded-full border px-3 text-sm font-semibold transition ${
+                  p === page
+                    ? "cursor-default border-blue-600 bg-blue-600 text-white"
+                    : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                }`}
               >
                 {p}
               </button>

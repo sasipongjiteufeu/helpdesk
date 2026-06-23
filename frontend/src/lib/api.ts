@@ -72,6 +72,12 @@ export interface TicketMessage {
   attachments: TicketMessageAttachment[];
 }
 
+export interface TicketUnreadMeta {
+  unreadMessageCount?: number;
+  hasUnreadMessages?: boolean;
+  lastMessageAt?: string | null;
+}
+
 export async function me() {
   const res = await fetch(`${API_BASE}/auth/me`, { credentials: 'include' });
   if (res.ok) return res.json();
@@ -124,6 +130,24 @@ export async function createTicketMessage(
   }
 
   return res.json() as Promise<TicketMessage>;
+}
+
+export async function markTicketMessagesAsRead(ticketId: string | number) {
+  const res = await fetch(`${API_BASE}/tickets/${ticketId}/messages/read`, {
+    method: 'POST',
+    credentials: 'include',
+  });
+
+  if (!res.ok) {
+    throw new Error(`Failed to mark messages as read (${res.status})`);
+  }
+
+  return res.json() as Promise<{
+    success: boolean;
+    ticketId: number;
+    lastReadAt: string;
+    lastReadMessageId?: string | null;
+  }>;
 }
 
 export function getAttachmentUrl(

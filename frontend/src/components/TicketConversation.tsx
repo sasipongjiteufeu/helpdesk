@@ -1,26 +1,21 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
-import { MdAttachFile, MdClose, MdSend } from "react-icons/md";
+import { MdAttachFile, MdClose, MdOpenInNew, MdSend } from "react-icons/md";
 import {
   API_BASE,
   createTicketMessage,
   getAttachmentUrl,
+  markTicketMessagesAsRead,
   postTicketMessagesList,
   RoleEnum,
   TicketMessage,
   TicketMessageAttachment,
   User,
 } from "../lib/api";
+import { EmptyState, ErrorBanner, formatBytes, LoadingState, cx } from "./helpdesk-ui";
 
 interface TicketConversationProps {
   ticketId: string | number;
   currentUser: User;
-}
-
-function formatBytes(size: number) {
-  if (!Number.isFinite(size)) return "";
-  if (size < 1024) return `${size} B`;
-  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
-  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function roleText(user: { roles?: RoleEnum[] | { name?: RoleEnum }[] }) {
@@ -37,61 +32,63 @@ function attachmentHref(
   messageId: string,
   attachment: TicketMessageAttachment,
 ) {
-  if (!attachment.url) {
-    return getAttachmentUrl(ticketId, messageId, attachment.id);
-  }
-
-  if (attachment.url.startsWith("http")) {
-    return attachment.url;
-  }
-
+  if (!attachment.url) return getAttachmentUrl(ticketId, messageId, attachment.id);
+  if (attachment.url.startsWith("http")) return attachment.url;
   const apiOrigin = API_BASE.replace(/\/api$/, "");
   return attachment.url.startsWith("/api/")
     ? `${apiOrigin}${attachment.url}`
     : `${API_BASE}${attachment.url}`;
 }
 
-function AttachmentList({
+function FilePreviewCard({
   ticketId,
   message,
+  attachment,
 }: {
   ticketId: string | number;
   message: TicketMessage;
+  attachment: TicketMessageAttachment;
 }) {
-  if (!message.attachments?.length) return null;
+  const href = attachmentHref(ticketId, message.id, attachment);
+  const isImage = attachment.mimeType?.startsWith("image/");
 
   return (
-    <div className="mt-2 grid gap-2">
-      {message.attachments.map((attachment) => {
-        const href = attachmentHref(ticketId, message.id, attachment);
-        const isImage = attachment.mimeType?.startsWith("image/");
-
-        return (
-          <a
-            key={attachment.id}
-            href={href}
-            target="_blank"
-            rel="noreferrer"
-            download={!isImage ? attachment.originalName : undefined}
-            className="block rounded-lg border border-gray-200 bg-white/80 overflow-hidden text-sm text-gray-800 no-underline"
-          >
-            {isImage ? (
-              <img
-                src={href}
-                alt={attachment.originalName}
-                className="max-h-56 w-full object-contain bg-gray-100"
-              />
-            ) : null}
-            <div className="flex items-center justify-between gap-3 px-3 py-2">
-              <span className="truncate">{attachment.originalName}</span>
-              <span className="shrink-0 text-xs text-gray-500">
-                {formatBytes(attachment.size)}
-              </span>
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      download={!isImage ? attachment.originalName : undefined}
+      className="block overflow-hidden rounded-xl border border-slate-200 bg-white/90 text-slate-800 no-underline shadow-sm"
+    >
+      {isImage ? (
+        <img
+          src={href}
+          alt={attachment.originalName}
+          className="max-h-52 w-full bg-slate-100 object-contain"
+        />
+      ) : (
+        <div className="flex items-center gap-3 px-3 py-3">
+          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-slate-100 text-xs font-bold text-slate-600">
+            ไฟล์
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-sm font-semibold">{attachment.originalName}</div>
+            <div className="text-xs text-slate-500">
+              {attachment.mimeType} {formatBytes(attachment.size)}
             </div>
-          </a>
-        );
-      })}
-    </div>
+          </div>
+          <MdOpenInNew className="shrink-0 text-slate-500" />
+        </div>
+      )}
+      {isImage && (
+        <div className="flex items-center justify-between gap-3 px-3 py-2">
+          <span className="truncate text-sm">{attachment.originalName}</span>
+          <span className="shrink-0 text-xs text-slate-500">
+            {formatBytes(attachment.size)}
+          </span>
+        </div>
+      )}
+    </a>
   );
 }
 
@@ -113,9 +110,27 @@ export default function TicketConversation({
     [files.length, message],
   );
 
+  async function loadMessages() {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await postTicketMessagesList(ticketId, {
+        page: 1,
+        limit: 50,
+        search: "",
+        sort: "ASC",
+      });
+      setMessages(data.items);
+      markTicketMessagesAsRead(ticketId).catch(() => undefined);
+    } catch (e: any) {
+      setError(e.message ?? "โหลดข้อความไม่สำเร็จ");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   useEffect(() => {
     let cancelled = false;
-
     (async () => {
       try {
         setLoading(true);
@@ -126,9 +141,12 @@ export default function TicketConversation({
           search: "",
           sort: "ASC",
         });
-        if (!cancelled) setMessages(data.items);
+        if (!cancelled) {
+          setMessages(data.items);
+          markTicketMessagesAsRead(ticketId).catch(() => undefined);
+        }
       } catch (e: any) {
-        if (!cancelled) setError(e.message ?? "Failed to load messages");
+        if (!cancelled) setError(e.message ?? "โหลดข้อความไม่สำเร็จ");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -144,7 +162,7 @@ export default function TicketConversation({
       top: listRef.current.scrollHeight,
       behavior: "smooth",
     });
-  }, [messages.length]);
+  }, [messages.length, sending]);
 
   function handleFiles(selected: FileList | null) {
     const next = Array.from(selected ?? []);
@@ -163,7 +181,6 @@ export default function TicketConversation({
     try {
       setSending(true);
       setError(null);
-
       const formData = new FormData();
       if (message.trim()) formData.append("message", message.trim());
       files.forEach((file) => formData.append("attachments", file));
@@ -173,63 +190,72 @@ export default function TicketConversation({
       setMessage("");
       setFiles([]);
     } catch (e: any) {
-      setError(e.message ?? "Failed to send message");
+      setError(e.message ?? "ส่งข้อความไม่สำเร็จ");
     } finally {
       setSending(false);
     }
   }
 
   return (
-    <section className="rounded-xl border border-gray-200 bg-white flex flex-col min-h-[32rem] md:col-span-2">
-      <div className="border-b border-gray-200 px-4 py-3">
-        <h3 className="m-0 text-lg font-semibold text-gray-900">Conversation</h3>
-        <p className="m-0 text-xs text-gray-500">Ticket #{String(ticketId).padStart(7, "0")}</p>
+    <section className="flex min-h-[34rem] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="border-b border-slate-200 px-4 py-3">
+        <h3 className="m-0 text-lg font-semibold text-slate-950">การสนทนา</h3>
+        <p className="m-0 text-xs text-slate-500">
+          Ticket #{String(ticketId).padStart(7, "0")}
+        </p>
       </div>
 
       {error && (
-        <div className="mx-4 mt-3 rounded-lg bg-red-100 px-3 py-2 text-sm text-red-900">
-          {error}
+        <div className="px-4 pt-4">
+          <ErrorBanner message={error} onRetry={loadMessages} />
         </div>
       )}
 
       <div
         ref={listRef}
-        className="flex-1 overflow-y-auto px-4 py-4 bg-gray-50 space-y-4 max-h-[60vh]"
+        className="flex-1 space-y-4 overflow-y-auto bg-slate-50 px-4 py-4 max-h-[62vh]"
       >
         {loading ? (
-          <div className="text-sm text-gray-500">Loading messages...</div>
+          <LoadingState label="กำลังโหลดข้อความ..." />
         ) : messages.length === 0 ? (
-          <div className="h-full min-h-48 grid place-items-center text-sm text-gray-500 text-center">
-            No messages yet.
-          </div>
+          <EmptyState title="ยังไม่มีข้อความใน Ticket นี้" />
         ) : (
           messages.map((item) => {
             const mine = item.sender?.id === currentUser.id;
             return (
-              <div
-                key={item.id}
-                className={`flex ${mine ? "justify-end" : "justify-start"}`}
-              >
+              <div key={item.id} className={cx("flex", mine ? "justify-end" : "justify-start")}>
                 <div
-                  className={`max-w-[88%] md:max-w-[70%] rounded-2xl px-4 py-3 shadow-sm ${
+                  className={cx(
+                    "max-w-[92%] rounded-2xl px-4 py-3 shadow-sm md:max-w-[72%]",
                     mine
-                      ? "bg-blue-600 text-white rounded-br-sm"
-                      : "bg-white text-gray-900 border border-gray-200 rounded-bl-sm"
-                  }`}
+                      ? "rounded-br-md bg-blue-600 text-white"
+                      : "rounded-bl-md border border-slate-200 bg-white text-slate-900",
+                  )}
                 >
-                  <div className={`mb-1 text-xs ${mine ? "text-blue-100" : "text-gray-500"}`}>
+                  <div className={cx("mb-1 text-xs", mine ? "text-blue-100" : "text-slate-500")}>
                     <span className="font-semibold">
-                      {item.sender?.name || item.sender?.email || "Unknown"}
+                      {item.sender?.name || item.sender?.email || "ไม่ทราบผู้ส่ง"}
                     </span>
-                    <span> · {roleText(item.sender)}</span>
-                    <span> · {new Date(item.createdAt).toLocaleString()}</span>
+                    <span> • {roleText(item.sender)}</span>
+                    <span> • {new Date(item.createdAt).toLocaleString("th-TH")}</span>
                   </div>
                   {item.message && (
                     <div className="whitespace-pre-wrap break-words text-sm leading-6">
                       {item.message}
                     </div>
                   )}
-                  <AttachmentList ticketId={ticketId} message={item} />
+                  {item.attachments?.length > 0 && (
+                    <div className="mt-3 grid gap-2">
+                      {item.attachments.map((attachment) => (
+                        <FilePreviewCard
+                          key={attachment.id}
+                          ticketId={ticketId}
+                          message={item}
+                          attachment={attachment}
+                        />
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             );
@@ -238,27 +264,32 @@ export default function TicketConversation({
       </div>
 
       {files.length > 0 && (
-        <div className="border-t border-gray-200 px-4 py-2 flex flex-wrap gap-2">
-          {files.map((file, index) => (
-            <span
-              key={`${file.name}-${index}`}
-              className="inline-flex max-w-full items-center gap-2 rounded-full bg-gray-100 px-3 py-1 text-xs text-gray-700"
-            >
-              <span className="truncate max-w-48">{file.name}</span>
-              <button
-                type="button"
-                onClick={() => removeFile(index)}
-                className="grid h-5 w-5 place-items-center rounded-full hover:bg-gray-200"
-                aria-label={`Remove ${file.name}`}
+        <div className="border-t border-slate-200 bg-white px-4 py-3">
+          <div className="mb-2 text-xs font-semibold text-slate-500">
+            ไฟล์ที่เลือก {files.length}/10
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {files.map((file, index) => (
+              <span
+                key={`${file.name}-${index}`}
+                className="inline-flex max-w-full items-center gap-2 rounded-full bg-slate-100 px-3 py-1.5 text-xs text-slate-700"
               >
-                <MdClose />
-              </button>
-            </span>
-          ))}
+                <span className="max-w-48 truncate">{file.name}</span>
+                <button
+                  type="button"
+                  onClick={() => removeFile(index)}
+                  className="grid h-5 w-5 place-items-center rounded-full hover:bg-slate-200"
+                  aria-label={`ลบ ${file.name}`}
+                >
+                  <MdClose />
+                </button>
+              </span>
+            ))}
+          </div>
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="border-t border-gray-200 p-3">
+      <form onSubmit={handleSubmit} className="border-t border-slate-200 bg-white p-3">
         <div className="flex items-end gap-2">
           <input
             ref={fileInputRef}
@@ -271,9 +302,9 @@ export default function TicketConversation({
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-            aria-label="Attach files"
-            title="Attach files"
+            className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-slate-300 bg-white text-slate-700 transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-100"
+            aria-label="แนบไฟล์"
+            title="แนบไฟล์"
           >
             <MdAttachFile className="text-xl" />
           </button>
@@ -282,20 +313,24 @@ export default function TicketConversation({
             onChange={(e) => setMessage(e.target.value.slice(0, 5000))}
             rows={2}
             maxLength={5000}
-            placeholder="Type a message..."
-            className="min-h-11 flex-1 resize-none rounded-xl border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+            placeholder="พิมพ์ข้อความ..."
+            className="min-h-11 flex-1 resize-none rounded-2xl border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
           />
           <button
             type="submit"
             disabled={!canSend || sending}
-            className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-blue-600 text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-300"
-            aria-label="Send message"
-            title="Send message"
+            className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-blue-600 text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-200"
+            aria-label="ส่งข้อความ"
+            title="ส่งข้อความ"
           >
-            <MdSend className="text-xl" />
+            {sending ? (
+              <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+            ) : (
+              <MdSend className="text-xl" />
+            )}
           </button>
         </div>
-        <div className="mt-1 text-right text-xs text-gray-400">
+        <div className="mt-1 text-right text-xs text-slate-400">
           {message.length}/5000
         </div>
       </form>

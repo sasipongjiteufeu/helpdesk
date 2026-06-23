@@ -1,16 +1,25 @@
-// src/pages/UserTicketInfoPage.tsx
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { API_BASE } from "../lib/api";
-import { useRequireAuth } from "../hooks/useRequireAuth";
-import AppHeaderBackend from "../components/AppHeaderBackend";
 import { MdArrowBack } from "react-icons/md";
+import AppHeaderBackend from "../components/AppHeaderBackend";
 import TicketConversation from "../components/TicketConversation";
-
-type TicketStatus = "OPEN" | "IN_PROGRESS" | "RESOLVED";
+import { useRequireAuth } from "../hooks/useRequireAuth";
+import { API_BASE } from "../lib/api";
+import {
+  DetailField,
+  ErrorBanner,
+  LoadingState,
+  STATUS_LABELS,
+  StatusBadge,
+  TicketAttachmentGrid,
+  TicketImageDto,
+  TicketStatus,
+  formatDateTime,
+} from "../components/helpdesk-ui";
 
 interface TicketUserRef {
   name?: string | null;
+  email?: string | null;
 }
 
 interface Ticket {
@@ -26,65 +35,6 @@ interface Ticket {
   lastStatusChangedBy?: TicketUserRef | null;
 }
 
-interface TicketImageDto {
-  id: string;
-  filename?: string | null;
-  mimeType?: string | null;
-  size?: number | null;
-  path?: string | null;
-  url?: string | null;
-}
-
-function MediaPreview({ file }: { file: TicketImageDto }) {
-  const { mimeType, filename, url, path } = file;
-  const safeMime = mimeType || "application/octet-stream";
-  const src = url
-    ? `${API_BASE}${url}`
-    : path
-    ? `${API_BASE}/${path}`
-    : undefined;
-
-  if (!src) {
-    return (
-      <div className="p-3 text-center text-sm text-gray-500">
-        ไม่พบไฟล์แนบ
-      </div>
-    );
-  }
-
-  if (safeMime.startsWith("image/")) {
-    return (
-      <img
-        src={src}
-        alt={filename || "Ticket image"}
-        className="w-full h-full object-cover"
-      />
-    );
-  }
-
-  if (safeMime.startsWith("video/")) {
-    return (
-      <video controls className="w-full h-full object-cover">
-        <source src={src} type={safeMime} />
-        Your browser does not support the video tag.
-      </video>
-    );
-  }
-
-  return (
-    <div className="p-3 text-center text-sm">
-      <div className="mb-2">{filename || "แนบไฟล์"}</div>
-      <a
-        href={src}
-        download={filename || "attachment"}
-        className="inline-block px-3 py-1.5 rounded-full border border-gray-600 no-underline bg-gray-900 text-gray-50 text-xs font-semibold"
-      >
-        Download
-      </a>
-    </div>
-  );
-}
-
 export default function UserTicketInfoPage() {
   const { user, loading: authLoading } = useRequireAuth();
   const { id } = useParams<{ id: string }>();
@@ -95,200 +45,107 @@ export default function UserTicketInfoPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const loadTicket = useCallback(async () => {
     if (!id) return;
+    try {
+      setLoading(true);
+      setError(null);
+      const [ticketRes, imageRes] = await Promise.all([
+        fetch(`${API_BASE}/tickets/${id}`, { credentials: "include" }),
+        fetch(`${API_BASE}/tickets/${id}/images`, { credentials: "include" }),
+      ]);
 
-    let cancelled = false;
+      if (!ticketRes.ok) throw new Error(`โหลดข้อมูล Ticket ไม่สำเร็จ (${ticketRes.status})`);
+      setTicket((await ticketRes.json()) as Ticket);
 
-    (async () => {
-      try {
-        setLoading(true);
-        setError(null);
-
-        const ticketRes = await fetch(`${API_BASE}/tickets/${id}`, {
-          credentials: "include",
-        });
-        if (!ticketRes.ok) {
-          throw new Error(`Failed to load ticket (${ticketRes.status})`);
-        }
-        const ticketData = (await ticketRes.json()) as Ticket;
-        if (!cancelled) setTicket(ticketData);
-
-        const imgRes = await fetch(`${API_BASE}/tickets/${id}/images`, {
-          credentials: "include",
-        });
-        if (!imgRes.ok) {
-          if (!cancelled) setAttachments([]);
-        } else {
-          const imgs = (await imgRes.json()) as TicketImageDto[];
-          if (!cancelled) setAttachments(imgs);
-        }
-      } catch (e: any) {
-        console.error(e);
-        if (!cancelled) setError(e.message ?? "Failed to load ticket");
-      } finally {
-        if (!cancelled) setLoading(false);
+      if (imageRes.ok) {
+        setAttachments((await imageRes.json()) as TicketImageDto[]);
+      } else {
+        setAttachments([]);
       }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
+    } catch (e: any) {
+      setError(e.message ?? "โหลดข้อมูล Ticket ไม่สำเร็จ");
+    } finally {
+      setLoading(false);
+    }
   }, [id]);
+
+  useEffect(() => {
+    loadTicket();
+  }, [loadTicket]);
 
   if (authLoading || !user) {
     return (
-      <div className="min-h-screen grid place-items-center font-sans bg-gray-100 text-gray-900">
-        Checking your access…
+      <div className="min-h-screen bg-slate-100 p-4">
+        <LoadingState label="กำลังตรวจสอบสิทธิ์..." />
       </div>
     );
   }
 
-  function handleExit() {
-    nav("/user");
-  }
-
   return (
-    <div className="min-h-screen flex flex-col justify-center items-center bg-gray-100 p-6 box-border font-sans">
-      <div className="container mx-auto bg-white rounded-2xl shadow-2xl p-5">
-        {/* Header */}
-        <AppHeaderBackend user={user} title={"USER"} />
+    <div className="min-h-screen bg-slate-100 px-4 py-4 text-slate-900 sm:px-6 lg:px-8 xl:px-10">
+      <div className="mx-auto w-full max-w-[1800px] space-y-5">
+        <AppHeaderBackend user={user} title="USER" />
 
-        {/* Content */}
-        <div className="mt-4">
-          <h2 className="mt-0 mb-3 text-2xl font-bold">รายละเอียด</h2>
-
-          {error && (
-            <div className="mb-4 p-3 rounded-lg bg-red-100 text-red-900 text-sm">
-              {error}
-            </div>
-          )}
-
-          {loading || !ticket ? (
-            <p>กำลังดาวโหลด...</p>
-          ) : (
-            <section className="rounded-xl border  border-gray-200 bg-gray-50 p-4 grid-cols-1   grid md:grid-cols-4  gap-6">
-              {/* LEFT: attachments */}
-              <div className="flex flex-col gap-3 max-h-[70vh] overflow-y-auto pr-1">
-                {attachments.length === 0 ? (
-                  <div className="w-full aspect-[4/3] rounded-xl border border-gray-300 overflow-hidden bg-white flex items-center justify-center text-sm text-gray-500">
-                    <span>ไม่มีไฟล์แนบ</span>
-                  </div>
-                ) : (
-                  attachments.map((file) => (
-                    <div
-                      key={file.id}
-                      className="w-full aspect-[4/3] rounded-xl border border-gray-300 overflow-hidden bg-white flex items-center justify-center text-sm text-gray-500"
-                    >
-                      <MediaPreview file={file} />
-                    </div>
-                  ))
-                )}
-              </div>
-
-              {/* RIGHT: all info */}
-              <div className="flex flex-col gap-3">
-                <Field
-                  label="Ticket ID"
-                  value={String(ticket.id).padStart(7, "0")}
-                />
-                <Field label="หัวข้อ" value={ticket.title} />
-                <Field label="รายละเอียดคำร้อง" value={ticket.detail} />
-                <Field label="เบอร์ติดต่อ" value={ticket.tel || "-"} />
-
-                <div>
-                  <div className="text-xs opacity-70">สถานะคำร้อง</div>
-                  <div>
-                    <StatusBadge status={ticket.status} />
-                  </div>
-                </div>
-
-                <Field
-                  label="ผู้ร้องขอ"
-                  value={ticket.createdBy?.name || user.name || "-"}
-                />
-                <Field
-                  label="รับงานโดย"
-                  value={
-                    ticket.assignedTo?.name
-                      ? ticket.assignedTo.name
-                      : "ยังไม่มีเจ้าหน้าที่รับงาน"
-                  }
-                />
-                <Field
-                  label="เปลี่ยนสถานะล่าสุดโดย"
-                  value={
-                    ticket.lastStatusChangedBy?.name ||
-                    "ยังไม่มีเจ้าหน้าที่รับงาน"
-                  }
-                />
-                <Field
-                  label="สร้าง ณ วันที่"
-                  value={new Date(ticket.createdAt).toLocaleString()}
-                />
-                <Field
-                  label="แก้ไขล่าสุด"
-                  value={
-                    ticket.updatedAt
-                      ? new Date(ticket.updatedAt).toLocaleString()
-                      : "-"
-                  }
-                />
-
-                <div className="mt-6">
-                  <button
-                    type="button"
-                    onClick={handleExit}
-                    className="px-4 py-1.5 rounded-full border-0 bg-green-500 text-white font-semibold cursor-pointer hover:bg-green-600 transition-colors text-center inline-flex items-center"
-                  >
-                    <MdArrowBack className="text-white mr-1" />
-                    <span>ออกจากหน้านี้</span>
-                  </button>
-                </div>
-              </div>
-
-              <TicketConversation ticketId={ticket.id} currentUser={user} />
-            </section>
-          )}
+        <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="m-0 text-sm font-semibold text-blue-600">รายละเอียด Ticket</p>
+            <h2 className="m-0 mt-1 text-2xl font-bold text-slate-950">
+              {ticket ? `#${String(ticket.id).padStart(7, "0")} ${ticket.title}` : "Ticket"}
+            </h2>
+          </div>
+          <button
+            type="button"
+            onClick={() => nav("/user")}
+            className="inline-flex items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+          >
+            <MdArrowBack /> กลับหน้ารายการ
+          </button>
         </div>
+
+        {error && <ErrorBanner message={error} onRetry={loadTicket} />}
+
+        {loading || !ticket ? (
+          <LoadingState label="กำลังโหลดข้อมูล..." />
+        ) : (
+          <div className="grid gap-5 xl:grid-cols-[minmax(0,0.95fr)_minmax(420px,1.05fr)]">
+            <div className="space-y-5">
+              <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h3 className="m-0 text-lg font-semibold text-slate-950">ข้อมูลคำร้อง</h3>
+                    <p className="m-0 text-sm text-slate-500">ข้อมูลที่ส่งเข้าระบบ Helpdesk</p>
+                  </div>
+                  <StatusBadge status={ticket.status} />
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <DetailField label="Ticket ID" value={String(ticket.id).padStart(7, "0")} />
+                  <DetailField label="สถานะ" value={STATUS_LABELS[ticket.status]} />
+                  <DetailField label="หัวข้อ" value={ticket.title} />
+                  <DetailField label="เบอร์ติดต่อ" value={ticket.tel || "-"} />
+                  <DetailField label="ผู้แจ้ง" value={ticket.createdBy?.name || user.name || "-"} />
+                  <DetailField label="เจ้าหน้าที่หลัก" value={ticket.assignedTo?.name || ticket.assignedTo?.email || "ยังไม่มีเจ้าหน้าที่รับงาน"} />
+                  <DetailField label="วันที่สร้าง" value={formatDateTime(ticket.createdAt)} />
+                  <DetailField label="แก้ไขล่าสุด" value={formatDateTime(ticket.updatedAt)} />
+                  <div className="sm:col-span-2">
+                    <DetailField label="รายละเอียด" value={ticket.detail} />
+                  </div>
+                </div>
+              </section>
+
+              <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                <h3 className="m-0 text-lg font-semibold text-slate-950">ไฟล์แนบ</h3>
+                <div className="mt-3">
+                  <TicketAttachmentGrid files={attachments} />
+                </div>
+              </section>
+            </div>
+
+            <TicketConversation ticketId={ticket.id} currentUser={user} />
+          </div>
+        )}
       </div>
     </div>
   );
-}
-
-function Field({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <div className="text-xs opacity-70">{label}</div>
-      <div className="text-base">{value}</div>
-    </div>
-  );
-}
-
-function StatusBadge({ status }: { status: TicketStatus }) {
-  const baseClasses =
-    "px-2.5 py-1 rounded-full font-semibold text-xs inline-block";
-
-  switch (status) {
-    case "OPEN":
-      return (
-        <span className={`${baseClasses} bg-yellow-400 text-black`}>
-          {status}
-        </span>
-      );
-    case "IN_PROGRESS":
-      return (
-        <span className={`${baseClasses} bg-blue-500 text-gray-50`}>
-          {status}
-        </span>
-      );
-    case "RESOLVED":
-      return (
-        <span className={`${baseClasses} bg-green-500 text-gray-50`}>
-          {status}
-        </span>
-      );
-    default:
-      return <span className={baseClasses}>{status}</span>;
-  }
 }

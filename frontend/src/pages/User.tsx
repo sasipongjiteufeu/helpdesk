@@ -1,12 +1,12 @@
 // src/pages/User.tsx
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { API_BASE } from "../lib/api";
-import { useRequireAuth } from "../hooks/useRequireAuth";
-import AppHeaderBackend from "../components/AppHeaderBackend";
-import { MdDelete, MdHome, MdOutlineAddCircle } from "react-icons/md";
-import { FaCircleInfo, FaUserShield } from "react-icons/fa6";
 import Swal from "sweetalert2";
+import { MdDelete, MdHome, MdOutlineAddCircle, MdRefresh } from "react-icons/md";
+import { FaCircleInfo, FaUserShield } from "react-icons/fa6";
+import AppHeaderBackend from "../components/AppHeaderBackend";
+import { useRequireAuth } from "../hooks/useRequireAuth";
+import { API_BASE } from "../lib/api";
 
 type TicketStatus = "OPEN" | "IN_PROGRESS" | "RESOLVED";
 
@@ -18,6 +18,9 @@ interface Ticket {
   status: TicketStatus;
   createdAt: string;
   assignedTo?: { name?: string | null } | null;
+  unreadMessageCount?: number | null;
+  hasUnreadMessages?: boolean | null;
+  lastMessageAt?: string | null;
 }
 
 const STATUS_LABELS: Record<TicketStatus, string> = {
@@ -25,6 +28,62 @@ const STATUS_LABELS: Record<TicketStatus, string> = {
   IN_PROGRESS: "กำลังดำเนินการ",
   RESOLVED: "ปิดแล้ว",
 };
+
+function cx(...classes: Array<string | false | null | undefined>) {
+  return classes.filter(Boolean).join(" ");
+}
+
+function StatusBadge({ status }: { status: TicketStatus }) {
+  const base =
+    "inline-flex min-w-fit shrink-0 items-center gap-2 whitespace-nowrap rounded-full px-3.5 py-1.5 text-sm font-semibold leading-none shadow-sm";
+  const dot = "inline-block h-2.5 w-2.5 shrink-0 rounded-full";
+
+  switch (status) {
+    case "OPEN":
+      return (
+        <span className={`${base} bg-amber-100 text-amber-900`}>
+          <span className={`${dot} bg-amber-500`} /> {STATUS_LABELS.OPEN}
+        </span>
+      );
+    case "IN_PROGRESS":
+      return (
+        <span className={`${base} bg-blue-100 text-blue-900`}>
+          <span className={`${dot} bg-blue-500`} /> {STATUS_LABELS.IN_PROGRESS}
+        </span>
+      );
+    case "RESOLVED":
+      return (
+        <span className={`${base} bg-emerald-100 text-emerald-900`}>
+          <span className={`${dot} bg-emerald-500`} /> {STATUS_LABELS.RESOLVED}
+        </span>
+      );
+    default:
+      return <span className={base}>{status}</span>;
+  }
+}
+
+function UnreadBadge({ ticket }: { ticket: Ticket }) {
+  const count = ticket.unreadMessageCount ?? 0;
+  const shouldShow = count > 0 || ticket.hasUnreadMessages;
+  if (!shouldShow) return null;
+
+  return (
+    <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-rose-600 px-2 text-xs font-bold leading-none text-white shadow-sm motion-safe:animate-pulse">
+      {count > 99 ? "99+" : count || "!"}
+    </span>
+  );
+}
+
+function formatDate(dateString: string): string {
+  const date = new Date(dateString);
+  return date.toLocaleString("th-TH", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
 
 export default function UserTicketsPage() {
   const { user, loading: authLoading } = useRequireAuth();
@@ -34,8 +93,11 @@ export default function UserTicketsPage() {
   const [error, setError] = useState<string | null>(null);
 
   async function loadTickets() {
+    if (!user) return;
+
     try {
       setLoading(true);
+      setError(null);
       const res = await fetch(`${API_BASE}/tickets/mine`, {
         method: "POST",
         credentials: "include",
@@ -45,7 +107,7 @@ export default function UserTicketsPage() {
         body: JSON.stringify({
           email: user?.email,
           page: 1,
-          limit: 50
+          limit: 50,
         }),
       });
       const data = await res.json();
@@ -58,12 +120,14 @@ export default function UserTicketsPage() {
   }
 
   useEffect(() => {
+    if (!user) return;
+
     loadTickets();
     const intervalId = setInterval(() => {
       loadTickets();
-    }, 300000);
+    }, 60000);
     return () => clearInterval(intervalId);
-  }, []);
+  }, [user]);
 
   const todayActiveCount = useMemo(() => {
     const today = new Date().toDateString();
@@ -74,7 +138,6 @@ export default function UserTicketsPage() {
     ).length;
   }, [tickets]);
 
-
   const todaywaitingCount = useMemo(() => {
     const today = new Date().toDateString();
     return tickets.filter(
@@ -83,57 +146,6 @@ export default function UserTicketsPage() {
         new Date(t.createdAt).toDateString() === today,
     ).length;
   }, [tickets]);
-
-
-  if (authLoading || !user) {
-    return (
-      <div className="min-h-screen grid place-items-center bg-gray-100 text-gray-900">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
-          <p>กำลังตรวจสอบสิทธิ์...</p>
-        </div>
-      </div>
-    );
-  }
-
-  function StatusBadge({ status }: { status: TicketStatus }) {
-    const base =
-      "px-3 py-1.5 rounded-full font-semibold text-sm inline-flex items-center gap-2 shadow-sm";
-    const dot = "inline-block w-2.5 h-2.5 rounded-full";
-    switch (status) {
-      case "OPEN":
-        return (
-          <span className={`${base} bg-amber-100 text-amber-900`}>
-            <span className={`${dot} bg-amber-500`} /> {STATUS_LABELS.OPEN}
-          </span>
-        );
-      case "IN_PROGRESS":
-        return (
-          <span className={`${base} bg-blue-100 text-blue-900`}>
-            <span className={`${dot} bg-blue-500`} /> {STATUS_LABELS.IN_PROGRESS}
-          </span>
-        );
-      case "RESOLVED":
-        return (
-          <span className={`${base} bg-emerald-100 text-emerald-900`}>
-            <span className={`${dot} bg-emerald-500`} /> {STATUS_LABELS.RESOLVED}
-          </span>
-        );
-      default:
-        return <span className={base}>{status}</span>;
-    }
-  }
-
-  function formatDate(dateString: string): string {
-    const date = new Date(dateString);
-    return date.toLocaleString("th-TH", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  }
 
   async function handleDelete(id: number) {
     try {
@@ -153,10 +165,16 @@ export default function UserTicketsPage() {
           method: "DELETE",
           credentials: "include",
         });
+
         if (!res.ok) {
-          alert(`ไม่สามารถลบได้ (status ${res.status})`);
+          await Swal.fire({
+            title: "ลบไม่สำเร็จ",
+            text: `ไม่สามารถลบได้ (status ${res.status})`,
+            icon: "error",
+          });
           return;
         }
+
         setTickets((prev) => prev.filter((t) => t.id !== id));
         await Swal.fire({
           title: "ลบแล้ว",
@@ -166,162 +184,295 @@ export default function UserTicketsPage() {
         });
       }
     } catch (e: any) {
-      alert(e.message ?? "ลบไม่สำเร็จ");
+      await Swal.fire({
+        title: "ลบไม่สำเร็จ",
+        text: e.message ?? "ลบไม่สำเร็จ",
+        icon: "error",
+      });
     }
   }
 
-  return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 via-white to-gray-100 py-10 px-4 text-gray-900">
-      <div className=" mx-auto bg-white/85 backdrop-blur rounded-3xl shadow-[0_25px_80px_-40px_rgba(15,23,42,0.35)] border border-gray-100 px-8 py-6">
-        <AppHeaderBackend user={user} title={"USER"} />
-        <div className="flex flex-wrap gap-3 mt-4">
-
-          <button
-            onClick={() => (window.location.href = "/")}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gray-800 text-white hover:bg-gray-900 shadow transition active:scale-[0.98]"
-          >
-            <MdHome className="text-xl" />
-            <span>หน้าสาธารณะ</span>
-          </button>
-
-          {user?.roles && user.roles.length > 1 && (
-            <button
-              onClick={() => (window.location.href = "/choose-role")}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 shadow transition active:scale-[0.98]"
-            >
-              <FaUserShield className="text-xl" />
-              <span>เลือกบทบาท</span>
-            </button>
-          )}
-
+  if (authLoading || !user) {
+    return (
+      <div className="grid min-h-screen place-items-center bg-slate-100 px-4 text-slate-900">
+        <div className="text-center">
+          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-slate-200 border-t-blue-600" />
+          <p className="text-base font-medium text-slate-600">กำลังตรวจสอบสิทธิ์...</p>
         </div>
-        <div className="mt-6 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-          <div>
-            <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight">
-              งานของฉัน
-            </h2>
-            <p className="text-lg text-gray-600">
-              วันนี้มีคำร้องที่กำลังดำเนินการ{" "}
-              <span className="font-semibold text-emerald-700">
-                {todayActiveCount} งาน
-              </span>
-            </p>
+      </div>
+    );
+  }
 
-            <p className="text-lg text-gray-600">
-              จำนวนงานที่รอดำเนินการของวันนี้{" "}
-              <span className="font-semibold text-emerald-700">
-                {todaywaitingCount} งาน
+  function ActionButtons({ ticket, compact = false }: { ticket: Ticket; compact?: boolean }) {
+    const canDelete = ticket.status === "OPEN";
+
+    return (
+      <div className={cx("flex gap-2", compact ? "flex-col sm:flex-row" : "justify-end")}>
+        <button
+          type="button"
+          onClick={() => navigate(`/user/ticket/${ticket.id}`)}
+          className={cx(
+            "inline-flex items-center justify-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3.5 py-2 text-sm font-semibold text-blue-700 transition hover:bg-blue-100",
+            compact && "min-h-11 flex-1",
+          )}
+        >
+          <FaCircleInfo /> รายละเอียด
+          <UnreadBadge ticket={ticket} />
+        </button>
+        <button
+          type="button"
+          onClick={canDelete ? () => handleDelete(ticket.id) : undefined}
+          disabled={!canDelete}
+          className={cx(
+            "inline-flex items-center justify-center gap-2 rounded-full px-3.5 py-2 text-sm font-semibold transition",
+            canDelete
+              ? "bg-rose-100 text-rose-700 hover:bg-rose-200"
+              : "cursor-not-allowed bg-slate-100 text-slate-400",
+            compact && "min-h-11 flex-1",
+          )}
+          title={canDelete ? "ลบคำร้อง" : "ลบไม่ได้หลังจากเริ่มดำเนินการ"}
+        >
+          <MdDelete /> ลบ
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 via-white to-gray-100 px-4 py-6 text-slate-900 sm:px-6 lg:px-8 xl:px-10">
+      <div className="mx-auto w-full max-w-[1800px] space-y-5">
+        <AppHeaderBackend user={user} title="USER" />
+
+        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 xl:p-6">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+            <div className="min-w-0">
+              <p className="m-0 text-sm font-semibold text-blue-600">User Dashboard</p>
+              <h2 className="m-0 mt-1 text-2xl font-bold tracking-tight text-slate-950 md:text-3xl">
+                งานของฉัน
+              </h2>
+              <p className="m-0 mt-2 max-w-3xl text-sm leading-6 text-slate-500 sm:text-base">
+                ติดตามสถานะคำร้องและการดำเนินงานของคุณ
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-2 sm:justify-end">
+              <button
+                type="button"
+                onClick={() => (window.location.href = "/")}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+              >
+                <MdHome className="text-lg" /> หน้าสาธารณะ
+              </button>
+
+              {user?.roles && user.roles.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => (window.location.href = "/choose-role")}
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-4 text-sm font-semibold text-blue-700 transition hover:bg-blue-100"
+                >
+                  <FaUserShield className="text-lg" /> เลือกบทบาท
+                </button>
+              )}
+
+              <Link
+                to="/user/create"
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-emerald-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700"
+              >
+                <MdOutlineAddCircle className="text-lg" /> สร้างคำร้องใหม่
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+            <p className="m-0 text-sm font-semibold text-slate-500">คำร้องทั้งหมด</p>
+            <div className="mt-3 flex items-end justify-between gap-3">
+              <strong className="text-3xl font-bold text-slate-950">{tickets.length}</strong>
+              <span className="inline-flex min-w-fit shrink-0 items-center whitespace-nowrap rounded-full border border-slate-200 bg-slate-50 px-3.5 py-1.5 text-sm font-semibold leading-none text-slate-700">
+                รายการ
               </span>
-            </p>
+            </div>
           </div>
 
-          <Link
-            to={"/user/create"}
-            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-full font-semibold inline-flex items-center gap-2 shadow-md transition-colors"
-          >
-            <MdOutlineAddCircle className="text-xl" /> สร้างคำร้องใหม่
-          </Link>
-        </div>
+          <div className="rounded-2xl border border-blue-100 bg-white p-4 shadow-sm sm:p-5">
+            <p className="m-0 text-sm font-semibold text-slate-500">กำลังดำเนินการวันนี้</p>
+            <div className="mt-3 flex items-end justify-between gap-3">
+              <strong className="text-3xl font-bold text-blue-700">{todayActiveCount}</strong>
+              <StatusBadge status="IN_PROGRESS" />
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-amber-100 bg-white p-4 shadow-sm sm:col-span-2 sm:p-5 xl:col-span-1">
+            <p className="m-0 text-sm font-semibold text-slate-500">รอดำเนินการวันนี้</p>
+            <div className="mt-3 flex items-end justify-between gap-3">
+              <strong className="text-3xl font-bold text-amber-700">{todaywaitingCount}</strong>
+              <StatusBadge status="OPEN" />
+            </div>
+          </div>
+        </section>
 
         {error && (
-          <div className="mt-4 rounded-2xl bg-red-50 border border-red-100 px-4 py-3 text-red-800">
-            {error}
+          <div className="flex flex-col gap-3 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-medium text-red-800 sm:flex-row sm:items-center sm:justify-between">
+            <span>{error}</span>
+            <button
+              type="button"
+              onClick={loadTickets}
+              className="inline-flex items-center justify-center gap-2 rounded-full bg-red-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-red-700"
+            >
+              <MdRefresh /> ลองใหม่
+            </button>
           </div>
         )}
 
-        <div className="mt-5 rounded-2xl border border-gray-200 bg-gray-50/60 overflow-hidden shadow-inner">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[1120px] table-fixed border-collapse">
-              <thead className="bg-gray-200/80 text-left text-gray-800 text-base md:text-lg">
+        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="flex flex-col gap-2 border-b border-slate-100 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+            <div>
+              <h3 className="m-0 text-lg font-bold text-slate-950">รายการคำร้องของฉัน</h3>
+              <p className="m-0 mt-1 text-sm text-slate-500">แสดงคำร้องที่คุณสร้างไว้ในระบบ Helpdesk</p>
+            </div>
+            <span className="inline-flex min-w-fit shrink-0 items-center whitespace-nowrap rounded-full border border-slate-200 bg-slate-50 px-3.5 py-1.5 text-sm font-semibold leading-none text-slate-700">
+              {tickets.length} รายการ
+            </span>
+          </div>
+
+          <div className="hidden overflow-x-auto md:block">
+            <table className="w-full min-w-[980px] border-collapse text-sm">
+              <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
                 <tr>
-                  <th className="w-28 px-4 py-3 font-semibold">สถานะ</th>
-                  <th className="w-28 px-4 py-3 font-semibold">Ticket ID</th>
-                  <th className="w-40 px-4 py-3 font-semibold">หัวข้อ</th>
-                  <th className="w-[34%] px-4 py-3 font-semibold">รายละเอียด</th>
-                  <th className="w-32 px-4 py-3 font-semibold">เบอร์ติดต่อ</th>
-                  <th className="w-36 px-4 py-3 font-semibold">ผู้รับผิดชอบ</th>
-                  <th className="w-40 px-4 py-3 font-semibold">สร้างเมื่อ</th>
-                  <th className="w-44 px-4 py-3 font-semibold text-right">จัดการ</th>
+                  <th className="whitespace-nowrap px-4 py-3">สถานะ</th>
+                  <th className="whitespace-nowrap px-4 py-3">Ticket ID</th>
+                  <th className="px-4 py-3">หัวข้อ</th>
+                  <th className="px-4 py-3">รายละเอียด</th>
+                  <th className="whitespace-nowrap px-4 py-3">เบอร์ติดต่อ</th>
+                  <th className="whitespace-nowrap px-4 py-3">ผู้รับผิดชอบ</th>
+                  <th className="whitespace-nowrap px-4 py-3">สร้างเมื่อ</th>
+                  <th className="whitespace-nowrap px-4 py-3 text-right">จัดการ</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200 bg-white text-base md:text-lg">
+              <tbody className="divide-y divide-slate-100 bg-white">
                 {loading ? (
                   <tr>
-                    <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
-                      กำลังโหลดข้อมูล...
+                    <td colSpan={8} className="px-4 py-10 text-center text-sm text-slate-500">
+                      <div className="inline-flex items-center gap-3">
+                        <span className="h-5 w-5 animate-spin rounded-full border-2 border-slate-200 border-t-blue-600" />
+                        กำลังโหลดข้อมูล...
+                      </div>
                     </td>
                   </tr>
                 ) : tickets.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
+                    <td colSpan={8} className="px-4 py-10 text-center text-sm text-slate-500">
                       ยังไม่มีคำร้อง
                     </td>
                   </tr>
                 ) : (
-                  tickets.map((t) => {
-                    const canDelete = t.status === "OPEN";
-                    return (
-                      <tr
-                        key={t.id}
-                        className="hover:bg-gray-50 transition-colors"
-                      >
-                        <td className="px-4 py-3 align-top">
-                          <StatusBadge status={t.status} />
-                        </td>
-                        <td className="px-4 py-3 align-top font-mono font-semibold text-gray-800 whitespace-nowrap">
-                          {String(t.id).padStart(7, "0")}
-                        </td>
-                        <td className="px-4 py-3 align-top font-semibold text-gray-900 break-words [overflow-wrap:anywhere]">
-                          {t.title}
-                        </td>
-                        <td className="px-4 py-3 align-top text-gray-700 whitespace-normal break-words leading-relaxed [overflow-wrap:anywhere]">
-                          {t.detail}
-                        </td>
-                        <td className="px-4 py-3 align-top text-gray-700 break-words [overflow-wrap:anywhere]">
-                          {t.tel ?? "-"}
-                        </td>
-                        <td className="px-4 py-3 align-top text-gray-800 break-words [overflow-wrap:anywhere]">
-                          {t.assignedTo?.name || "-"}
-                        </td>
-                        <td className="px-4 py-3 align-top text-gray-700 whitespace-nowrap">
-                          {formatDate(t.createdAt)}
-                        </td>
-                        <td className="px-4 py-3 align-top">
-                          <div className="flex justify-end gap-2">
-                            <button
-                              onClick={() => navigate(`/user/ticket/${t.id}`)}
-                              className="px-3 py-2 rounded-full border border-gray-300 bg-white hover:bg-gray-50 text-sm font-semibold inline-flex items-center gap-2 transition-colors"
-                            >
-                              <FaCircleInfo /> รายละเอียด
-                            </button>
-                            <button
-                              type="button"
-                              onClick={
-                                canDelete ? () => handleDelete(t.id) : undefined
-                              }
-                              disabled={!canDelete}
-                              className={`px-3 py-2 rounded-full text-sm font-semibold inline-flex items-center gap-2 transition-colors ${canDelete
-                                  ? "bg-rose-100 text-rose-700 hover:bg-rose-200"
-                                  : "bg-gray-200 text-gray-400 cursor-not-allowed"
-                                }`}
-                              title={
-                                canDelete
-                                  ? "ลบคำร้อง"
-                                  : "ลบไม่ได้หลังจากเริ่มดำเนินการ"
-                              }
-                            >
-                              <MdDelete /> ลบ
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
+                  tickets.map((t) => (
+                    <tr
+                      key={t.id}
+                      className={cx(
+                        "transition-colors hover:bg-slate-50",
+                        Boolean(t.unreadMessageCount || t.hasUnreadMessages) &&
+                          "bg-blue-50/60 ring-1 ring-inset ring-blue-200 motion-safe:animate-pulse",
+                      )}
+                    >
+                      <td className="whitespace-nowrap px-4 py-4 align-top">
+                        <StatusBadge status={t.status} />
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-4 align-top">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono font-semibold text-slate-700">
+                            {String(t.id).padStart(7, "0")}
+                          </span>
+                          <UnreadBadge ticket={t} />
+                        </div>
+                      </td>
+                      <td className="max-w-[18rem] px-4 py-4 align-top font-semibold text-slate-950">
+                        <div className="line-clamp-2 break-words">{t.title}</div>
+                      </td>
+                      <td className="max-w-[30rem] px-4 py-4 align-top text-slate-600">
+                        <div className="line-clamp-2 break-words">{t.detail}</div>
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-4 align-top text-slate-600">
+                        {t.tel ?? "-"}
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-4 align-top text-slate-700">
+                        {t.assignedTo?.name || "-"}
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-4 align-top text-slate-600">
+                        {formatDate(t.createdAt)}
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-4 align-top">
+                        <ActionButtons ticket={t} />
+                      </td>
+                    </tr>
+                  ))
                 )}
               </tbody>
             </table>
           </div>
-        </div>
+
+          <div className="grid gap-3 p-3 md:hidden">
+            {loading ? (
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-500">
+                <div className="inline-flex items-center gap-3">
+                  <span className="h-5 w-5 animate-spin rounded-full border-2 border-slate-200 border-t-blue-600" />
+                  กำลังโหลดข้อมูล...
+                </div>
+              </div>
+            ) : tickets.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm text-slate-500">
+                ยังไม่มีคำร้อง
+              </div>
+            ) : (
+              tickets.map((t) => (
+                <article
+                  key={t.id}
+                  className={cx(
+                    "rounded-2xl border border-slate-200 bg-white p-4 shadow-sm",
+                    Boolean(t.unreadMessageCount || t.hasUnreadMessages) &&
+                      "border-blue-200 bg-blue-50/60 ring-1 ring-blue-200 motion-safe:animate-pulse",
+                  )}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-sm font-semibold text-slate-500">
+                          #{String(t.id).padStart(7, "0")}
+                        </span>
+                        <UnreadBadge ticket={t} />
+                      </div>
+                      <h3 className="m-0 mt-1 line-clamp-2 text-base font-bold text-slate-950">
+                        {t.title}
+                      </h3>
+                    </div>
+                    <StatusBadge status={t.status} />
+                  </div>
+
+                  <p className="m-0 mt-3 line-clamp-3 break-words text-sm leading-6 text-slate-600">
+                    {t.detail}
+                  </p>
+
+                  <div className="mt-3 grid gap-2 text-sm text-slate-600">
+                    <div>
+                      เบอร์ติดต่อ: <span className="font-semibold text-slate-800">{t.tel ?? "-"}</span>
+                    </div>
+                    <div>
+                      ผู้รับผิดชอบ: <span className="font-semibold text-slate-800">{t.assignedTo?.name || "-"}</span>
+                    </div>
+                    <div>
+                      สร้างเมื่อ: <span className="font-semibold text-slate-800">{formatDate(t.createdAt)}</span>
+                    </div>
+                  </div>
+
+                  <div className="mt-4">
+                    <ActionButtons ticket={t} compact />
+                  </div>
+                </article>
+              ))
+            )}
+          </div>
+        </section>
       </div>
     </div>
   );

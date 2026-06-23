@@ -14,6 +14,8 @@ import { RoleEnum } from 'src/role/entities/role.enum';
 import { hasAnyRole, hasRole } from 'src/auth/role.utile';
 import { TicketImage } from './entities/ticket-image.entity';
 import { TicketParticipant } from './entities/ticket-participant.entity';
+import { TicketMessage } from './entities/ticket-message.entity';
+import { TicketReadState } from './entities/ticket-read-state.entity';
 import { EmailService } from 'src/email/email.service';
 import { TelegramNotifyService } from 'src/telegram-notify/telegram-notify.service';
 import * as fs from 'fs';
@@ -34,6 +36,10 @@ export class TicketService {
     @InjectRepository(TicketImage) private readonly images: Repository<TicketImage>,
     @InjectRepository(TicketParticipant)
     private readonly participants: Repository<TicketParticipant>,
+    @InjectRepository(TicketMessage)
+    private readonly messages: Repository<TicketMessage>,
+    @InjectRepository(TicketReadState)
+    private readonly readStates: Repository<TicketReadState>,
     @InjectRepository(User) private readonly users: Repository<User>,
     private readonly email: EmailService,
     private readonly telegramNotify: TelegramNotifyService,
@@ -83,6 +89,72 @@ export class TicketService {
       joinedAt: participant.joinedAt,
       isPrimary: false,
     };
+  }
+
+  private async getUnreadMessageMetaForTickets(user: User, ticketIds: number[]) {
+    if (!ticketIds.length) return new Map<number, {
+      unreadMessageCount: number;
+      hasUnreadMessages: boolean;
+      lastMessageAt: Date | null;
+    }>();
+
+    const rows = await this.messages
+      .createQueryBuilder('message')
+      .innerJoin('message.ticket', 'ticket')
+      .innerJoin('message.sender', 'sender')
+      .leftJoin(
+        TicketReadState,
+        'readState',
+        'readState.Ticket_ID = ticket.Ticket_ID AND readState.User_ID = :userId',
+        { userId: user.id },
+      )
+      .select('ticket.Ticket_ID', 'ticketId')
+      .addSelect('COUNT(message.Message_ID)', 'unreadCount')
+      .addSelect('MAX(message.Created_at)', 'lastMessageAt')
+      .where('ticket.Ticket_ID IN (:...ticketIds)', { ticketIds })
+      .andWhere('sender.id != :userId', { userId: user.id })
+      .andWhere('(readState.Last_Read_At IS NULL OR message.Created_at > readState.Last_Read_At)')
+      .groupBy('ticket.Ticket_ID')
+      .getRawMany<{
+        ticketId: string | number;
+        unreadCount: string;
+        lastMessageAt: Date | string | null;
+      }>();
+
+    const map = new Map<number, {
+      unreadMessageCount: number;
+      hasUnreadMessages: boolean;
+      lastMessageAt: Date | null;
+    }>();
+
+    for (const row of rows) {
+      const ticketId = Number(row.ticketId);
+      const unreadMessageCount = Number(row.unreadCount) || 0;
+      map.set(ticketId, {
+        unreadMessageCount,
+        hasUnreadMessages: unreadMessageCount > 0,
+        lastMessageAt: row.lastMessageAt ? new Date(row.lastMessageAt) : null,
+      });
+    }
+
+    return map;
+  }
+
+  private async attachUnreadCountsToTickets<T extends Ticket>(user: User, tickets: T[]) {
+    const unreadMap = await this.getUnreadMessageMetaForTickets(
+      user,
+      tickets.map((ticket) => ticket.id),
+    );
+
+    return tickets.map((ticket) => {
+      const unread = unreadMap.get(ticket.id);
+      return {
+        ...ticket,
+        unreadMessageCount: unread?.unreadMessageCount ?? 0,
+        hasUnreadMessages: unread?.hasUnreadMessages ?? false,
+        lastMessageAt: unread?.lastMessageAt ?? null,
+      };
+    });
   }
 
   async getAllImagesFor(user: User, id: number) {
@@ -279,7 +351,12 @@ async findAllMine(user: User, opts?: { page?: number; limit?: number }) {
     ],
   });
 
-  return { items, total, page, limit };
+  return {
+    items: await this.attachUnreadCountsToTickets(user, items),
+    total,
+    page,
+    limit,
+  };
   } 
 
 
@@ -307,7 +384,12 @@ async findAllMine(user: User, opts?: { page?: number; limit?: number }) {
       ],
     });
 
-    return { items, total, page, limit };
+    return {
+      items: await this.attachUnreadCountsToTickets(user, items),
+      total,
+      page,
+      limit,
+    };
   }
 
   private normalizeFilters(filters?: TicketFilterName | TicketFilterName[]) {
@@ -513,7 +595,7 @@ async findAllMine(user: User, opts?: { page?: number; limit?: number }) {
     ]);
 
     return {
-      items,
+      items: await this.attachUnreadCountsToTickets(user, items),
       total,
       page,
       limit,
