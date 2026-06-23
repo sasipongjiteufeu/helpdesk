@@ -18,6 +18,7 @@ import { CreateTicketMessageDto } from './dto/create-ticket-message.dto';
 import { ListTicketMessagesDto } from './dto/list-ticket-messages.dto';
 import { ListMessageAttachmentsDto } from './dto/list-message-attachments.dto';
 import { canAccessTicket } from './ticket-permissions';
+import { AppCacheService } from 'src/cache/app-cache.service';
 
 @Injectable()
 export class TicketMessageService {
@@ -29,6 +30,7 @@ export class TicketMessageService {
     private readonly attachments: Repository<TicketMessageAttachment>,
     @InjectRepository(TicketReadState)
     private readonly readStates: Repository<TicketReadState>,
+    private readonly cache: AppCacheService,
   ) {}
 
   private deleteFileIfExists(filePath: string | null | undefined) {
@@ -55,6 +57,21 @@ export class TicketMessageService {
     }
 
     return ticket;
+  }
+
+  private invalidateTicketMessageCaches(ticketId: number) {
+    this.cache.delByPrefix(`ticket:messages:${ticketId}:`);
+  }
+
+  private invalidateTicketListCachesForMessage(ticketId: number, userId?: string) {
+    this.invalidateTicketMessageCaches(ticketId);
+    if (userId) {
+      this.cache.delByPrefix(`user:tickets:userId=${userId}:`);
+      this.cache.delByPrefix(`agent:tickets:userId=${userId}:`);
+      return;
+    }
+    this.cache.delByPrefix('user:tickets:');
+    this.cache.delByPrefix('agent:tickets:');
   }
 
   private normalizePage(value: unknown, fallback: number) {
@@ -112,7 +129,14 @@ export class TicketMessageService {
     const limit = this.normalizeLimit(dto.limit, 50, 100);
     const sort = dto.sort === 'DESC' ? 'DESC' : 'ASC';
     const search = dto.search?.trim();
+    const cacheKey = `ticket:messages:${ticket.id}:userId=${user.id}:payload=${this.cache.stableHash({
+      page,
+      limit,
+      sort,
+      search,
+    })}`;
 
+    return this.cache.remember(cacheKey, 3, async () => {
     const qb = this.messages
       .createQueryBuilder('message')
       .leftJoinAndSelect('message.sender', 'sender')
@@ -139,6 +163,7 @@ export class TicketMessageService {
       total,
       totalPages: total > 0 ? Math.ceil(total / limit) : 0,
     };
+    });
   }
 
   async createForTicket(
@@ -186,6 +211,7 @@ export class TicketMessageService {
     });
 
     if (!saved) throw new NotFoundException('Message not found');
+    this.invalidateTicketListCachesForMessage(ticket.id);
     return this.toDto(saved, ticket.id);
   }
 
@@ -216,6 +242,7 @@ export class TicketMessageService {
     readState.lastReadAt = now;
     readState.lastReadMessageId = latestMessage?.id ?? null;
     await this.readStates.save(readState);
+    this.invalidateTicketListCachesForMessage(ticket.id, user.id);
 
     return {
       success: true,
@@ -299,6 +326,7 @@ export class TicketMessageService {
     }
 
     await this.messages.remove(message);
+    this.invalidateTicketListCachesForMessage(ticket.id);
     return { ok: true };
   }
 }

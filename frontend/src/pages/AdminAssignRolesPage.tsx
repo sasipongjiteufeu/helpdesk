@@ -5,6 +5,7 @@ import { useRequireAuth } from "../hooks/useRequireAuth";
 import { useNavigate } from "react-router-dom";
 import AppHeaderBackend from "../components/AppHeaderBackend";
 import { MdArrowBack } from "react-icons/md";
+import { PageSkeleton, TableSkeleton } from "../components/Skeleton";
 
 type RoleName = "USER" | "AGENT" | "ADMIN";
 
@@ -45,7 +46,7 @@ export default function AdminAssignRolesPage() {
   }, []);
 
   if (authLoading || !user) {
-    return <div className="p-10">Checking your access…</div>;
+    return <PageSkeleton><TableSkeleton rows={6} columns={5} /></PageSkeleton>;
   }
 
   async function saveRoles(userId: string, roles: RoleName[]) {
@@ -110,7 +111,7 @@ export default function AdminAssignRolesPage() {
 
           <div className="mt-3 rounded-xl border border-gray-200 bg-gray-50 p-3 overflow-x-auto">
             {loading ? (
-              <p>กำลังโหลด...</p>
+              <TableSkeleton rows={6} columns={5} className="border-0 shadow-none" />
             ) : filteredRows.length === 0 ? (
               <p>ไม่พบผู้ใช้</p>
             ) : (

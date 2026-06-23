@@ -3,13 +3,26 @@ import { useNavigate } from "react-router-dom";
 import { useRequireAuth } from "../hooks/useRequireAuth";
 import AppHeaderBackend from "../components/AppHeaderBackend";
 import { FaExternalLinkAlt } from "react-icons/fa";
+import { PageSkeleton, SkeletonBox, SkeletonButton, SkeletonText } from "../components/Skeleton";
 
 export default function AdminPage() {
   const { user, loading } = useRequireAuth();
   const nav = useNavigate();
 
   if (loading || !user) {
-    return <div className="p-10">Checking your access…</div>;
+    return (
+      <PageSkeleton>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          {[0, 1].map((item) => (
+            <div key={item} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <SkeletonText className="h-5 w-48" />
+              <SkeletonBox className="mt-3 h-16 w-full" />
+              <SkeletonButton className="mt-4 h-11 w-48" />
+            </div>
+          ))}
+        </div>
+      </PageSkeleton>
+    );
   }
 
   return (

@@ -3,7 +3,8 @@ import { useEffect, useMemo, useState } from "react";
 import { FaUserShield } from "react-icons/fa";
 import AppHeaderBackend from "../components/AppHeaderBackend";
 import { useRequireAuth } from "../hooks/useRequireAuth";
-import { API_BASE } from "../lib/api";
+import { API_BASE, cachedJsonFetch } from "../lib/api";
+import { MobileCardListSkeleton, PageSkeleton, TableSkeleton } from "../components/Skeleton";
 
 type TicketStatus = "OPEN" | "IN_PROGRESS" | "RESOLVED";
 
@@ -38,17 +39,11 @@ export default function Home() {
       setLoading(true);
       setError(null);
 
-      const res = await fetch(`${API_BASE}/tickets/public`, {
+      const { data } = await cachedJsonFetch<{ items?: Ticket[] }>(`${API_BASE}/tickets/public`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ page: 1, limit: 100 }),
-      });
-
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
-      }
-
-      const data = await res.json();
+      }, 20);
       const items: Ticket[] = data.items ?? [];
       setTickets(items);
     } catch (e: any) {
@@ -141,14 +136,7 @@ export default function Home() {
   }
 
   if (authLoading) {
-    return (
-      <div className="grid min-h-screen place-items-center bg-slate-100 px-4 text-slate-900">
-        <div className="text-center">
-          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-slate-200 border-t-blue-600" />
-          <p className="text-base font-medium text-slate-600">กำลังตรวจสอบ...</p>
-        </div>
-      </div>
-    );
+    return <PageSkeleton />;
   }
 
   return (
@@ -228,6 +216,15 @@ export default function Home() {
             </span>
           </div>
 
+          {loading ? (
+            <div className="p-3">
+              <div className="hidden md:block">
+                <TableSkeleton rows={6} columns={5} className="border-0 shadow-none" showHeader={false} />
+              </div>
+              <MobileCardListSkeleton count={3} />
+            </div>
+          ) : (
+          <>
           <div className="hidden overflow-x-auto md:block">
             <table className="w-full min-w-[980px] border-collapse text-sm">
               <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -240,13 +237,7 @@ export default function Home() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 bg-white">
-                {loading ? (
-                  <tr>
-                    <td colSpan={5} className="px-4 py-10 text-center text-sm text-slate-500">
-                      กำลังโหลดข้อมูล...
-                    </td>
-                  </tr>
-                ) : tickets.length === 0 ? (
+                {tickets.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="px-4 py-10 text-center text-sm text-slate-500">
                       ยังไม่มีรายการ
@@ -278,11 +269,7 @@ export default function Home() {
           </div>
 
           <div className="grid gap-3 p-3 md:hidden">
-            {loading ? (
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-500">
-                กำลังโหลดข้อมูล...
-              </div>
-            ) : tickets.length === 0 ? (
+            {tickets.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm text-slate-500">
                 ยังไม่มีรายการ
               </div>
@@ -310,6 +297,8 @@ export default function Home() {
               ))
             )}
           </div>
+          </>
+          )}
         </section>
 
         {tickets.length > 0 && (

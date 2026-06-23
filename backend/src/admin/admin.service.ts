@@ -6,6 +6,7 @@ import { User } from 'src/user/entities/user.entity';
 import { Ticket, TicketStatus } from 'src/ticket/entities/ticket.entity';
 import { Role } from 'src/role/entities/role.entity';
 import { RoleEnum } from 'src/role/entities/role.enum';
+import { AppCacheService } from 'src/cache/app-cache.service';
 
 export interface AdminRangeStats {
   range: { from: string; to: string };
@@ -22,6 +23,7 @@ export class AdminService {
     @InjectRepository(User) private readonly usersRepo: Repository<User>,
     @InjectRepository(Ticket) private readonly ticketsRepo: Repository<Ticket>,
     @InjectRepository(Role) private readonly rolesRepo: Repository<Role>,
+    private readonly cache: AppCacheService,
   ) { }
 
   // === USERS + ROLES ===
@@ -45,7 +47,9 @@ export class AdminService {
     fromStart.setHours(0, 0, 0, 0);
     const toEnd = new Date(to);
     toEnd.setHours(23, 59, 59, 999);
+    const cacheKey = `admin:stats:range:${fromStr}:${toStr}:target=${targetDays}`;
 
+    return this.cache.remember(cacheKey, 60, async () => {
     const tickets = await this.ticketsRepo.find({
       where: { createdAt: Between(fromStart, toEnd) },
       order: { createdAt: 'ASC' },
@@ -115,6 +119,7 @@ export class AdminService {
       resolvedWithinTargetCount: resolvedWithinTarget,
       resolvedWithinTargetPercent,
     };
+    });
   }
   async getUsersWithTicketCounts() {
     const [users, tickets] = await Promise.all([
@@ -147,6 +152,7 @@ export class AdminService {
 
     user.roles = roles;
     await this.usersRepo.save(user);
+    this.cache.delByPrefix('admin:stats:');
 
     return {
       id: user.id,
@@ -158,6 +164,9 @@ export class AdminService {
   // === STATS ===
 
   async getYearStats(year: number) {
+    const cacheKey = `admin:stats:year:${year}`;
+
+    return this.cache.remember(cacheKey, 180, async () => {
     const from = new Date(year, 0, 1);
     const to = new Date(year + 1, 0, 1);
 
@@ -173,6 +182,7 @@ export class AdminService {
     }
 
     return { year, monthly };
+    });
   }
   async getAgentStatusStatsForRange(fromStr: string, toStr: string) {
     const from = new Date(fromStr);
@@ -186,7 +196,9 @@ export class AdminService {
     if (from > to) {
       throw new BadRequestException('"from" must be before "to"');
     }
+    const cacheKey = `admin:stats:agents-range:${fromStr}:${toStr}`;
 
+    return this.cache.remember(cacheKey, 60, async () => {
     const tickets = await this.ticketsRepo
       .createQueryBuilder('t')
       .leftJoinAndSelect('t.assignedTo', 'assignedTo')
@@ -283,8 +295,12 @@ export class AdminService {
       const bKey = (b.name || b.email || '').toLowerCase();
       return aKey.localeCompare(bKey);
     });
+    });
   }
   async getMonthStatusStats(year: number, month: number) {
+    const cacheKey = `admin:stats:month:${year}:${month}`;
+
+    return this.cache.remember(cacheKey, 180, async () => {
     const from = new Date(year, month - 1, 1);
     const to = new Date(year, month, 1);
 
@@ -305,5 +321,6 @@ export class AdminService {
     }
 
     return stats;
+    });
   }
 }

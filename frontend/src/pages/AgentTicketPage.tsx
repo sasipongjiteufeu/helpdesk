@@ -1,20 +1,20 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+﻿import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { MdHome, MdInfo, MdRefresh } from "react-icons/md";
 import { FaUserShield } from "react-icons/fa";
 import AppHeaderBackend from "../components/AppHeaderBackend";
 import { useRequireAuth } from "../hooks/useRequireAuth";
-import { API_BASE } from "../lib/api";
+import { API_BASE, cachedJsonFetch, invalidateFrontendCache } from "../lib/api";
 import {
   EmptyState,
   ErrorBanner,
-  LoadingState,
   STATUS_LABELS,
   StatusBadge,
   TicketStatus,
   cx,
   formatDateTime,
 } from "../components/helpdesk-ui";
+import { MobileCardListSkeleton, PageSkeleton, TableSkeleton } from "../components/Skeleton";
 
 type AppliedFilter =
   | "OPEN"
@@ -59,12 +59,12 @@ interface FetchTicketsOptions {
 const PAGE_SIZE = 20;
 
 const FILTERS: Array<{ key: AppliedFilter; label: string }> = [
-  { key: "ALL", label: "ทั้งหมด" },
+  { key: "ALL", label: "เธ—เธฑเนเธเธซเธกเธ”" },
   { key: "OPEN", label: STATUS_LABELS.OPEN },
   { key: "IN_PROGRESS", label: STATUS_LABELS.IN_PROGRESS },
   { key: "RESOLVED", label: STATUS_LABELS.RESOLVED },
-  { key: "IN_PROGRESS_BY_ME", label: "กำลังดำเนินการโดยฉัน" },
-  { key: "FINISHED_BY_ME", label: "ปิดงานโดยฉัน" },
+  { key: "IN_PROGRESS_BY_ME", label: "เธเธณเธฅเธฑเธเธ”เธณเน€เธเธดเธเธเธฒเธฃเนเธ”เธขเธเธฑเธ" },
+  { key: "FINISHED_BY_ME", label: "เธเธดเธ”เธเธฒเธเนเธ”เธขเธเธฑเธ" },
 ];
 
 function buildPaginationItems(currentPage: number, totalPages: number) {
@@ -82,18 +82,18 @@ function buildPaginationItems(currentPage: number, totalPages: number) {
 function getAgentWorkLabel(ticket: Ticket, userId?: string) {
   if (!userId) return null;
   if (ticket.assignedTo?.id === userId) {
-    return { label: "เจ้าหน้าที่หลัก", className: "bg-emerald-50 text-emerald-800 border-emerald-200" };
+    return { label: "เน€เธเนเธฒเธซเธเนเธฒเธ—เธตเนเธซเธฅเธฑเธ", className: "bg-emerald-50 text-emerald-800 border-emerald-200" };
   }
 
   const isParticipant = ticket.participants?.some(
     (participant) => participant.isActive && participant.agent?.id === userId,
   );
   if (isParticipant) {
-    return { label: "ผู้ร่วมดูแล", className: "bg-blue-50 text-blue-800 border-blue-200" };
+    return { label: "เธเธนเนเธฃเนเธงเธกเธ”เธนเนเธฅ", className: "bg-blue-50 text-blue-800 border-blue-200" };
   }
 
   if (ticket.status === "IN_PROGRESS" && ticket.assignedTo?.id) {
-    return { label: "ยังไม่ได้เข้าร่วม", className: "bg-slate-100 text-slate-700 border-slate-200" };
+    return { label: "เธขเธฑเธเนเธกเนเนเธ”เนเน€เธเนเธฒเธฃเนเธงเธก", className: "bg-slate-100 text-slate-700 border-slate-200" };
   }
 
   return null;
@@ -176,7 +176,7 @@ export default function AgentTicketsPage() {
         setLoading(true);
         setError(null);
         const trimmedSearch = searchTerm.trim();
-        const res = await fetch(`${API_BASE}/tickets/filter`, {
+        const { data } = await cachedJsonFetch<FilterResponse>(`${API_BASE}/tickets/filter`, {
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
@@ -186,10 +186,8 @@ export default function AgentTicketsPage() {
             page: nextPage,
             limit: PAGE_SIZE,
           }),
-        });
+        }, 10);
 
-        if (!res.ok) throw new Error(`โหลดรายการไม่สำเร็จ (${res.status})`);
-        const data = (await res.json()) as FilterResponse;
         const nextTotal = data.total ?? 0;
         const nextTotalPages = Math.max(1, Math.ceil(nextTotal / PAGE_SIZE));
         if (nextPage > nextTotalPages) {
@@ -200,7 +198,7 @@ export default function AgentTicketsPage() {
         setTotal(nextTotal);
         setPage(data.page ?? nextPage);
       } catch (e: any) {
-        setError(e.message ?? "โหลดรายการไม่สำเร็จ");
+        setError(e.message ?? "เนเธซเธฅเธ”เธฃเธฒเธขเธเธฒเธฃเนเธกเนเธชเธณเน€เธฃเนเธ");
       } finally {
         setLoading(false);
       }
@@ -245,11 +243,12 @@ export default function AgentTicketsPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ status: next }),
         });
+        if (!res.ok) throw new Error(`Update failed (${res.status})`);
 
-        if (!res.ok) throw new Error(`อัปเดตสถานะไม่สำเร็จ (${res.status})`);
+        invalidateFrontendCache("/tickets/");
         await fetchTickets({ filters: selectedFilters, searchTerm: search, page });
       } catch (e: any) {
-        setError(e.message ?? "อัปเดตสถานะไม่สำเร็จ");
+        setError(e.message ?? "เธญเธฑเธเน€เธ”เธ•เธชเธ–เธฒเธเธฐเนเธกเนเธชเธณเน€เธฃเนเธ");
       } finally {
         setSavingId(null);
       }
@@ -262,11 +261,7 @@ export default function AgentTicketsPage() {
   }
 
   if (authLoading || !user) {
-    return (
-      <div className="min-h-screen bg-slate-100 p-4">
-        <LoadingState label="กำลังตรวจสอบสิทธิ์..." />
-      </div>
-    );
+    return <PageSkeleton />;
   }
 
   return (
@@ -277,10 +272,10 @@ export default function AgentTicketsPage() {
         <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 xl:p-6">
           <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
             <div className="min-w-0">
-              <p className="m-0 text-sm font-semibold text-blue-600">แดชบอร์ดเจ้าหน้าที่</p>
-              <h2 className="m-0 mt-1 text-2xl font-bold text-slate-950">คิวงานเจ้าหน้าที่</h2>
+              <p className="m-0 text-sm font-semibold text-blue-600">เนเธ”เธเธเธญเธฃเนเธ”เน€เธเนเธฒเธซเธเนเธฒเธ—เธตเน</p>
+              <h2 className="m-0 mt-1 text-2xl font-bold text-slate-950">เธเธดเธงเธเธฒเธเน€เธเนเธฒเธซเธเนเธฒเธ—เธตเน</h2>
               <p className="m-0 mt-1 text-sm text-slate-500">
-                ทั้งหมด {total.toLocaleString("th-TH")} รายการ • หน้า {page} จาก {totalPages}
+                เธ—เธฑเนเธเธซเธกเธ” {total.toLocaleString("th-TH")} เธฃเธฒเธขเธเธฒเธฃ โ€ข เธซเธเนเธฒ {page} เธเธฒเธ {totalPages}
               </p>
             </div>
             <div className="flex flex-wrap gap-2 sm:justify-end">
@@ -289,7 +284,7 @@ export default function AgentTicketsPage() {
                 onClick={() => (window.location.href = "/")}
                 className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
               >
-                <MdHome /> หน้าสาธารณะ
+                <MdHome /> เธซเธเนเธฒเธชเธฒเธเธฒเธฃเธ“เธฐ
               </button>
               {user.roles && user.roles.length > 1 && (
                 <button
@@ -297,7 +292,7 @@ export default function AgentTicketsPage() {
                   onClick={() => (window.location.href = "/choose-role")}
                   className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100"
                 >
-                  <FaUserShield /> เลือกบทบาท
+                  <FaUserShield /> เน€เธฅเธทเธญเธเธเธ—เธเธฒเธ—
                 </button>
               )}
               <button
@@ -306,7 +301,7 @@ export default function AgentTicketsPage() {
                 disabled={loading}
                 className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
               >
-                <MdRefresh className={loading ? "animate-spin" : ""} /> รีเฟรช
+                <MdRefresh className={loading ? "animate-spin" : ""} /> เธฃเธตเน€เธเธฃเธ
               </button>
             </div>
           </div>
@@ -329,7 +324,7 @@ export default function AgentTicketsPage() {
                 setSearch(e.target.value);
                 setPage(1);
               }}
-              placeholder="ค้นหา Ticket ID, ผู้แจ้ง, ผู้รับผิดชอบ หรือเบอร์โทร"
+              placeholder="ค้นหา ID, ผู้แจ้ง, ผู้รับผิดชอบ, เบอร์โทร หรือ #tag"
               className="h-11 w-full rounded-full border border-slate-300 bg-white px-4 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
             />
           </div>
@@ -340,24 +335,27 @@ export default function AgentTicketsPage() {
         <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           <div className="flex flex-col gap-3 border-b border-slate-100 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
             <div className="min-w-0">
-              <h3 className="m-0 text-lg font-bold text-slate-950">รายการแจ้งปัญหา</h3>
+              <h3 className="m-0 text-lg font-bold text-slate-950">เธฃเธฒเธขเธเธฒเธฃเนเธเนเธเธเธฑเธเธซเธฒ</h3>
               <p className="m-0 mt-1 text-sm text-slate-500">
-                แสดงผลแบบตารางบนหน้าจอใหญ่ และเปลี่ยนเป็นการ์ดบนมือถือ
+                เนเธชเธ”เธเธเธฅเนเธเธเธ•เธฒเธฃเธฒเธเธเธเธซเธเนเธฒเธเธญเนเธซเธเน เนเธฅเธฐเน€เธเธฅเธตเนเธขเธเน€เธเนเธเธเธฒเธฃเนเธ”เธเธเธกเธทเธญเธ–เธทเธญ
               </p>
             </div>
             <div className="inline-flex min-w-fit items-center justify-center rounded-full border border-slate-200 bg-slate-50 px-3.5 py-1.5 text-sm font-semibold text-slate-700">
-              {total.toLocaleString("th-TH")} รายการ
+              {total.toLocaleString("th-TH")} เธฃเธฒเธขเธเธฒเธฃ
             </div>
           </div>
           {loading ? (
-            <div className="p-4">
-              <LoadingState />
+            <div className="p-3">
+              <div className="hidden md:block">
+                <TableSkeleton rows={6} columns={9} className="border-0 shadow-none" showHeader={false} />
+              </div>
+              <MobileCardListSkeleton count={3} />
             </div>
           ) : tickets.length === 0 ? (
             <div className="p-4">
               <EmptyState
-                title={search ? "ไม่พบรายการที่ค้นหา" : "ยังไม่มีงานในคิวตอนนี้"}
-                description="ลองเปลี่ยนตัวกรองหรือรีเฟรชรายการอีกครั้ง"
+                title={search ? "เนเธกเนเธเธเธฃเธฒเธขเธเธฒเธฃเธ—เธตเนเธเนเธเธซเธฒ" : "เธขเธฑเธเนเธกเนเธกเธตเธเธฒเธเนเธเธเธดเธงเธ•เธญเธเธเธตเน"}
+                description="เธฅเธญเธเน€เธเธฅเธตเนเธขเธเธ•เธฑเธงเธเธฃเธญเธเธซเธฃเธทเธญเธฃเธตเน€เธเธฃเธเธฃเธฒเธขเธเธฒเธฃเธญเธตเธเธเธฃเธฑเนเธ"
               />
             </div>
           ) : (
@@ -366,15 +364,15 @@ export default function AgentTicketsPage() {
                 <table className="w-full min-w-[1120px] border-collapse text-sm">
                   <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
                     <tr>
-                      <th className="px-4 py-3">สถานะ</th>
+                      <th className="px-4 py-3">เธชเธ–เธฒเธเธฐ</th>
                       <th className="px-4 py-3">Ticket ID</th>
-                      <th className="px-4 py-3">หัวข้อ</th>
-                      <th className="px-4 py-3">รายละเอียด</th>
-                      <th className="px-4 py-3">ผู้แจ้ง</th>
-                      <th className="px-4 py-3">ผู้รับผิดชอบ</th>
-                      <th className="px-4 py-3">สร้างเมื่อ</th>
-                      <th className="px-4 py-3">สถานะงาน</th>
-                      <th className="px-4 py-3">จัดการ</th>
+                      <th className="px-4 py-3">เธซเธฑเธงเธเนเธญ</th>
+                      <th className="px-4 py-3">เธฃเธฒเธขเธฅเธฐเน€เธญเธตเธขเธ”</th>
+                      <th className="px-4 py-3">เธเธนเนเนเธเนเธ</th>
+                      <th className="px-4 py-3">เธเธนเนเธฃเธฑเธเธเธดเธ”เธเธญเธ</th>
+                      <th className="px-4 py-3">เธชเธฃเนเธฒเธเน€เธกเธทเนเธญ</th>
+                      <th className="px-4 py-3">เธชเธ–เธฒเธเธฐเธเธฒเธ</th>
+                      <th className="px-4 py-3">เธเธฑเธ”เธเธฒเธฃ</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -426,7 +424,7 @@ export default function AgentTicketsPage() {
                             onClick={() => nav(`/agent/ticket/${ticket.id}`)}
                             className="inline-flex items-center gap-2 rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
                           >
-                            <MdInfo /> รายละเอียด <UnreadBadge ticket={ticket} />
+                            <MdInfo /> เธฃเธฒเธขเธฅเธฐเน€เธญเธตเธขเธ” <UnreadBadge ticket={ticket} />
                           </button>
                         </td>
                       </tr>
@@ -453,7 +451,7 @@ export default function AgentTicketsPage() {
                         <div className="mt-1 flex items-center gap-2">
                           <UnreadBadge ticket={ticket} />
                           {Boolean(ticket.unreadMessageCount || ticket.hasUnreadMessages) && (
-                            <span className="text-xs font-semibold text-blue-700">มีข้อความใหม่</span>
+                            <span className="text-xs font-semibold text-blue-700">เธกเธตเธเนเธญเธเธงเธฒเธกเนเธซเธกเน</span>
                           )}
                         </div>
                         <h3 className="m-0 mt-1 line-clamp-2 text-base font-bold text-slate-950">{ticket.title}</h3>
@@ -462,10 +460,10 @@ export default function AgentTicketsPage() {
                     </div>
                     <p className="line-clamp-3 text-sm text-slate-600">{ticket.detail}</p>
                     <div className="grid gap-2 text-sm text-slate-600">
-                      <div>ผู้แจ้ง: <span className="font-semibold text-slate-800">{ticket.createdBy?.name || "-"}</span></div>
-                      <div>ผู้รับผิดชอบ: <span className="font-semibold text-slate-800">{ticket.assignedTo?.name || "-"}</span></div>
+                      <div>เธเธนเนเนเธเนเธ: <span className="font-semibold text-slate-800">{ticket.createdBy?.name || "-"}</span></div>
+                      <div>เธเธนเนเธฃเธฑเธเธเธดเธ”เธเธญเธ: <span className="font-semibold text-slate-800">{ticket.assignedTo?.name || "-"}</span></div>
                       <div><AgentWorkBadge ticket={ticket} userId={user.id} /></div>
-                      <div>สร้างเมื่อ: {formatDateTime(ticket.createdAt)}</div>
+                      <div>เธชเธฃเนเธฒเธเน€เธกเธทเนเธญ: {formatDateTime(ticket.createdAt)}</div>
                     </div>
                     <div className="mt-4 flex flex-col gap-2 sm:flex-row">
                       <select
@@ -483,7 +481,7 @@ export default function AgentTicketsPage() {
                         onClick={() => nav(`/agent/ticket/${ticket.id}`)}
                         className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700"
                       >
-                        <MdInfo /> รายละเอียด
+                        <MdInfo /> เธฃเธฒเธขเธฅเธฐเน€เธญเธตเธขเธ”
                       </button>
                     </div>
                   </article>
@@ -496,7 +494,7 @@ export default function AgentTicketsPage() {
         {!loading && total > 0 && (
           <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
             <div className="text-sm text-slate-600">
-              แสดง {(page - 1) * PAGE_SIZE + 1}-{(page - 1) * PAGE_SIZE + tickets.length} จาก {total}
+              เนเธชเธ”เธ {(page - 1) * PAGE_SIZE + 1}-{(page - 1) * PAGE_SIZE + tickets.length} เธเธฒเธ {total}
             </div>
             {totalPages > 1 && (
               <div className="flex flex-wrap gap-2">

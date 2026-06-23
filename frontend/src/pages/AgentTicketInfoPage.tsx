@@ -1,19 +1,23 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { MdArrowBack, MdDoneAll, MdPlayArrow } from "react-icons/md";
+import { MdAdd, MdArrowBack, MdDelete, MdDoneAll, MdPlayArrow } from "react-icons/md";
 import AppHeaderBackend from "../components/AppHeaderBackend";
 import TicketConversation from "../components/TicketConversation";
 import { useRequireAuth } from "../hooks/useRequireAuth";
 import {
   API_BASE,
+  createTicketTag,
+  deleteTicketTag,
+  invalidateFrontendCache,
   joinTicket,
   postTicketParticipantsList,
+  postTicketTagsList,
+  TicketTag,
   TicketParticipant,
 } from "../lib/api";
 import {
   DetailField,
   ErrorBanner,
-  LoadingState,
   STATUS_LABELS,
   StatusBadge,
   TicketAttachmentGrid,
@@ -21,6 +25,7 @@ import {
   TicketStatus,
   formatDateTime,
 } from "../components/helpdesk-ui";
+import { PageSkeleton, TicketDetailSkeleton } from "../components/Skeleton";
 
 interface TicketUserRef {
   id?: string;
@@ -50,6 +55,11 @@ export default function AgentTicketInfoPage() {
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [attachments, setAttachments] = useState<TicketImageDto[]>([]);
   const [participants, setParticipants] = useState<TicketParticipant[]>([]);
+  const [tags, setTags] = useState<TicketTag[]>([]);
+  const [showTagInput, setShowTagInput] = useState(false);
+  const [tagInput, setTagInput] = useState("");
+  const [tagSaving, setTagSaving] = useState(false);
+  const [deletingTagId, setDeletingTagId] = useState<string | null>(null);
   const [joining, setJoining] = useState(false);
   const [statusSaving, setStatusSaving] = useState<TicketStatus | null>(null);
   const [loading, setLoading] = useState(true);
@@ -61,10 +71,11 @@ export default function AgentTicketInfoPage() {
       setLoading(true);
       setError(null);
 
-      const [ticketRes, imageRes, participantData] = await Promise.all([
+      const [ticketRes, imageRes, participantData, tagData] = await Promise.all([
         fetch(`${API_BASE}/tickets/${id}`, { credentials: "include" }),
         fetch(`${API_BASE}/tickets/${id}/images`, { credentials: "include" }),
         postTicketParticipantsList(id, { page: 1, limit: 50 }).catch(() => null),
+        postTicketTagsList(id, { page: 1, limit: 50 }).catch(() => null),
       ]);
 
       if (!ticketRes.ok) throw new Error(`โหลดข้อมูล Ticket ไม่สำเร็จ (${ticketRes.status})`);
@@ -77,6 +88,7 @@ export default function AgentTicketInfoPage() {
       }
 
       setParticipants(participantData?.items ?? []);
+      setTags(tagData?.items ?? []);
     } catch (e: any) {
       setError(e.message ?? "โหลดข้อมูล Ticket ไม่สำเร็จ");
     } finally {
@@ -101,6 +113,7 @@ export default function AgentTicketInfoPage() {
           body: JSON.stringify({ status: next }),
         });
         if (!res.ok) throw new Error(`เปลี่ยนสถานะไม่สำเร็จ (${res.status})`);
+        invalidateFrontendCache("/tickets/");
         setTicket((await res.json()) as Ticket);
       } catch (e: any) {
         setError(e.message ?? "เปลี่ยนสถานะไม่สำเร็จ");
@@ -130,12 +143,47 @@ export default function AgentTicketInfoPage() {
     }
   }
 
+  async function handleCreateTag() {
+    if (!id || tagSaving) return;
+    const value = tagInput.trim();
+    if (!value) return;
+
+    try {
+      setTagSaving(true);
+      setError(null);
+      const created = await createTicketTag(id, value);
+      setTags((current) => {
+        const withoutDuplicate = current.filter((tag) => tag.id !== created.id);
+        return [...withoutDuplicate, created];
+      });
+      setTagInput("");
+      setShowTagInput(false);
+    } catch (e: any) {
+      setError(e.message ?? "เพิ่ม tag ไม่สำเร็จ");
+    } finally {
+      setTagSaving(false);
+    }
+  }
+
+  async function handleDeleteTag(tag: TicketTag) {
+    if (!id || !tag.canDelete || deletingTagId) return;
+    const confirmed = window.confirm(`ลบ ${tag.displayName || `#${tag.name}`} หรือไม่?`);
+    if (!confirmed) return;
+
+    try {
+      setDeletingTagId(tag.id);
+      setError(null);
+      await deleteTicketTag(id, tag.id);
+      setTags((current) => current.filter((item) => item.id !== tag.id));
+    } catch (e: any) {
+      setError(e.message ?? "ลบ tag ไม่สำเร็จ");
+    } finally {
+      setDeletingTagId(null);
+    }
+  }
+
   if (authLoading || !user) {
-    return (
-      <div className="min-h-screen bg-slate-100 p-4">
-        <LoadingState label="กำลังตรวจสอบสิทธิ์..." />
-      </div>
-    );
+    return <PageSkeleton><TicketDetailSkeleton /></PageSkeleton>;
   }
 
   const isStaff = user.roles?.some((role) => role.name === "AGENT" || role.name === "ADMIN");
@@ -158,6 +206,66 @@ export default function AgentTicketInfoPage() {
             <h2 className="m-0 mt-1 text-2xl font-bold text-slate-950">
               {ticket ? `#${String(ticket.id).padStart(7, "0")} ${ticket.title}` : "Ticket"}
             </h2>
+            {ticket && (
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                {tags.map((tag) => {
+                  const displayName = tag.displayName || `#${tag.name}`;
+                  const canDelete = Boolean(tag.canDelete);
+                  return (
+                    <button
+                      key={tag.id}
+                      type="button"
+                      disabled={!canDelete || deletingTagId === tag.id}
+                      onClick={() => handleDeleteTag(tag)}
+                      title={canDelete ? "ลบ tag นี้" : displayName}
+                      className={`inline-flex min-w-fit shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-semibold leading-none transition ${
+                        canDelete
+                          ? "cursor-pointer border-slate-200 bg-slate-100 text-slate-700 hover:border-rose-200 hover:bg-rose-100 hover:text-rose-700 disabled:cursor-wait disabled:opacity-60"
+                          : "cursor-default border-slate-200 bg-slate-100 text-slate-700"
+                      }`}
+                    >
+                      <span>{displayName}</span>
+                      {canDelete && <MdDelete className="text-sm" />}
+                    </button>
+                  );
+                })}
+
+                {showTagInput ? (
+                  <input
+                    autoFocus
+                    value={tagInput}
+                    disabled={tagSaving}
+                    maxLength={81}
+                    placeholder="เพิ่ม tag แล้วกด Enter"
+                    onChange={(event) => setTagInput(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        handleCreateTag();
+                      }
+                      if (event.key === "Escape") {
+                        setShowTagInput(false);
+                        setTagInput("");
+                      }
+                    }}
+                    onBlur={() => {
+                      if (!tagInput.trim()) setShowTagInput(false);
+                    }}
+                    className="h-8 w-56 max-w-full rounded-full border border-blue-200 bg-white px-3 text-xs font-medium outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100"
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setShowTagInput(true)}
+                    className="inline-grid h-8 w-8 place-items-center rounded-full border border-blue-200 bg-blue-50 text-blue-700 transition hover:bg-blue-100"
+                    title="เพิ่ม tag"
+                    aria-label="เพิ่ม tag"
+                  >
+                    <MdAdd />
+                  </button>
+                )}
+              </div>
+            )}
           </div>
           <button
             type="button"
@@ -171,9 +279,9 @@ export default function AgentTicketInfoPage() {
         {error && <ErrorBanner message={error} onRetry={loadTicket} />}
 
         {loading || !ticket ? (
-          <LoadingState label="กำลังโหลดข้อมูล..." />
+          <TicketDetailSkeleton />
         ) : (
-          <div className="grid gap-5 xl:grid-cols-[minmax(0,0.95fr)_minmax(420px,1.05fr)]">
+          <div className="grid items-stretch gap-5 xl:min-h-[650px] xl:grid-cols-[minmax(0,0.95fr)_minmax(420px,1.05fr)]">
             <div className="space-y-5">
               <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                 <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

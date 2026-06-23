@@ -6,7 +6,8 @@ import { MdDelete, MdHome, MdOutlineAddCircle, MdRefresh } from "react-icons/md"
 import { FaCircleInfo, FaUserShield } from "react-icons/fa6";
 import AppHeaderBackend from "../components/AppHeaderBackend";
 import { useRequireAuth } from "../hooks/useRequireAuth";
-import { API_BASE } from "../lib/api";
+import { API_BASE, cachedJsonFetch, invalidateFrontendCache } from "../lib/api";
+import { MobileCardListSkeleton, PageSkeleton, TableSkeleton } from "../components/Skeleton";
 
 type TicketStatus = "OPEN" | "IN_PROGRESS" | "RESOLVED";
 
@@ -98,7 +99,7 @@ export default function UserTicketsPage() {
     try {
       setLoading(true);
       setError(null);
-      const res = await fetch(`${API_BASE}/tickets/mine`, {
+      const { data } = await cachedJsonFetch<{ items?: Ticket[] }>(`${API_BASE}/tickets/mine`, {
         method: "POST",
         credentials: "include",
         headers: {
@@ -109,8 +110,7 @@ export default function UserTicketsPage() {
           page: 1,
           limit: 50,
         }),
-      });
-      const data = await res.json();
+      }, 10);
       setTickets(data.items ?? []);
     } catch (e: any) {
       setError(e.message || "ไม่สามารถดึงข้อมูลได้");
@@ -175,6 +175,7 @@ export default function UserTicketsPage() {
           return;
         }
 
+        invalidateFrontendCache("/tickets/");
         setTickets((prev) => prev.filter((t) => t.id !== id));
         await Swal.fire({
           title: "ลบแล้ว",
@@ -193,14 +194,7 @@ export default function UserTicketsPage() {
   }
 
   if (authLoading || !user) {
-    return (
-      <div className="grid min-h-screen place-items-center bg-slate-100 px-4 text-slate-900">
-        <div className="text-center">
-          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-slate-200 border-t-blue-600" />
-          <p className="text-base font-medium text-slate-600">กำลังตรวจสอบสิทธิ์...</p>
-        </div>
-      </div>
-    );
+    return <PageSkeleton />;
   }
 
   function ActionButtons({ ticket, compact = false }: { ticket: Ticket; compact?: boolean }) {
@@ -336,6 +330,15 @@ export default function UserTicketsPage() {
             </span>
           </div>
 
+          {loading ? (
+            <div className="p-3">
+              <div className="hidden md:block">
+                <TableSkeleton rows={6} columns={8} className="border-0 shadow-none" showHeader={false} />
+              </div>
+              <MobileCardListSkeleton count={3} />
+            </div>
+          ) : (
+          <>
           <div className="hidden overflow-x-auto md:block">
             <table className="w-full min-w-[980px] border-collapse text-sm">
               <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -351,16 +354,7 @@ export default function UserTicketsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 bg-white">
-                {loading ? (
-                  <tr>
-                    <td colSpan={8} className="px-4 py-10 text-center text-sm text-slate-500">
-                      <div className="inline-flex items-center gap-3">
-                        <span className="h-5 w-5 animate-spin rounded-full border-2 border-slate-200 border-t-blue-600" />
-                        กำลังโหลดข้อมูล...
-                      </div>
-                    </td>
-                  </tr>
-                ) : tickets.length === 0 ? (
+                {tickets.length === 0 ? (
                   <tr>
                     <td colSpan={8} className="px-4 py-10 text-center text-sm text-slate-500">
                       ยังไม่มีคำร้อง
@@ -413,14 +407,7 @@ export default function UserTicketsPage() {
           </div>
 
           <div className="grid gap-3 p-3 md:hidden">
-            {loading ? (
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-500">
-                <div className="inline-flex items-center gap-3">
-                  <span className="h-5 w-5 animate-spin rounded-full border-2 border-slate-200 border-t-blue-600" />
-                  กำลังโหลดข้อมูล...
-                </div>
-              </div>
-            ) : tickets.length === 0 ? (
+            {tickets.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm text-slate-500">
                 ยังไม่มีคำร้อง
               </div>
@@ -472,6 +459,8 @@ export default function UserTicketsPage() {
               ))
             )}
           </div>
+          </>
+          )}
         </section>
       </div>
     </div>

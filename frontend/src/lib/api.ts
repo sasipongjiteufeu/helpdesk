@@ -8,6 +8,86 @@ export const API_BASE = normalizedApiBase.endsWith('/api')
   ? normalizedApiBase
   : `${normalizedApiBase}/api`;
 
+interface FrontendCacheEntry<T> {
+  value: T;
+  expiresAt: number;
+}
+
+const frontendCache = new Map<string, FrontendCacheEntry<unknown>>();
+
+function stableStringify(value: unknown): string {
+  if (value === null || typeof value !== 'object') return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`;
+
+  const record = value as Record<string, unknown>;
+  return `{${Object.keys(record)
+    .sort()
+    .map((key) => `${JSON.stringify(key)}:${stableStringify(record[key])}`)
+    .join(',')}}`;
+}
+
+export function buildFrontendCacheKey(
+  url: string,
+  init: Pick<RequestInit, 'method' | 'body'> = {},
+) {
+  return `${init.method ?? 'GET'}:${url}:${typeof init.body === 'string' ? init.body : stableStringify(init.body ?? null)}`;
+}
+
+export function getFrontendCache<T>(key: string): T | undefined {
+  const entry = frontendCache.get(key);
+  if (!entry) return undefined;
+
+  if (Date.now() > entry.expiresAt) {
+    frontendCache.delete(key);
+    return undefined;
+  }
+
+  return entry.value as T;
+}
+
+export function setFrontendCache<T>(key: string, value: T, ttlSeconds: number) {
+  if (ttlSeconds <= 0) return value;
+  frontendCache.set(key, {
+    value,
+    expiresAt: Date.now() + ttlSeconds * 1000,
+  });
+  return value;
+}
+
+export function invalidateFrontendCache(prefix?: string) {
+  if (!prefix) {
+    frontendCache.clear();
+    return;
+  }
+
+  for (const key of frontendCache.keys()) {
+    if (key.includes(prefix)) {
+      frontendCache.delete(key);
+    }
+  }
+}
+
+export async function cachedJsonFetch<T>(
+  url: string,
+  init: RequestInit = {},
+  ttlSeconds = 15,
+): Promise<{ data: T; fromCache: boolean }> {
+  const key = buildFrontendCacheKey(url, init);
+  const cached = getFrontendCache<T>(key);
+  if (cached !== undefined) {
+    return { data: cached, fromCache: true };
+  }
+
+  const res = await fetch(url, init);
+  if (!res.ok) {
+    throw new Error(`Request failed (${res.status})`);
+  }
+
+  const data = (await res.json()) as T;
+  setFrontendCache(key, data, ttlSeconds);
+  return { data, fromCache: false };
+}
+
 export type RoleEnum = 'USER' | 'AGENT' | 'ADMIN';
 
 export interface User {
@@ -78,6 +158,15 @@ export interface TicketUnreadMeta {
   lastMessageAt?: string | null;
 }
 
+export interface TicketTag {
+  id: string;
+  name: string;
+  displayName?: string;
+  createdAt: string;
+  createdBy?: Pick<User, 'id' | 'name' | 'email'> | null;
+  canDelete?: boolean;
+}
+
 export async function me() {
   const res = await fetch(`${API_BASE}/auth/me`, { credentials: 'include' });
   if (res.ok) return res.json();
@@ -129,6 +218,7 @@ export async function createTicketMessage(
     throw new Error(text || `Failed to send message (${res.status})`);
   }
 
+  invalidateFrontendCache('/tickets/');
   return res.json() as Promise<TicketMessage>;
 }
 
@@ -142,6 +232,7 @@ export async function markTicketMessagesAsRead(ticketId: string | number) {
     throw new Error(`Failed to mark messages as read (${res.status})`);
   }
 
+  invalidateFrontendCache('/tickets/');
   return res.json() as Promise<{
     success: boolean;
     ticketId: number;
@@ -194,6 +285,7 @@ export async function joinTicket(ticketId: string | number) {
     throw new Error(text || `Failed to join ticket (${res.status})`);
   }
 
+  invalidateFrontendCache('/tickets/');
   return res.json() as Promise<{
     success: boolean;
     message: string;
@@ -219,6 +311,7 @@ export async function leaveTicket(
     throw new Error(text || `Failed to leave ticket (${res.status})`);
   }
 
+  invalidateFrontendCache('/tickets/');
   return res.json() as Promise<{ success: boolean; message: string }>;
 }
 
@@ -241,4 +334,57 @@ export async function postTicketParticipantsList(
   }
 
   return res.json() as Promise<TicketParticipantsResponse>;
+}
+
+export async function postTicketTagsList(
+  ticketId: string | number,
+  payload: { page?: number; limit?: number } = {},
+) {
+  const res = await fetch(`${API_BASE}/tickets/${ticketId}/tags/list`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      page: payload.page ?? 1,
+      limit: payload.limit ?? 50,
+    }),
+  });
+
+  if (!res.ok) {
+    throw new Error(`Failed to load ticket tags (${res.status})`);
+  }
+
+  return res.json() as Promise<PaginatedResponse<TicketTag>>;
+}
+
+export async function createTicketTag(ticketId: string | number, name: string) {
+  const res = await fetch(`${API_BASE}/tickets/${ticketId}/tags`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text || `Failed to create ticket tag (${res.status})`);
+  }
+
+  invalidateFrontendCache('/tickets/');
+  return res.json() as Promise<TicketTag>;
+}
+
+export async function deleteTicketTag(ticketId: string | number, tagId: string) {
+  const res = await fetch(`${API_BASE}/tickets/${ticketId}/tags/${tagId}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text || `Failed to delete ticket tag (${res.status})`);
+  }
+
+  invalidateFrontendCache('/tickets/');
+  return res.json() as Promise<{ success: boolean }>;
 }

@@ -1,11 +1,12 @@
 // src/pages/UserCreateTicketPage.tsx
 import { FormEvent, ChangeEvent, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { API_BASE } from "../lib/api";
+import { API_BASE, invalidateFrontendCache } from "../lib/api";
 import { useRequireAuth } from "../hooks/useRequireAuth";
 import AppHeaderBackend from "../components/AppHeaderBackend";
 import Swal from "sweetalert2";
 import { FaUpload } from "react-icons/fa6";
+import { FormSkeleton } from "../components/Skeleton";
 
 export default function UserCreateTicketPage() {
   const { user, loading: authLoading } = useRequireAuth();
@@ -20,11 +21,7 @@ export default function UserCreateTicketPage() {
   const [error, setError] = useState<string | null>(null);
 
   if (authLoading || !user) {
-    return (
-      <div className="min-h-screen grid place-items-center font-sans bg-gray-100 text-gray-900">
-        Checking your access…
-      </div>
-    );
+    return <FormSkeleton />;
   }
 
   function handleFileChange(e: ChangeEvent<HTMLInputElement>) {
@@ -94,6 +91,7 @@ export default function UserCreateTicketPage() {
         timer: 1500,
       });
 
+      invalidateFrontendCache("/tickets/");
       navigate("/user", { replace: true });
     } catch (e: any) {
       console.error(e);

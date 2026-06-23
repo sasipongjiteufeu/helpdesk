@@ -12,6 +12,8 @@ import { ListTicketMessagesDto } from './dto/list-ticket-messages.dto';
 import { ListMessageAttachmentsDto } from './dto/list-message-attachments.dto';
 import { LeaveTicketDto } from './dto/leave-ticket.dto';
 import { ListTicketParticipantsDto } from './dto/list-ticket-participants.dto';
+import { CreateTicketTagDto } from './dto/create-ticket-tag.dto';
+import { ListTicketTagsDto } from './dto/list-ticket-tags.dto';
 import { AuthenticatedGuard } from 'src/auth/guards/authenticated.guard';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { Roles } from 'src/auth/decorators/roles.decorator';
@@ -117,6 +119,39 @@ findAllPublicPost(
     return this.svc.listParticipantsForTicket(req.user, ticketId, dto);
   }
 
+  @Post(':ticketId/tags/list')
+  @UseGuards(AuthenticatedGuard, RolesGuard)
+  @Roles(RoleEnum.AGENT, RoleEnum.ADMIN)
+  listTags(
+    @Param('ticketId') ticketId: number,
+    @Body() dto: ListTicketTagsDto,
+    @Req() req: any,
+  ) {
+    return this.svc.listTagsForTicket(req.user, ticketId, dto);
+  }
+
+  @Post(':ticketId/tags')
+  @UseGuards(AuthenticatedGuard, RolesGuard)
+  @Roles(RoleEnum.AGENT, RoleEnum.ADMIN)
+  createTag(
+    @Param('ticketId') ticketId: number,
+    @Body() dto: CreateTicketTagDto,
+    @Req() req: any,
+  ) {
+    return this.svc.createTagForTicket(req.user, ticketId, dto);
+  }
+
+  @Delete(':ticketId/tags/:tagId')
+  @UseGuards(AuthenticatedGuard, RolesGuard)
+  @Roles(RoleEnum.AGENT, RoleEnum.ADMIN)
+  deleteTag(
+    @Param('ticketId') ticketId: number,
+    @Param('tagId') tagId: string,
+    @Req() req: any,
+  ) {
+    return this.svc.deleteTagForTicket(req.user, ticketId, tagId);
+  }
+
 
   // Get one (owner or staff)
   @Get(':id')
@@ -141,6 +176,7 @@ findAllPublicPost(
     if (!fs.existsSync(absPath)) return res.status(204).send();
 
     res.setHeader('Content-Type', firstImage.mimeType || 'application/octet-stream');
+    res.setHeader('Cache-Control', 'private, max-age=86400');
     return res.sendFile(absPath);
   }
   // === NEW: get one image's bytes ===
@@ -165,6 +201,7 @@ findAllPublicPost(
     }
 
     res.setHeader('Content-Type', img.mimeType || 'application/octet-stream');
+    res.setHeader('Cache-Control', 'private, max-age=86400');
     return res.sendFile(absPath);
   }
   // === NEW: list all images metadata for a ticket ===
@@ -248,6 +285,7 @@ findAllPublicPost(
     }
 
     res.setHeader('Content-Type', attachment.mimeType || 'application/octet-stream');
+    res.setHeader('Cache-Control', 'private, max-age=86400');
     res.setHeader(
       'Content-Disposition',
       `inline; filename="${encodeURIComponent(attachment.originalName)}"`,

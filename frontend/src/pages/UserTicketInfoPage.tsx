@@ -8,7 +8,6 @@ import { API_BASE } from "../lib/api";
 import {
   DetailField,
   ErrorBanner,
-  LoadingState,
   STATUS_LABELS,
   StatusBadge,
   TicketAttachmentGrid,
@@ -16,6 +15,7 @@ import {
   TicketStatus,
   formatDateTime,
 } from "../components/helpdesk-ui";
+import { PageSkeleton, TicketDetailSkeleton } from "../components/Skeleton";
 
 interface TicketUserRef {
   name?: string | null;
@@ -75,11 +75,7 @@ export default function UserTicketInfoPage() {
   }, [loadTicket]);
 
   if (authLoading || !user) {
-    return (
-      <div className="min-h-screen bg-slate-100 p-4">
-        <LoadingState label="กำลังตรวจสอบสิทธิ์..." />
-      </div>
-    );
+    return <PageSkeleton><TicketDetailSkeleton /></PageSkeleton>;
   }
 
   return (
@@ -106,9 +102,9 @@ export default function UserTicketInfoPage() {
         {error && <ErrorBanner message={error} onRetry={loadTicket} />}
 
         {loading || !ticket ? (
-          <LoadingState label="กำลังโหลดข้อมูล..." />
+          <TicketDetailSkeleton />
         ) : (
-          <div className="grid gap-5 xl:grid-cols-[minmax(0,0.95fr)_minmax(420px,1.05fr)]">
+          <div className="grid items-stretch gap-5 xl:min-h-[650px] xl:grid-cols-[minmax(0,0.95fr)_minmax(420px,1.05fr)]">
             <div className="space-y-5">
               <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                 <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

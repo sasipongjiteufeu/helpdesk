@@ -1,10 +1,11 @@
 // src/pages/AdminStatsPage.tsx
 import { useEffect, useState } from "react";
-import { API_BASE } from "../lib/api";
+import { API_BASE, cachedJsonFetch } from "../lib/api";
 import { useRequireAuth } from "../hooks/useRequireAuth";
 import { useNavigate } from "react-router-dom";
 import AppHeaderBackend from "../components/AppHeaderBackend";
 import { MdArrowBack, MdRefresh } from "react-icons/md";
+import { PageSkeleton, StatsDashboardSkeleton } from "../components/Skeleton";
 
 
 interface MonthlyItem {
@@ -117,35 +118,27 @@ export default function AdminStatsPage() {
         t
       )}`;
 
-      const [ysRes, msRes, rangeRes, agentRes] = await Promise.all([
-        fetch(`${API_BASE}/admin/stats/year?year=${yearForMonthly}`, {
+      const [ysResult, msResult, rangeResult, agentResult] = await Promise.all([
+        cachedJsonFetch<YearStats>(`${API_BASE}/admin/stats/year?year=${yearForMonthly}`, {
           credentials: "include",
-        }),
-        fetch(
+        }, 60),
+        cachedJsonFetch<MonthStatusStats>(
           `${API_BASE}/admin/stats/month?year=${yearForPie}&month=${monthForPie}`,
-          { credentials: "include" }
+          { credentials: "include" },
+          60,
         ),
-        fetch(`${API_BASE}/admin/stats-range?${qsRange}`, {
+        cachedJsonFetch<RangeStats>(`${API_BASE}/admin/stats-range?${qsRange}`, {
           credentials: "include",
-        }),
-        fetch(`${API_BASE}/admin/stats/agents-range?${qsRange}`, {
+        }, 60),
+        cachedJsonFetch<AgentRow[]>(`${API_BASE}/admin/stats/agents-range?${qsRange}`, {
           credentials: "include",
-        }),
+        }, 60),
       ]);
 
-      if (!ysRes.ok)
-        throw new Error(`โหลดข้อมูลรายเดือนไม่สำเร็จ (${ysRes.status})`);
-      if (!msRes.ok)
-        throw new Error(`โหลดข้อมูลรายเดือนสถานะไม่สำเร็จ (${msRes.status})`);
-      if (!rangeRes.ok)
-        throw new Error(`โหลดข้อมูลสถิติรวมไม่สำเร็จ (${rangeRes.status})`);
-      if (!agentRes.ok)
-        throw new Error(`โหลดข้อมูลเจ้าหน้าที่ไม่สำเร็จ (${agentRes.status})`);
-
-      const ysJson = (await ysRes.json()) as YearStats;
-      const msJson = (await msRes.json()) as MonthStatusStats;
-      const rangeJson = (await rangeRes.json()) as RangeStats;
-      const agentJson = (await agentRes.json()) as AgentRow[];
+      const ysJson = ysResult.data;
+      const msJson = msResult.data;
+      const rangeJson = rangeResult.data;
+      const agentJson = agentResult.data;
 
       setYearStats(ysJson);
       setMonthStats(msJson);
@@ -169,14 +162,7 @@ export default function AdminStatsPage() {
   }, [fromDate, toDate, user]);
 
   if (authLoading || !user) {
-    return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4" />
-          <p className="text-gray-600">กำลังตรวจสอบสิทธิ์การเข้าถึง...</p>
-        </div>
-      </div>
-    );
+    return <PageSkeleton><StatsDashboardSkeleton /></PageSkeleton>;
   }
 
   // ---- date handlers + constraints ----
@@ -409,13 +395,7 @@ export default function AdminStatsPage() {
             </div>
           )}
 
-          {/* Loading State */}
-          {loading && (
-            <div className="mb-6 text-center py-8">
-              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto mb-3" />
-              <p className="text-gray-600">กำลังโหลดข้อมูล...</p>
-            </div>
-          )}
+          {loading && <StatsDashboardSkeleton />}
 
           {/* SLA / Range Stats Cards */}
           {!loading && !error && (

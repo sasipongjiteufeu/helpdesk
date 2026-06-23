@@ -23,11 +23,15 @@ import * as path from 'path';
 import { FilterTicketDto, TicketFilterName } from './dto/filter-ticket.dto';
 import { LeaveTicketDto } from './dto/leave-ticket.dto';
 import { ListTicketParticipantsDto } from './dto/list-ticket-participants.dto';
+import { CreateTicketTagDto } from './dto/create-ticket-tag.dto';
+import { ListTicketTagsDto } from './dto/list-ticket-tags.dto';
 import {
   canAccessTicket,
   canJoinTicket,
   isTicketAssignedAgent,
 } from './ticket-permissions';
+import { AppCacheService } from 'src/cache/app-cache.service';
+import { TicketTag } from './entities/ticket-tag.entity';
 
 @Injectable()
 export class TicketService {
@@ -40,9 +44,12 @@ export class TicketService {
     private readonly messages: Repository<TicketMessage>,
     @InjectRepository(TicketReadState)
     private readonly readStates: Repository<TicketReadState>,
+    @InjectRepository(TicketTag)
+    private readonly tags: Repository<TicketTag>,
     @InjectRepository(User) private readonly users: Repository<User>,
     private readonly email: EmailService,
     private readonly telegramNotify: TelegramNotifyService,
+    private readonly cache: AppCacheService,
   ) {}
 
   private relativePath(absPath: string | undefined | null): string | null {
@@ -58,6 +65,58 @@ export class TicketService {
       }
     } catch {
       // ignore cleanup errors
+    }
+  }
+
+  private userRolesKey(user: User) {
+    return (user.roles ?? [])
+      .map((role) => role.name)
+      .filter(Boolean)
+      .sort()
+      .join(',');
+  }
+
+  private invalidatePublicTicketCache() {
+    this.cache.delByPrefix('public:tickets:');
+  }
+
+  private invalidateAdminStatsCache() {
+    this.cache.delByPrefix('admin:stats:');
+  }
+
+  private invalidateUserTicketCaches(userId?: string) {
+    if (userId) {
+      this.cache.delByPrefix(`user:tickets:userId=${userId}:`);
+      return;
+    }
+    this.cache.delByPrefix('user:tickets:');
+  }
+
+  private invalidateAgentTicketCaches(userId?: string) {
+    if (userId) {
+      this.cache.delByPrefix(`agent:tickets:userId=${userId}:`);
+      return;
+    }
+    this.cache.delByPrefix('agent:tickets:');
+  }
+
+  private invalidateTicketMessageCaches(ticketId: number) {
+    this.cache.delByPrefix(`ticket:messages:${ticketId}:`);
+  }
+
+  private invalidateTicketCaches(ticketId?: number, userIds: Array<string | undefined> = []) {
+    this.invalidatePublicTicketCache();
+    this.invalidateAdminStatsCache();
+    this.invalidateAgentTicketCaches();
+    if (userIds.length) {
+      for (const userId of userIds) {
+        if (userId) this.invalidateUserTicketCaches(userId);
+      }
+    } else {
+      this.invalidateUserTicketCaches();
+    }
+    if (ticketId) {
+      this.invalidateTicketMessageCaches(ticketId);
     }
   }
 
@@ -80,6 +139,38 @@ export class TicketService {
       email: user.email,
       avatarUrl: user.avatarUrl,
     };
+  }
+
+  private normalizeTagName(value: unknown) {
+    const name = String(value ?? '')
+      .trim()
+      .replace(/^#+/, '')
+      .trim()
+      .replace(/\s+/g, ' ');
+
+    return {
+      name,
+      normalizedName: name.toLowerCase(),
+    };
+  }
+
+  private ticketTagDto(tag: TicketTag, user: User) {
+    const isAdmin = hasRole(user, RoleEnum.ADMIN);
+    const canDelete = tag.createdBy?.id === user.id || isAdmin;
+    return {
+      id: tag.id,
+      name: tag.name,
+      displayName: `#${tag.name}`,
+      createdAt: tag.createdAt,
+      createdBy: this.toUserSummary(tag.createdBy),
+      canDelete,
+    };
+  }
+
+  private ensureStaffForTags(user: User) {
+    if (!hasAnyRole(user, [RoleEnum.AGENT, RoleEnum.ADMIN])) {
+      throw new ForbiddenException('Only staff can access ticket tags');
+    }
   }
 
   private participantDto(participant: TicketParticipant) {
@@ -245,6 +336,7 @@ export class TicketService {
     } catch {
       // ignore notify errors
     }
+    this.invalidateTicketCaches(savedTicket.id, [creator.id]);
     return savedTicket;
   }
   
@@ -264,6 +356,9 @@ export class TicketService {
   async findAllPublicPost(opts?: { page?: number; limit?: number }) {
   const page = Math.max(1, opts?.page ?? 1);
   const limit = Math.min(100, Math.max(1, opts?.limit ?? 20));
+  const cacheKey = `public:tickets:page=${page}:limit=${limit}`;
+
+  return this.cache.remember(cacheKey, 20, async () => {
 
   // 🕒 today range [start, end)
   const start = new Date();
@@ -306,6 +401,7 @@ export class TicketService {
   const [items, total] = await qb.getManyAndCount();
 
   return { items, total, page, limit };
+  });
 
 }
 /*Note it not use anymore because it was GET. it will slow that facth data*/
@@ -336,7 +432,9 @@ export class TicketService {
 async findAllMine(user: User, opts?: { page?: number; limit?: number }) {
   const page = Math.max(1, opts?.page ?? 1);
   const limit = Math.min(100, Math.max(1, opts?.limit ?? 20));
+  const cacheKey = `user:tickets:userId=${user.id}:page=${page}:limit=${limit}`;
 
+  return this.cache.remember(cacheKey, 10, async () => {
   const [items, total] = await this.repo.findAndCount({
     where: { createdBy: { id: user.id } },   // 👈 always only the owner
     order: { createdAt: 'DESC' },
@@ -357,6 +455,7 @@ async findAllMine(user: User, opts?: { page?: number; limit?: number }) {
     page,
     limit,
   };
+  });
   } 
 
 
@@ -499,10 +598,24 @@ async findAllMine(user: User, opts?: { page?: number; limit?: number }) {
     }
   }
 
-  private applySearch(qb: any, search?: string) {
+  private applySearch(qb: any, search?: string, opts: { allowTagSearch?: boolean } = {}) {
     if (!search) return;
     const s = search.trim();
     if (!s) return;
+
+    if (opts.allowTagSearch && s.startsWith('#')) {
+      const tagKeyword = s.replace(/^#+/, '').trim().toLowerCase();
+      if (!tagKeyword) return;
+
+      if (typeof qb.distinct === 'function') {
+        qb.distinct(true);
+      }
+      qb.leftJoin('t.tags', 'searchTags');
+      qb.andWhere('LOWER(searchTags.normalizedName) LIKE :tagSearch', {
+        tagSearch: `%${tagKeyword}%`,
+      });
+      return;
+    }
 
     const numericId = /^\d+$/.test(s) ? Number(s) : null;
     const like = `%${s.toLowerCase()}%`;
@@ -537,7 +650,11 @@ async findAllMine(user: User, opts?: { page?: number; limit?: number }) {
       dto.filters?.length ? dto.filters : dto.filter,
     );
     const search = dto.search;
+    const cacheKey = `agent:tickets:userId=${user.id}:roles=${this.cache.stableHash(
+      this.userRolesKey(user),
+    )}:payload=${this.cache.stableHash({ filters, search, page, limit })}`;
 
+    return this.cache.remember(cacheKey, 10, async () => {
     const isStaff = hasAnyRole(user, [RoleEnum.AGENT, RoleEnum.ADMIN]);
 
     const baseQb = this.repo
@@ -554,7 +671,7 @@ async findAllMine(user: User, opts?: { page?: number; limit?: number }) {
     }
 
     // apply search once to base query
-    this.applySearch(baseQb, search);
+    this.applySearch(baseQb, search, { allowTagSearch: isStaff });
 
     // items query = base + selected filter
     const itemsQb = baseQb.clone();
@@ -578,7 +695,7 @@ async findAllMine(user: User, opts?: { page?: number; limit?: number }) {
         qb.andWhere('createdBy.id = :uid', { uid: user.id });
       }
       
-      this.applySearch(qb, search);
+      this.applySearch(qb, search, { allowTagSearch: isStaff });
       this.applyFilters(qb, [f], user);
       return qb.getCount();
     };
@@ -601,6 +718,7 @@ async findAllMine(user: User, opts?: { page?: number; limit?: number }) {
       limit,
       counts: { active, open, inProgress, resolved, finishedByMe, commit, inProgressByMe, all },
     };
+    });
   }
 
   async findOneFor(user: User, id: number) {
@@ -665,7 +783,9 @@ async findAllMine(user: User, opts?: { page?: number; limit?: number }) {
       t.images = imgs;
     }
 
-    return this.repo.save(t);
+    const saved = await this.repo.save(t);
+    this.invalidateTicketCaches(saved.id, [t.createdBy?.id, user.id]);
+    return saved;
   }
 
   async assign(id: number, dto: CreateTicketDto) {
@@ -677,7 +797,9 @@ async findAllMine(user: User, opts?: { page?: number; limit?: number }) {
     if (!assignee) throw new NotFoundException('Assignee not found');
 
     t.assignedTo = assignee;
-    return this.repo.save(t);
+    const saved = await this.repo.save(t);
+    this.invalidateTicketCaches(saved.id, [assignee.id]);
+    return saved;
   }
 
   async joinTicket(ticketId: number, user: User) {
@@ -693,6 +815,7 @@ async findAllMine(user: User, opts?: { page?: number; limit?: number }) {
     }
 
     if (isTicketAssignedAgent(user, ticket)) {
+      this.invalidateTicketCaches(ticket.id, [user.id]);
       return {
         success: true,
         message: 'Already primary assigned agent',
@@ -707,6 +830,7 @@ async findAllMine(user: User, opts?: { page?: number; limit?: number }) {
     );
 
     if (activeParticipant) {
+      this.invalidateTicketCaches(ticket.id, [user.id]);
       return {
         success: true,
         message: 'Already joined ticket',
@@ -725,6 +849,7 @@ async findAllMine(user: User, opts?: { page?: number; limit?: number }) {
         isActive: true,
       }),
     );
+    this.invalidateTicketCaches(ticket.id, [user.id]);
 
     return {
       success: true,
@@ -764,6 +889,7 @@ async findAllMine(user: User, opts?: { page?: number; limit?: number }) {
     });
 
     if (!participant) {
+      this.invalidateTicketCaches(ticket.id, [targetAgentId]);
       return {
         success: true,
         message: 'Agent is not an active participant',
@@ -772,6 +898,7 @@ async findAllMine(user: User, opts?: { page?: number; limit?: number }) {
 
     participant.isActive = false;
     await this.participants.save(participant);
+    this.invalidateTicketCaches(ticket.id, [targetAgentId]);
 
     return {
       success: true,
@@ -823,6 +950,100 @@ async findAllMine(user: User, opts?: { page?: number; limit?: number }) {
     };
   }
 
+  async listTagsForTicket(
+    user: User,
+    ticketId: number,
+    dto: ListTicketTagsDto = {},
+  ) {
+    this.ensureStaffForTags(user);
+    const ticket = await this.findOneFor(user, ticketId);
+    const page = this.normalizePage(dto.page, 1);
+    const limit = this.normalizeLimit(dto.limit, 50, 100);
+
+    const [items, total] = await this.tags.findAndCount({
+      where: { ticket: { id: ticket.id } },
+      relations: ['createdBy'],
+      order: { createdAt: 'ASC' },
+      take: limit,
+      skip: (page - 1) * limit,
+    });
+
+    return {
+      items: items.map((tag) => this.ticketTagDto(tag, user)),
+      page,
+      limit,
+      total,
+      totalPages: total > 0 ? Math.ceil(total / limit) : 0,
+    };
+  }
+
+  async createTagForTicket(user: User, ticketId: number, dto: CreateTicketTagDto) {
+    this.ensureStaffForTags(user);
+    const ticket = await this.findOneFor(user, ticketId);
+    const { name, normalizedName } = this.normalizeTagName(dto.name);
+
+    if (!name) {
+      throw new BadRequestException('Tag name is required');
+    }
+
+    if (name.length > 80 || normalizedName.length > 80) {
+      throw new BadRequestException('Tag must not exceed 80 characters');
+    }
+
+    const existing = await this.tags.findOne({
+      where: {
+        ticket: { id: ticket.id },
+        normalizedName,
+      },
+      relations: ['createdBy'],
+    });
+
+    if (existing) {
+      return this.ticketTagDto(existing, user);
+    }
+
+    const saved = await this.tags.save(
+      this.tags.create({
+        ticket,
+        name,
+        normalizedName,
+        createdBy: user,
+      }),
+    );
+
+    const tag = await this.tags.findOne({
+      where: { id: saved.id, ticket: { id: ticket.id } },
+      relations: ['createdBy'],
+    });
+
+    this.invalidateTicketCaches(ticket.id, [ticket.createdBy?.id, user.id]);
+    return this.ticketTagDto(tag ?? saved, user);
+  }
+
+  async deleteTagForTicket(user: User, ticketId: number, tagId: string) {
+    this.ensureStaffForTags(user);
+    const ticket = await this.findOneFor(user, ticketId);
+    const tag = await this.tags.findOne({
+      where: {
+        id: tagId,
+        ticket: { id: ticket.id },
+      },
+      relations: ['createdBy'],
+    });
+
+    if (!tag) throw new NotFoundException('Tag not found');
+
+    // Admin can delete any tag for moderation; agents can delete only tags they created.
+    if (tag.createdBy?.id !== user.id && !hasRole(user, RoleEnum.ADMIN)) {
+      throw new ForbiddenException('Only the tag owner can delete this tag');
+    }
+
+    await this.tags.remove(tag);
+    this.invalidateTicketCaches(ticket.id, [ticket.createdBy?.id, user.id]);
+
+    return { success: true };
+  }
+
   async changeStatusFor(
     id: number,
     user: User,
@@ -872,7 +1093,9 @@ async findAllMine(user: User, opts?: { page?: number; limit?: number }) {
     t.lastStatusChangedBy = user;
 
     t.status = nextStatus;
-    return this.repo.save(t);
+    const saved = await this.repo.save(t);
+    this.invalidateTicketCaches(saved.id, [saved.assignedTo?.id, user.id]);
+    return saved;
   }
 
   async getSlaMetricsForYear(
@@ -967,6 +1190,7 @@ async findAllMine(user: User, opts?: { page?: number; limit?: number }) {
     }
 
     await this.repo.remove(t);
+    this.invalidateTicketCaches(t.id, [t.createdBy?.id, t.assignedTo?.id]);
     return { ok: true };
   }
 }

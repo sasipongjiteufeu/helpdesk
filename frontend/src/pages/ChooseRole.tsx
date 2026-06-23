@@ -7,6 +7,7 @@ import CCI from "../assets/CCI.png";
 import { FaUser } from "react-icons/fa6";
 import { RiAdminFill } from "react-icons/ri";
 import { MdDeveloperMode } from "react-icons/md";
+import { RoleCardsSkeleton, SkeletonBox, SkeletonCircle, SkeletonText } from "../components/Skeleton";
 
 import "animate.css";
 
@@ -106,9 +107,17 @@ export default function ChooseRole() {
 
         <div>
           {loading && (
-            <p className="text-gray-500 text-sm py-8 animate__animated animate__fadeInUp">
-              กำลังโหลดสิทธิ์การใช้งาน…
-            </p>
+            <div className="space-y-6 py-4 animate__animated animate__fadeInUp">
+              <div className="flex justify-center gap-6">
+                <SkeletonCircle className="h-24 w-24" />
+                <SkeletonBox className="h-16 w-24" />
+              </div>
+              <div className="space-y-2">
+                <SkeletonText className="mx-auto h-5 w-40" />
+                <SkeletonText className="mx-auto h-4 w-56" />
+              </div>
+              <RoleCardsSkeleton />
+            </div>
           )}
 
           <div className="flex flex-col items-center gap-3 w-full max-w-sm mx-auto animate__animated animate__fadeInUp">
