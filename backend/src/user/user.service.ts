@@ -93,4 +93,29 @@ export class UserService {
     });
     return await this.usersRepository.save(newUser);
   }
+
+  async listAgents(search?: string) {
+    const qb = this.usersRepository
+      .createQueryBuilder('user')
+      .innerJoinAndSelect('user.roles', 'role')
+      .where('role.name = :agentRole', { agentRole: RoleEnum.AGENT })
+      .orderBy('user.name', 'ASC')
+      .addOrderBy('user.email', 'ASC');
+
+    const term = search?.trim();
+    if (term) {
+      qb.andWhere('(LOWER(user.name) LIKE :q OR LOWER(user.email) LIKE :q)', {
+        q: `%${term.toLowerCase()}%`,
+      });
+    }
+
+    const users = await qb.getMany();
+
+    return users.map((user) => ({
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      roles: (user.roles ?? []).map((role) => role.name),
+    }));
+  }
 }

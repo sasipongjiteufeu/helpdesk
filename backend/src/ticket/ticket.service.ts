@@ -4,6 +4,7 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
+  ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, FindOptionsWhere } from 'typeorm';
@@ -23,20 +24,28 @@ import * as path from 'path';
 import { FilterTicketDto, TicketFilterName } from './dto/filter-ticket.dto';
 import { LeaveTicketDto } from './dto/leave-ticket.dto';
 import { ListTicketParticipantsDto } from './dto/list-ticket-participants.dto';
+import { AddTicketAgentsDto } from './dto/add-ticket-agents.dto';
 import { CreateTicketTagDto } from './dto/create-ticket-tag.dto';
 import { ListTicketTagsDto } from './dto/list-ticket-tags.dto';
+import { UpsertTicketRatingDto } from './dto/upsert-ticket-rating.dto';
 import {
   canAccessTicket,
-  canJoinTicket,
+  canActOnTicket,
+  canManageTicketParticipants,
   isTicketAssignedAgent,
+  isTicketParticipant,
+  ticketAllowsAddingParticipants,
+  userHasAgentRole,
 } from './ticket-permissions';
 import { AppCacheService } from 'src/cache/app-cache.service';
 import { TicketTag } from './entities/ticket-tag.entity';
+import { TicketRating } from './entities/ticket-rating.entity';
 
 @Injectable()
 export class TicketService {
   constructor(
     @InjectRepository(Ticket) private readonly repo: Repository<Ticket>,
+    @InjectRepository(User) private readonly usersRepo: Repository<User>,
     @InjectRepository(TicketImage) private readonly images: Repository<TicketImage>,
     @InjectRepository(TicketParticipant)
     private readonly participants: Repository<TicketParticipant>,
@@ -46,6 +55,8 @@ export class TicketService {
     private readonly readStates: Repository<TicketReadState>,
     @InjectRepository(TicketTag)
     private readonly tags: Repository<TicketTag>,
+    @InjectRepository(TicketRating)
+    private readonly ratings: Repository<TicketRating>,
     @InjectRepository(User) private readonly users: Repository<User>,
     private readonly email: EmailService,
     private readonly telegramNotify: TelegramNotifyService,
@@ -167,6 +178,26 @@ export class TicketService {
     };
   }
 
+  private ticketRatingDto(rating: TicketRating | null | undefined) {
+    if (!rating) return null;
+    return {
+      id: rating.id,
+      rating: rating.rating,
+      comment: rating.comment,
+      createdAt: rating.createdAt,
+      updatedAt: rating.updatedAt,
+      user: this.toUserSummary(rating.user),
+    };
+  }
+
+  private ticketWithRating<T extends Ticket>(ticket: T) {
+    const { ratings, ...ticketData } = ticket as T & { ratings?: TicketRating[] };
+    return {
+      ...ticketData,
+      rating: this.ticketRatingDto(ratings?.[0]),
+    };
+  }
+
   private ensureStaffForTags(user: User) {
     if (!hasAnyRole(user, [RoleEnum.AGENT, RoleEnum.ADMIN])) {
       throw new ForbiddenException('Only staff can access ticket tags');
@@ -240,7 +271,7 @@ export class TicketService {
     return tickets.map((ticket) => {
       const unread = unreadMap.get(ticket.id);
       return {
-        ...ticket,
+        ...this.ticketWithRating(ticket),
         unreadMessageCount: unread?.unreadMessageCount ?? 0,
         hasUnreadMessages: unread?.hasUnreadMessages ?? false,
         lastMessageAt: unread?.lastMessageAt ?? null,
@@ -446,6 +477,7 @@ async findAllMine(user: User, opts?: { page?: number; limit?: number }) {
       'lastStatusChangedBy',
       'participants',
       'participants.agent',
+      'ratings',
     ],
   });
 
@@ -480,6 +512,8 @@ async findAllMine(user: User, opts?: { page?: number; limit?: number }) {
         'lastStatusChangedBy',
         'participants',
         'participants.agent',
+        'ratings',
+        'ratings.user',
       ],
     });
 
@@ -663,6 +697,8 @@ async findAllMine(user: User, opts?: { page?: number; limit?: number }) {
       .leftJoinAndSelect('t.createdBy', 'createdBy')
       .leftJoinAndSelect('t.participants', 'participants')
       .leftJoinAndSelect('participants.agent', 'participantAgent')
+      .leftJoinAndSelect('t.ratings', 'ratings')
+      .leftJoinAndSelect('ratings.user', 'ratingUser')
       .leftJoin('t.lastStatusChangedBy', 'lastStatusChangedBy')
       .orderBy('t.createdAt', 'DESC');
 
@@ -731,6 +767,8 @@ async findAllMine(user: User, opts?: { page?: number; limit?: number }) {
         'lastStatusChangedBy',
         'participants',
         'participants.agent',
+        'ratings',
+        'ratings.user',
       ],
     });
     if (!t) throw new NotFoundException('Ticket not found');
@@ -738,7 +776,79 @@ async findAllMine(user: User, opts?: { page?: number; limit?: number }) {
     if (!canAccessTicket(user, t)) {
       throw new ForbiddenException('Not your ticket');
     }
-    return t;
+    return this.ticketWithRating(t);
+  }
+
+  async getRatingFor(user: User, id: number) {
+    const ticket = await this.repo.findOne({
+      where: { id },
+      relations: [
+        'createdBy',
+        'assignedTo',
+        'participants',
+        'participants.agent',
+        'ratings',
+        'ratings.user',
+      ],
+    });
+
+    if (!ticket) throw new NotFoundException('Ticket not found');
+    if (!canAccessTicket(user, ticket)) {
+      throw new ForbiddenException('Not your ticket');
+    }
+
+    return this.ticketRatingDto(ticket.ratings?.[0]);
+  }
+
+  async upsertRatingFor(user: User, id: number, dto: UpsertTicketRatingDto) {
+    const ticket = await this.repo.findOne({
+      where: { id },
+      relations: ['createdBy'],
+    });
+
+    if (!ticket) throw new NotFoundException('Ticket not found');
+    if (ticket.createdBy?.id !== user.id) {
+      throw new ForbiddenException('Only the ticket owner can rate this ticket');
+    }
+    if (ticket.status !== TicketStatus.RESOLVED) {
+      throw new BadRequestException('Ticket must be RESOLVED before rating');
+    }
+
+    const ratingValue = Number(dto.rating);
+    if (!Number.isInteger(ratingValue) || ratingValue < 1 || ratingValue > 5) {
+      throw new BadRequestException('Rating must be between 1 and 5');
+    }
+
+    const comment = dto.comment?.trim() || null;
+    const existing = await this.ratings.findOne({
+      where: {
+        ticket: { id: ticket.id },
+        user: { id: user.id },
+      },
+    });
+
+    const saved = await this.ratings.save(
+      existing
+        ? {
+            ...existing,
+            rating: ratingValue,
+            comment,
+          }
+        : this.ratings.create({
+            ticket,
+            user,
+            rating: ratingValue,
+            comment,
+          }),
+    );
+
+    const withUser = await this.ratings.findOne({
+      where: { id: saved.id },
+      relations: ['user'],
+    });
+
+    this.invalidateTicketCaches(ticket.id, [ticket.createdBy?.id, user.id]);
+    return this.ticketRatingDto(withUser ?? saved);
   }
 
   async updateFor(
@@ -810,53 +920,135 @@ async findAllMine(user: User, opts?: { page?: number; limit?: number }) {
 
     if (!ticket) throw new NotFoundException('Ticket not found');
 
-    if (!canJoinTicket(user, ticket)) {
-      throw new BadRequestException('Ticket must be IN_PROGRESS to join');
+    if (!hasAnyRole(user, [RoleEnum.AGENT, RoleEnum.ADMIN])) {
+      throw new ForbiddenException('Only staff can access this action');
     }
 
-    if (isTicketAssignedAgent(user, ticket)) {
-      this.invalidateTicketCaches(ticket.id, [user.id]);
-      return {
-        success: true,
-        message: 'Already primary assigned agent',
-        ticketId: ticket.id,
-        agentId: user.id,
-        joinedAt: new Date(),
-      };
-    }
-
-    const activeParticipant = (ticket.participants ?? []).find(
-      (participant) => participant.isActive && participant.agent?.id === user.id,
+    throw new ForbiddenException(
+      'ไม่สามารถเข้าร่วม Ticket ได้ด้วยตนเอง กรุณาให้ Agent เจ้าของ Ticket เพิ่มชื่อของคุณ',
     );
+  }
 
-    if (activeParticipant) {
-      this.invalidateTicketCaches(ticket.id, [user.id]);
-      return {
-        success: true,
-        message: 'Already joined ticket',
-        ticketId: ticket.id,
-        agentId: user.id,
-        joinedAt: activeParticipant.joinedAt,
-      };
+  async addAgentsToTicket(ticketId: number, user: User, dto: AddTicketAgentsDto) {
+    const agentIds = [
+      ...(dto.agentId ? [dto.agentId] : []),
+      ...(dto.agentIds ?? []),
+    ].filter(Boolean);
+
+    if (!agentIds.length) {
+      throw new BadRequestException('agentId or agentIds is required');
     }
 
-    const participant = await this.participants.save(
-      this.participants.create({
-        ticket,
-        agent: user,
-        joinedBy: user,
-        joinedAt: new Date(),
-        isActive: true,
-      }),
-    );
-    this.invalidateTicketCaches(ticket.id, [user.id]);
+    const uniqueAgentIds = [...new Set(agentIds)];
+
+    const ticket = await this.repo.findOne({
+      where: { id: ticketId },
+      relations: ['assignedTo', 'participants', 'participants.agent'],
+    });
+
+    if (!ticket) throw new NotFoundException('Ticket not found');
+
+    if (!canManageTicketParticipants(user, ticket)) {
+      throw new ForbiddenException('Only the primary assigned agent can add collaborators');
+    }
+
+    if (!ticketAllowsAddingParticipants(ticket)) {
+      throw new BadRequestException('Cannot add collaborators to a resolved ticket');
+    }
+
+    const added: Array<ReturnType<TicketService['participantDto']>> = [];
+
+    for (const agentId of uniqueAgentIds) {
+      if (ticket.assignedTo?.id === agentId) {
+        throw new BadRequestException('Primary assigned agent is already responsible for this ticket');
+      }
+
+      const agent = await this.usersRepo.findOne({
+        where: { id: agentId },
+        relations: ['roles'],
+      });
+
+      if (!agent) {
+        throw new NotFoundException(`Agent not found: ${agentId}`);
+      }
+
+      if (!userHasAgentRole(agent)) {
+        throw new BadRequestException('Only users with AGENT role can be added as collaborators');
+      }
+
+      const existing = (ticket.participants ?? []).find(
+        (participant) => participant.agent?.id === agentId,
+      );
+
+      if (existing?.isActive) {
+        throw new ConflictException('Agent is already an active collaborator on this ticket');
+      }
+
+      let participant: TicketParticipant;
+      if (existing) {
+        existing.isActive = true;
+        existing.joinedBy = user;
+        existing.joinedAt = new Date();
+        participant = await this.participants.save(existing);
+      } else {
+        participant = await this.participants.save(
+          this.participants.create({
+            ticket,
+            agent,
+            joinedBy: user,
+            joinedAt: new Date(),
+            isActive: true,
+          }),
+        );
+      }
+
+      participant.agent = agent;
+      added.push(this.participantDto(participant));
+      this.invalidateTicketCaches(ticket.id, [agentId, user.id]);
+    }
 
     return {
       success: true,
-      message: 'Joined ticket successfully',
-      ticketId: ticket.id,
-      agentId: user.id,
-      joinedAt: participant.joinedAt,
+      added,
+    };
+  }
+
+  async removeAgentFromTicket(ticketId: number, user: User, agentId: string) {
+    const ticket = await this.repo.findOne({
+      where: { id: ticketId },
+      relations: ['assignedTo'],
+    });
+
+    if (!ticket) throw new NotFoundException('Ticket not found');
+
+    if (!canManageTicketParticipants(user, ticket)) {
+      throw new ForbiddenException('Only the primary assigned agent can remove collaborators');
+    }
+
+    if (ticket.assignedTo?.id === agentId) {
+      throw new BadRequestException('Primary assigned agent cannot be removed');
+    }
+
+    const participant = await this.participants.findOne({
+      where: {
+        ticket: { id: ticket.id },
+        agent: { id: agentId },
+        isActive: true,
+      },
+      relations: ['agent'],
+    });
+
+    if (!participant) {
+      throw new NotFoundException('Collaborator not found on this ticket');
+    }
+
+    participant.isActive = false;
+    await this.participants.save(participant);
+    this.invalidateTicketCaches(ticket.id, [agentId, user.id]);
+
+    return {
+      success: true,
+      message: 'Collaborator removed successfully',
     };
   }
 
@@ -868,12 +1060,11 @@ async findAllMine(user: User, opts?: { page?: number; limit?: number }) {
 
     if (!ticket) throw new NotFoundException('Ticket not found');
 
-    const isAdmin = hasRole(user, RoleEnum.ADMIN);
-    const targetAgentId = isAdmin && dto.agentId ? dto.agentId : user.id;
-
-    if (!isAdmin && dto.agentId && dto.agentId !== user.id) {
-      throw new ForbiddenException('Only admin can remove another agent');
+    if (dto.agentId && dto.agentId !== user.id) {
+      throw new ForbiddenException('Only the primary assigned agent can remove another collaborator');
     }
+
+    const targetAgentId = user.id;
 
     if (ticket.assignedTo?.id === targetAgentId) {
       throw new BadRequestException('Primary assigned agent cannot leave');
@@ -980,6 +1171,9 @@ async findAllMine(user: User, opts?: { page?: number; limit?: number }) {
   async createTagForTicket(user: User, ticketId: number, dto: CreateTicketTagDto) {
     this.ensureStaffForTags(user);
     const ticket = await this.findOneFor(user, ticketId);
+    if (!canActOnTicket(user, ticket)) {
+      throw new ForbiddenException('You do not have permission to modify this ticket');
+    }
     const { name, normalizedName } = this.normalizeTagName(dto.name);
 
     if (!name) {
@@ -1023,6 +1217,9 @@ async findAllMine(user: User, opts?: { page?: number; limit?: number }) {
   async deleteTagForTicket(user: User, ticketId: number, tagId: string) {
     this.ensureStaffForTags(user);
     const ticket = await this.findOneFor(user, ticketId);
+    if (!canActOnTicket(user, ticket)) {
+      throw new ForbiddenException('You do not have permission to modify this ticket');
+    }
     const tag = await this.tags.findOne({
       where: {
         id: tagId,
@@ -1051,7 +1248,7 @@ async findAllMine(user: User, opts?: { page?: number; limit?: number }) {
   ) {
     const t = await this.repo.findOne({
       where: { id },
-      relations: ['assignedTo'],
+      relations: ['assignedTo', 'participants', 'participants.agent'],
     });
 
     if (!t) throw new NotFoundException('Ticket not found');
@@ -1079,8 +1276,14 @@ async findAllMine(user: User, opts?: { page?: number; limit?: number }) {
       t.resolvedAt = now;
     }
 
-    if (t.assignedTo && t.assignedTo.id !== user.id) {
-      throw new ForbiddenException('Only the assigned agent can change status');
+    if (t.assignedTo) {
+      const canChange =
+        hasRole(user, RoleEnum.ADMIN) ||
+        isTicketAssignedAgent(user, t) ||
+        isTicketParticipant(user, t);
+      if (!canChange) {
+        throw new ForbiddenException('Only assigned or collaborating agents can change status');
+      }
     }
 
     if (t.status !== 'OPEN' && nextStatus === 'OPEN') {

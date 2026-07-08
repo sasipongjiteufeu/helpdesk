@@ -9,6 +9,7 @@ import { TicketImage } from './ticket-image.entity';     // 👈 import
 import { TicketMessage } from './ticket-message.entity';
 import { TicketParticipant } from './ticket-participant.entity';
 import { TicketTag } from './ticket-tag.entity';
+import { TicketRating } from './ticket-rating.entity';
 
 @Entity('Ticket')
 export class Ticket {
@@ -95,6 +96,9 @@ export class Ticket {
 
   @OneToMany(() => TicketTag, tag => tag.ticket, { cascade: true })
   tags: TicketTag[];
+
+  @OneToMany(() => TicketRating, rating => rating.ticket, { cascade: true })
+  ratings: TicketRating[];
 }
 
 export { TicketStatus };

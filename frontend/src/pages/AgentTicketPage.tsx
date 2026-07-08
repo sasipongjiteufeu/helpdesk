@@ -89,11 +89,11 @@ function getAgentWorkLabel(ticket: Ticket, userId?: string) {
     (participant) => participant.isActive && participant.agent?.id === userId,
   );
   if (isParticipant) {
-    return { label: "ผู้ร่วมดูแล", className: "bg-blue-50 text-blue-800 border-blue-200" };
+    return { label: "ผู้ร่วมดำเนินการ", className: "bg-blue-50 text-blue-800 border-blue-200" };
   }
 
   if (ticket.status === "IN_PROGRESS" && ticket.assignedTo?.id) {
-    return { label: "ยังไม่ได้เข้าร่วม", className: "bg-slate-100 text-slate-700 border-slate-200" };
+    return { label: "รอเจ้าของเพิ่ม", className: "bg-slate-100 text-slate-700 border-slate-200" };
   }
 
   return null;

@@ -8,6 +8,19 @@ export const API_BASE = normalizedApiBase.endsWith('/api')
   ? normalizedApiBase
   : `${normalizedApiBase}/api`;
 
+async function parseApiError(res: Response, fallback: string) {
+  const text = await res.text();
+  if (!text) return fallback;
+  try {
+    const parsed = JSON.parse(text) as { message?: string | string[] };
+    if (typeof parsed.message === 'string') return parsed.message;
+    if (Array.isArray(parsed.message)) return parsed.message.join(', ');
+  } catch {
+    // plain text response
+  }
+  return text;
+}
+
 interface FrontendCacheEntry<T> {
   value: T;
   expiresAt: number;
@@ -167,6 +180,20 @@ export interface TicketTag {
   canDelete?: boolean;
 }
 
+export interface TicketRating {
+  id: number;
+  rating: number;
+  comment?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  user?: Pick<User, 'id' | 'name' | 'email'> | null;
+}
+
+export interface SubmitTicketRatingPayload {
+  rating: number;
+  comment?: string;
+}
+
 export async function me() {
   const res = await fetch(`${API_BASE}/auth/me`, { credentials: 'include' });
   if (res.ok) return res.json();
@@ -281,8 +308,7 @@ export async function joinTicket(ticketId: string | number) {
   });
 
   if (!res.ok) {
-    const text = await res.text();
-    throw new Error(text || `Failed to join ticket (${res.status})`);
+    throw new Error(await parseApiError(res, `Failed to join ticket (${res.status})`));
   }
 
   invalidateFrontendCache('/tickets/');
@@ -293,6 +319,62 @@ export async function joinTicket(ticketId: string | number) {
     agentId: string;
     joinedAt: string;
   }>;
+}
+
+export interface AgentUserOption {
+  id: string;
+  email: string;
+  name?: string | null;
+  roles: RoleEnum[];
+}
+
+export async function fetchAgentUsers(search?: string) {
+  const qs = search?.trim() ? `?search=${encodeURIComponent(search.trim())}` : '';
+  const res = await fetch(`${API_BASE}/users/agents${qs}`, {
+    credentials: 'include',
+  });
+
+  if (!res.ok) {
+    throw new Error(await parseApiError(res, `Failed to load agents (${res.status})`));
+  }
+
+  return res.json() as Promise<AgentUserOption[]>;
+}
+
+export async function addTicketAgents(ticketId: string | number, agentIds: string[]) {
+  const body =
+    agentIds.length === 1 ? { agentId: agentIds[0] } : { agentIds };
+
+  const res = await fetch(`${API_BASE}/tickets/${ticketId}/agents`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    throw new Error(await parseApiError(res, `Failed to add collaborators (${res.status})`));
+  }
+
+  invalidateFrontendCache('/tickets/');
+  return res.json() as Promise<{
+    success: boolean;
+    added: TicketParticipant[];
+  }>;
+}
+
+export async function removeTicketAgent(ticketId: string | number, agentId: string) {
+  const res = await fetch(`${API_BASE}/tickets/${ticketId}/agents/${agentId}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  });
+
+  if (!res.ok) {
+    throw new Error(await parseApiError(res, `Failed to remove collaborator (${res.status})`));
+  }
+
+  invalidateFrontendCache('/tickets/');
+  return res.json() as Promise<{ success: boolean; message: string }>;
 }
 
 export async function leaveTicket(
@@ -387,4 +469,51 @@ export async function deleteTicketTag(ticketId: string | number, tagId: string) 
 
   invalidateFrontendCache('/tickets/');
   return res.json() as Promise<{ success: boolean }>;
+}
+
+async function readApiError(res: Response, fallback: string) {
+  const text = await res.text();
+  if (!text) return fallback;
+  try {
+    const parsed = JSON.parse(text) as { message?: string | string[] };
+    if (Array.isArray(parsed.message)) return parsed.message.join(', ');
+    return parsed.message || fallback;
+  } catch {
+    return text;
+  }
+}
+
+export async function getTicketRating(ticketId: string | number) {
+  const res = await fetch(`${API_BASE}/tickets/${ticketId}/rating`, {
+    credentials: 'include',
+  });
+
+  if (!res.ok) {
+    throw new Error(await readApiError(res, `Failed to load rating (${res.status})`));
+  }
+
+  return res.json() as Promise<TicketRating | null>;
+}
+
+export async function submitTicketRating(
+  ticketId: string | number,
+  payload: SubmitTicketRatingPayload,
+) {
+  const res = await fetch(`${API_BASE}/tickets/${ticketId}/rating`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      rating: payload.rating,
+      comment: payload.comment?.trim() || undefined,
+    }),
+  });
+
+  if (!res.ok) {
+    throw new Error(await readApiError(res, `Failed to submit rating (${res.status})`));
+  }
+
+  invalidateFrontendCache('/tickets/');
+  invalidateFrontendCache('/admin/stats');
+  return res.json() as Promise<TicketRating>;
 }

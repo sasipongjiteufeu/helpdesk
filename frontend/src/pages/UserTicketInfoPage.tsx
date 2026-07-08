@@ -4,7 +4,8 @@ import { MdArrowBack } from "react-icons/md";
 import AppHeaderBackend from "../components/AppHeaderBackend";
 import TicketConversation from "../components/TicketConversation";
 import { useRequireAuth } from "../hooks/useRequireAuth";
-import { API_BASE } from "../lib/api";
+import { API_BASE, TicketRating } from "../lib/api";
+import TicketRatingPanel from "../components/TicketRatingPanel";
 import {
   DetailField,
   ErrorBanner,
@@ -33,6 +34,7 @@ interface Ticket {
   createdBy?: TicketUserRef | null;
   assignedTo?: TicketUserRef | null;
   lastStatusChangedBy?: TicketUserRef | null;
+  rating?: TicketRating | null;
 }
 
 export default function UserTicketInfoPage() {
@@ -129,6 +131,25 @@ export default function UserTicketInfoPage() {
                   </div>
                 </div>
               </section>
+
+              {ticket.status === "RESOLVED" && (
+                <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                  {!ticket.rating && (
+                    <div className="mb-4 max-w-2xl rounded-2xl border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm font-semibold leading-relaxed text-yellow-900">
+                      Ticket นี้ดำเนินการเสร็จสิ้นแล้ว สามารถให้คะแนนความพึงพอใจได้
+                    </div>
+                  )}
+                  <TicketRatingPanel
+                    ticketId={ticket.id}
+                    rating={ticket.rating}
+                    onRated={(rating) =>
+                      setTicket((current) =>
+                        current ? { ...current, rating } : current,
+                      )
+                    }
+                  />
+                </section>
+              )}
 
               <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                 <h3 className="m-0 text-lg font-semibold text-slate-950">ไฟล์แนบ</h3>

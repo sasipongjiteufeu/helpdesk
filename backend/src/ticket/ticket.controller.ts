@@ -1,6 +1,6 @@
 import {
   BadRequestException, Controller, Get, Post, Body, Param, Patch, Delete,
-  Query, Req, Res, UseGuards, UseInterceptors, UploadedFiles
+  Query, Req, Res, UseGuards, UseInterceptors, UploadedFiles, ValidationPipe
 } from '@nestjs/common';
 import express from 'express';
 import { FilesInterceptor } from '@nestjs/platform-express';
@@ -12,8 +12,10 @@ import { ListTicketMessagesDto } from './dto/list-ticket-messages.dto';
 import { ListMessageAttachmentsDto } from './dto/list-message-attachments.dto';
 import { LeaveTicketDto } from './dto/leave-ticket.dto';
 import { ListTicketParticipantsDto } from './dto/list-ticket-participants.dto';
+import { AddTicketAgentsDto } from './dto/add-ticket-agents.dto';
 import { CreateTicketTagDto } from './dto/create-ticket-tag.dto';
 import { ListTicketTagsDto } from './dto/list-ticket-tags.dto';
+import { UpsertTicketRatingDto } from './dto/upsert-ticket-rating.dto';
 import { AuthenticatedGuard } from 'src/auth/guards/authenticated.guard';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { Roles } from 'src/auth/decorators/roles.decorator';
@@ -97,6 +99,28 @@ findAllPublicPost(
     return this.svc.joinTicket(ticketId, req.user);
   }
 
+  @Post(':ticketId/agents')
+  @UseGuards(AuthenticatedGuard, RolesGuard)
+  @Roles(RoleEnum.AGENT, RoleEnum.ADMIN)
+  addTicketAgents(
+    @Param('ticketId') ticketId: number,
+    @Body(new ValidationPipe({ whitelist: true, transform: true })) dto: AddTicketAgentsDto,
+    @Req() req: any,
+  ) {
+    return this.svc.addAgentsToTicket(ticketId, req.user, dto);
+  }
+
+  @Delete(':ticketId/agents/:agentId')
+  @UseGuards(AuthenticatedGuard, RolesGuard)
+  @Roles(RoleEnum.AGENT, RoleEnum.ADMIN)
+  removeTicketAgent(
+    @Param('ticketId') ticketId: number,
+    @Param('agentId') agentId: string,
+    @Req() req: any,
+  ) {
+    return this.svc.removeAgentFromTicket(ticketId, req.user, agentId);
+  }
+
   @Post(':ticketId/leave')
   @UseGuards(AuthenticatedGuard, RolesGuard)
   @Roles(RoleEnum.AGENT, RoleEnum.ADMIN)
@@ -150,6 +174,24 @@ findAllPublicPost(
     @Req() req: any,
   ) {
     return this.svc.deleteTagForTicket(req.user, ticketId, tagId);
+  }
+
+  @Get(':id/rating')
+  @UseGuards(AuthenticatedGuard, RolesGuard)
+  @Roles(RoleEnum.USER, RoleEnum.AGENT, RoleEnum.ADMIN)
+  getRating(@Param('id') id: number, @Req() req: any) {
+    return this.svc.getRatingFor(req.user, id);
+  }
+
+  @Post(':id/rating')
+  @UseGuards(AuthenticatedGuard, RolesGuard)
+  @Roles(RoleEnum.USER, RoleEnum.AGENT, RoleEnum.ADMIN)
+  upsertRating(
+    @Param('id') id: number,
+    @Body(new ValidationPipe({ whitelist: true })) dto: UpsertTicketRatingDto,
+    @Req() req: any,
+  ) {
+    return this.svc.upsertRatingFor(req.user, id, dto);
   }
 
 

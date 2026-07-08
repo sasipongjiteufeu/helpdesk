@@ -12,6 +12,7 @@ import { Role } from 'src/role/entities/role.entity';
 import { TicketMessage } from 'src/ticket/entities/ticket-message.entity';
 import { TicketParticipant } from 'src/ticket/entities/ticket-participant.entity';
 import { TicketTag } from 'src/ticket/entities/ticket-tag.entity';
+import { TicketRating } from 'src/ticket/entities/ticket-rating.entity';
 
 @Entity('users')
 export class User {
@@ -63,6 +64,9 @@ createdAt: Date;
 
   @OneToMany(() => TicketTag, (tag) => tag.createdBy)
   ticketTags: TicketTag[];
+
+  @OneToMany(() => TicketRating, (rating) => rating.user)
+  ticketRatings: TicketRating[];
 
 }
 

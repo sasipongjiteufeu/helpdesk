@@ -1,20 +1,23 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { MdAdd, MdArrowBack, MdDelete, MdDoneAll, MdPlayArrow } from "react-icons/md";
+import { MdAdd, MdArrowBack, MdDelete, MdDoneAll, MdPersonAdd, MdPlayArrow } from "react-icons/md";
 import AppHeaderBackend from "../components/AppHeaderBackend";
 import TicketConversation from "../components/TicketConversation";
+import AddTicketAgentModal from "../components/AddTicketAgentModal";
 import { useRequireAuth } from "../hooks/useRequireAuth";
 import {
   API_BASE,
   createTicketTag,
   deleteTicketTag,
   invalidateFrontendCache,
-  joinTicket,
   postTicketParticipantsList,
   postTicketTagsList,
+  removeTicketAgent,
+  TicketRating,
   TicketTag,
   TicketParticipant,
 } from "../lib/api";
+import TicketRatingReadOnly from "../components/TicketRatingReadOnly";
 import {
   DetailField,
   ErrorBanner,
@@ -45,6 +48,7 @@ interface Ticket {
   createdBy?: TicketUserRef | null;
   assignedTo?: TicketUserRef | null;
   lastStatusChangedBy?: TicketUserRef | null;
+  rating?: TicketRating | null;
 }
 
 export default function AgentTicketInfoPage() {
@@ -60,7 +64,8 @@ export default function AgentTicketInfoPage() {
   const [tagInput, setTagInput] = useState("");
   const [tagSaving, setTagSaving] = useState(false);
   const [deletingTagId, setDeletingTagId] = useState<string | null>(null);
-  const [joining, setJoining] = useState(false);
+  const [showAgentModal, setShowAgentModal] = useState(false);
+  const [removingAgentId, setRemovingAgentId] = useState<string | null>(null);
   const [statusSaving, setStatusSaving] = useState<TicketStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -114,7 +119,7 @@ export default function AgentTicketInfoPage() {
         });
         if (!res.ok) throw new Error(`เปลี่ยนสถานะไม่สำเร็จ (${res.status})`);
         invalidateFrontendCache("/tickets/");
-        setTicket((await res.json()) as Ticket);
+        await loadTicket();
       } catch (e: any) {
         setError(e.message ?? "เปลี่ยนสถานะไม่สำเร็จ");
       } finally {
@@ -124,23 +129,28 @@ export default function AgentTicketInfoPage() {
     [id],
   );
 
-  async function handleJoinTicket() {
-    if (!id) return;
+  async function handleRemoveAgent(agentId?: string | null) {
+    if (!id || !agentId || removingAgentId) return;
+    const confirmed = window.confirm("นำผู้ร่วมดำเนินการออกจาก Ticket นี้หรือไม่?");
+    if (!confirmed) return;
+
     try {
-      setJoining(true);
+      setRemovingAgentId(agentId);
       setError(null);
-      await joinTicket(id);
-      const [ticketRes, participantData] = await Promise.all([
-        fetch(`${API_BASE}/tickets/${id}`, { credentials: "include" }),
-        postTicketParticipantsList(id, { page: 1, limit: 50 }),
-      ]);
-      if (ticketRes.ok) setTicket((await ticketRes.json()) as Ticket);
+      await removeTicketAgent(id, agentId);
+      const participantData = await postTicketParticipantsList(id, { page: 1, limit: 50 });
       setParticipants(participantData.items ?? []);
     } catch (e: any) {
-      setError(e.message ?? "เข้าร่วม Ticket ไม่สำเร็จ");
+      setError(e.message ?? "นำผู้ร่วมดำเนินการออกไม่สำเร็จ");
     } finally {
-      setJoining(false);
+      setRemovingAgentId(null);
     }
+  }
+
+  async function refreshParticipants() {
+    if (!id) return;
+    const participantData = await postTicketParticipantsList(id, { page: 1, limit: 50 });
+    setParticipants(participantData.items ?? []);
   }
 
   async function handleCreateTag() {
@@ -187,11 +197,21 @@ export default function AgentTicketInfoPage() {
   }
 
   const isStaff = user.roles?.some((role) => role.name === "AGENT" || role.name === "ADMIN");
+  const isAdmin = user.roles?.some((role) => role.name === "ADMIN");
   const isPrimaryAgent = ticket?.assignedTo?.id === user.id;
   const isActiveParticipant = participants.some((participant) => participant.agent?.id === user.id);
-  const canJoin =
+  const canAct =
+    Boolean(isAdmin) ||
+    Boolean(isPrimaryAgent) ||
+    Boolean(isActiveParticipant) ||
+    (Boolean(isStaff) && ticket?.status === "OPEN" && !ticket?.assignedTo);
+  const canManageParticipants =
+    Boolean(isPrimaryAgent) &&
+    Boolean(ticket?.assignedTo) &&
+    ticket?.status !== "RESOLVED";
+  const waitingForInvite =
     Boolean(isStaff) &&
-    ticket?.status === "IN_PROGRESS" &&
+    Boolean(ticket?.assignedTo) &&
     !isPrimaryAgent &&
     !isActiveParticipant;
 
@@ -308,36 +328,49 @@ export default function AgentTicketInfoPage() {
 
                 <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3">
                   <div className="mb-3 text-sm font-semibold text-slate-700">เปลี่ยนสถานะ Ticket</div>
-                  <div className="flex flex-col gap-2 sm:flex-row">
-                    <button
-                      type="button"
-                      disabled={statusSaving !== null || ticket.status === "IN_PROGRESS"}
-                      onClick={() => handleStatusChange("IN_PROGRESS")}
-                      className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-full bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
-                    >
-                      {statusSaving === "IN_PROGRESS" ? (
-                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
-                      ) : (
-                        <MdPlayArrow />
-                      )}
-                      เปลี่ยนเป็นกำลังดำเนินการ
-                    </button>
-                    <button
-                      type="button"
-                      disabled={statusSaving !== null || ticket.status === "RESOLVED"}
-                      onClick={() => handleStatusChange("RESOLVED")}
-                      className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-full bg-emerald-600 px-4 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300"
-                    >
-                      {statusSaving === "RESOLVED" ? (
-                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
-                      ) : (
-                        <MdDoneAll />
-                      )}
-                      ปิดงาน
-                    </button>
-                  </div>
+                  {canAct ? (
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <button
+                        type="button"
+                        disabled={statusSaving !== null || ticket.status === "IN_PROGRESS"}
+                        onClick={() => handleStatusChange("IN_PROGRESS")}
+                        className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-full bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+                      >
+                        {statusSaving === "IN_PROGRESS" ? (
+                          <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                        ) : (
+                          <MdPlayArrow />
+                        )}
+                        เปลี่ยนเป็นกำลังดำเนินการ
+                      </button>
+                      <button
+                        type="button"
+                        disabled={statusSaving !== null || ticket.status === "RESOLVED"}
+                        onClick={() => handleStatusChange("RESOLVED")}
+                        className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-full bg-emerald-600 px-4 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+                      >
+                        {statusSaving === "RESOLVED" ? (
+                          <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                        ) : (
+                          <MdDoneAll />
+                        )}
+                        ปิดงาน
+                      </button>
+                    </div>
+                  ) : (
+                    <p className="m-0 text-sm text-slate-600">
+                      ต้องให้ Agent เจ้าของ Ticket เพิ่มชื่อก่อน จึงจะร่วมดำเนินการได้
+                    </p>
+                  )}
                 </div>
               </section>
+
+              {(ticket.status === "RESOLVED" || ticket.rating) && (
+                <TicketRatingReadOnly
+                  rating={ticket.rating}
+                  resolved={ticket.status === "RESOLVED"}
+                />
+              )}
 
               <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                 <h3 className="m-0 text-lg font-semibold text-slate-950">ไฟล์แนบ</h3>
@@ -347,27 +380,50 @@ export default function AgentTicketInfoPage() {
               </section>
 
               <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                <h3 className="m-0 text-lg font-semibold text-slate-950">ผู้ดูแล Ticket</h3>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <h3 className="m-0 text-lg font-semibold text-slate-950">ผู้ดูแล Ticket</h3>
+                  {canManageParticipants && (
+                    <button
+                      type="button"
+                      onClick={() => setShowAgentModal(true)}
+                      className="inline-flex h-9 items-center justify-center gap-2 rounded-full bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700"
+                    >
+                      <MdPersonAdd /> เพิ่มผู้ร่วมดำเนินการ
+                    </button>
+                  )}
+                </div>
                 <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                  <div className="text-xs font-medium text-slate-500">เจ้าหน้าที่หลัก</div>
+                  <div className="text-xs font-medium text-slate-500">ผู้รับผิดชอบหลัก</div>
                   <div className="mt-1 font-semibold text-slate-900">
                     {ticket.assignedTo?.name || ticket.assignedTo?.email || "-"}
                   </div>
                 </div>
                 <div className="mt-3">
-                  <div className="text-sm font-semibold text-slate-700">เจ้าหน้าที่ร่วม</div>
+                  <div className="text-sm font-semibold text-slate-700">ผู้ร่วมดำเนินการ</div>
                   {participants.length === 0 ? (
                     <div className="mt-2 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-500">
-                      ยังไม่มีเจ้าหน้าที่ร่วม
+                      ยังไม่มีผู้ร่วมดำเนินการเพิ่มเติม
                     </div>
                   ) : (
                     <div className="mt-2 flex flex-wrap gap-2">
                       {participants.map((participant) => (
                         <span
                           key={participant.id}
-                          className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5 text-sm font-semibold text-blue-800"
+                          className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5 text-sm font-semibold text-blue-800"
                         >
                           {participant.agent?.name || participant.agent?.email || "ไม่ทราบชื่อ"}
+                          {canManageParticipants && participant.agent?.id && (
+                            <button
+                              type="button"
+                              disabled={removingAgentId === participant.agent.id}
+                              onClick={() => handleRemoveAgent(participant.agent?.id)}
+                              className="grid h-5 w-5 place-items-center rounded-full text-blue-700 hover:bg-blue-100 disabled:opacity-50"
+                              title="นำออก"
+                              aria-label="นำผู้ร่วมดำเนินการออก"
+                            >
+                              <MdDelete className="text-sm" />
+                            </button>
+                          )}
                         </span>
                       ))}
                     </div>
@@ -375,31 +431,38 @@ export default function AgentTicketInfoPage() {
                 </div>
                 {isPrimaryAgent && (
                   <div className="mt-3 text-sm font-semibold text-emerald-700">
-                    คุณเป็นเจ้าหน้าที่หลักของ Ticket นี้
+                    คุณเป็นผู้รับผิดชอบหลักของ Ticket นี้
                   </div>
                 )}
                 {isActiveParticipant && !isPrimaryAgent && (
                   <div className="mt-3 text-sm font-semibold text-blue-700">
-                    คุณเข้าร่วมดูแล Ticket นี้แล้ว
+                    คุณเป็นผู้ร่วมดำเนินการของ Ticket นี้
                   </div>
                 )}
-                {canJoin && (
-                  <button
-                    type="button"
-                    onClick={handleJoinTicket}
-                    disabled={joining}
-                    className="mt-4 inline-flex min-h-11 items-center justify-center rounded-full bg-blue-600 px-5 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
-                  >
-                    {joining ? "กำลังเข้าร่วม..." : "เข้าร่วม Ticket"}
-                  </button>
+                {waitingForInvite && (
+                  <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                    ต้องให้ Agent เจ้าของ Ticket เพิ่มชื่อก่อน จึงจะร่วมดำเนินการได้
+                  </div>
                 )}
               </section>
             </div>
 
-            <TicketConversation ticketId={ticket.id} currentUser={user} />
+            <TicketConversation ticketId={ticket.id} currentUser={user} canReply={canAct} />
           </div>
         )}
       </div>
+
+      <AddTicketAgentModal
+        open={showAgentModal}
+        ticketId={ticket?.id ?? id ?? ""}
+        primaryAgentId={ticket?.assignedTo?.id}
+        existingParticipants={participants}
+        onClose={() => setShowAgentModal(false)}
+        onAdded={async () => {
+          await refreshParticipants();
+          setShowAgentModal(false);
+        }}
+      />
     </div>
   );
 }

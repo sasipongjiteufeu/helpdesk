@@ -4,10 +4,12 @@ import { Link, useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
 import { MdDelete, MdHome, MdOutlineAddCircle, MdRefresh } from "react-icons/md";
 import { FaCircleInfo, FaUserShield } from "react-icons/fa6";
+import { FaStar } from "react-icons/fa";
 import AppHeaderBackend from "../components/AppHeaderBackend";
 import { useRequireAuth } from "../hooks/useRequireAuth";
-import { API_BASE, cachedJsonFetch, invalidateFrontendCache } from "../lib/api";
+import { API_BASE, cachedJsonFetch, invalidateFrontendCache, TicketRating } from "../lib/api";
 import { MobileCardListSkeleton, PageSkeleton, TableSkeleton } from "../components/Skeleton";
+import TicketRatingModal from "../components/TicketRatingModal";
 
 type TicketStatus = "OPEN" | "IN_PROGRESS" | "RESOLVED";
 
@@ -22,6 +24,7 @@ interface Ticket {
   unreadMessageCount?: number | null;
   hasUnreadMessages?: boolean | null;
   lastMessageAt?: string | null;
+  rating?: TicketRating | null;
 }
 
 const STATUS_LABELS: Record<TicketStatus, string> = {
@@ -86,12 +89,17 @@ function formatDate(dateString: string): string {
   });
 }
 
+function needsRating(ticket: Ticket) {
+  return ticket.status === "RESOLVED" && !ticket.rating;
+}
+
 export default function UserTicketsPage() {
   const { user, loading: authLoading } = useRequireAuth();
   const navigate = useNavigate();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [ratingTicket, setRatingTicket] = useState<Ticket | null>(null);
 
   async function loadTickets() {
     if (!user) return;
@@ -200,17 +208,26 @@ export default function UserTicketsPage() {
   function ActionButtons({ ticket, compact = false }: { ticket: Ticket; compact?: boolean }) {
     const canDelete = ticket.status === "OPEN";
 
+    const btnClass =
+      "inline-flex h-8 shrink-0 items-center justify-center gap-1 rounded-full px-3 text-xs font-semibold whitespace-nowrap";
+
     return (
-      <div className={cx("flex gap-2", compact ? "flex-col sm:flex-row" : "justify-end")}>
+      <div
+        className={
+          compact
+            ? "flex flex-wrap items-center justify-end gap-2"
+            : "flex flex-wrap items-center justify-end gap-2"
+        }
+      >
         <button
           type="button"
           onClick={() => navigate(`/user/ticket/${ticket.id}`)}
           className={cx(
-            "inline-flex items-center justify-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3.5 py-2 text-sm font-semibold text-blue-700 transition hover:bg-blue-100",
-            compact && "min-h-11 flex-1",
+            btnClass,
+            "border border-blue-200 bg-blue-50 text-blue-700 transition hover:bg-blue-100",
           )}
         >
-          <FaCircleInfo /> รายละเอียด
+          <FaCircleInfo className="shrink-0 text-[0.7rem]" /> รายละเอียด
           <UnreadBadge ticket={ticket} />
         </button>
         <button
@@ -218,16 +235,40 @@ export default function UserTicketsPage() {
           onClick={canDelete ? () => handleDelete(ticket.id) : undefined}
           disabled={!canDelete}
           className={cx(
-            "inline-flex items-center justify-center gap-2 rounded-full px-3.5 py-2 text-sm font-semibold transition",
+            btnClass,
             canDelete
               ? "bg-rose-100 text-rose-700 hover:bg-rose-200"
               : "cursor-not-allowed bg-slate-100 text-slate-400",
-            compact && "min-h-11 flex-1",
           )}
           title={canDelete ? "ลบคำร้อง" : "ลบไม่ได้หลังจากเริ่มดำเนินการ"}
         >
-          <MdDelete /> ลบ
+          <MdDelete className="shrink-0 text-sm" /> ลบ
         </button>
+
+        {ticket.status === "RESOLVED" &&
+          (ticket.rating ? (
+            <span
+              className={cx(
+                btnClass,
+                "border border-emerald-200 bg-emerald-50 text-emerald-700",
+              )}
+            >
+              <FaStar className="shrink-0 text-[0.65rem] text-emerald-500" /> ให้แล้ว{" "}
+              {ticket.rating.rating} ดาว
+            </span>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setRatingTicket(ticket)}
+              title="ยังไม่ได้ให้คะแนน"
+              className={cx(
+                btnClass,
+                "border border-yellow-300 bg-yellow-50 font-bold text-yellow-800 shadow-sm transition hover:bg-yellow-100 motion-safe:animate-pulse",
+              )}
+            >
+              <FaStar className="shrink-0 text-[0.65rem] text-yellow-500" /> ให้คะแนน
+            </button>
+          ))}
       </div>
     );
   }
@@ -333,7 +374,7 @@ export default function UserTicketsPage() {
           {loading ? (
             <div className="p-3">
               <div className="hidden md:block">
-                <TableSkeleton rows={6} columns={8} className="border-0 shadow-none" showHeader={false} />
+                <TableSkeleton rows={6} columns={7} className="border-0 shadow-none" showHeader={false} />
               </div>
               <MobileCardListSkeleton count={3} />
             </div>
@@ -346,17 +387,16 @@ export default function UserTicketsPage() {
                   <th className="whitespace-nowrap px-4 py-3">สถานะ</th>
                   <th className="whitespace-nowrap px-4 py-3">Ticket ID</th>
                   <th className="px-4 py-3">หัวข้อ</th>
-                  <th className="px-4 py-3">รายละเอียด</th>
                   <th className="whitespace-nowrap px-4 py-3">เบอร์ติดต่อ</th>
                   <th className="whitespace-nowrap px-4 py-3">ผู้รับผิดชอบ</th>
                   <th className="whitespace-nowrap px-4 py-3">สร้างเมื่อ</th>
-                  <th className="whitespace-nowrap px-4 py-3 text-right">จัดการ</th>
+                  <th className="min-w-[17rem] whitespace-nowrap px-4 py-3 text-right">จัดการ</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 bg-white">
                 {tickets.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-4 py-10 text-center text-sm text-slate-500">
+                    <td colSpan={7} className="px-4 py-10 text-center text-sm text-slate-500">
                       ยังไม่มีคำร้อง
                     </td>
                   </tr>
@@ -365,8 +405,10 @@ export default function UserTicketsPage() {
                     <tr
                       key={t.id}
                       className={cx(
-                        "transition-colors hover:bg-slate-50",
-                        Boolean(t.unreadMessageCount || t.hasUnreadMessages) &&
+                        "border-l-4 border-transparent transition-colors hover:bg-slate-50",
+                        needsRating(t) &&
+                          "border-yellow-300 bg-yellow-50/60",
+                        !needsRating(t) && Boolean(t.unreadMessageCount || t.hasUnreadMessages) &&
                           "bg-blue-50/60 ring-1 ring-inset ring-blue-200 motion-safe:animate-pulse",
                       )}
                     >
@@ -384,9 +426,6 @@ export default function UserTicketsPage() {
                       <td className="max-w-[18rem] px-4 py-4 align-top font-semibold text-slate-950">
                         <div className="line-clamp-2 break-words">{t.title}</div>
                       </td>
-                      <td className="max-w-[30rem] px-4 py-4 align-top text-slate-600">
-                        <div className="line-clamp-2 break-words">{t.detail}</div>
-                      </td>
                       <td className="whitespace-nowrap px-4 py-4 align-top text-slate-600">
                         {t.tel ?? "-"}
                       </td>
@@ -396,7 +435,7 @@ export default function UserTicketsPage() {
                       <td className="whitespace-nowrap px-4 py-4 align-top text-slate-600">
                         {formatDate(t.createdAt)}
                       </td>
-                      <td className="whitespace-nowrap px-4 py-4 align-top">
+                      <td className="whitespace-nowrap px-4 py-4 align-middle text-right">
                         <ActionButtons ticket={t} />
                       </td>
                     </tr>
@@ -417,7 +456,9 @@ export default function UserTicketsPage() {
                   key={t.id}
                   className={cx(
                     "rounded-2xl border border-slate-200 bg-white p-4 shadow-sm",
-                    Boolean(t.unreadMessageCount || t.hasUnreadMessages) &&
+                    needsRating(t) &&
+                      "border-yellow-200 bg-yellow-50/60",
+                    !needsRating(t) && Boolean(t.unreadMessageCount || t.hasUnreadMessages) &&
                       "border-blue-200 bg-blue-50/60 ring-1 ring-blue-200 motion-safe:animate-pulse",
                   )}
                 >
@@ -435,10 +476,6 @@ export default function UserTicketsPage() {
                     </div>
                     <StatusBadge status={t.status} />
                   </div>
-
-                  <p className="m-0 mt-3 line-clamp-3 break-words text-sm leading-6 text-slate-600">
-                    {t.detail}
-                  </p>
 
                   <div className="mt-3 grid gap-2 text-sm text-slate-600">
                     <div>
@@ -463,6 +500,19 @@ export default function UserTicketsPage() {
           )}
         </section>
       </div>
+      <TicketRatingModal
+        open={Boolean(ratingTicket)}
+        ticketId={ratingTicket?.id}
+        rating={ratingTicket?.rating}
+        onClose={() => setRatingTicket(null)}
+        onRated={(rating) => {
+          setTickets((current) =>
+            current.map((item) =>
+              item.id === ratingTicket?.id ? { ...item, rating } : item,
+            ),
+          );
+        }}
+      />
     </div>
   );
 }

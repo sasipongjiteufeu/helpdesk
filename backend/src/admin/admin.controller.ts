@@ -74,6 +74,22 @@ export class AdminController {
     return this.adminService.getAgentStatusStatsForRange(from, to);
   }
 
+  @Get('stats/ratings')
+  getRatingStats(
+    @Query('from') from: string,
+    @Query('to') to: string,
+  ) {
+    return this.adminService.getRatingStatsForRange(from, to);
+  }
+
+  @Get('stats/status-range')
+  getStatusStatsForRange(
+    @Query('from') from: string,
+    @Query('to') to: string,
+  ) {
+    return this.adminService.getStatusStatsForRange(from, to);
+  }
+
    @Get('stats-range')
   @Roles(RoleEnum.ADMIN)
   getStatsForRange(

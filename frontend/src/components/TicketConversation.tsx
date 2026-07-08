@@ -27,6 +27,7 @@ import { TicketConversationSkeleton } from "./Skeleton";
 interface TicketConversationProps {
   ticketId: string | number;
   currentUser: User;
+  canReply?: boolean;
 }
 
 function roleText(user: { roles?: RoleEnum[] | { name?: RoleEnum }[] }) {
@@ -157,6 +158,7 @@ function FilePreviewCard({
 export default function TicketConversation({
   ticketId,
   currentUser,
+  canReply = true,
 }: TicketConversationProps) {
   const [messages, setMessages] = useState<TicketMessage[]>([]);
   const [message, setMessage] = useState("");
@@ -168,8 +170,8 @@ export default function TicketConversation({
   const listRef = useRef<HTMLDivElement | null>(null);
 
   const canSend = useMemo(
-    () => message.trim().length > 0 || files.length > 0,
-    [files.length, message],
+    () => canReply && (message.trim().length > 0 || files.length > 0),
+    [canReply, files.length, message],
   );
 
   async function loadMessages() {
@@ -354,7 +356,13 @@ export default function TicketConversation({
       )}
 
       <form onSubmit={handleSubmit} className="shrink-0 border-t border-slate-200 bg-white p-3">
-        <div className="flex items-end gap-2">
+        {!canReply ? (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-900">
+            ต้องให้ Agent เจ้าของ Ticket เพิ่มชื่อก่อน จึงจะส่งข้อความใน Ticket นี้ได้
+          </div>
+        ) : (
+          <>
+            <div className="flex items-end gap-2">
           <input
             ref={fileInputRef}
             type="file"
@@ -393,10 +401,12 @@ export default function TicketConversation({
               <MdSend className="text-xl" />
             )}
           </button>
-        </div>
-        <div className="mt-1 text-right text-xs text-slate-400">
-          {message.length}/5000
-        </div>
+            </div>
+            <div className="mt-1 text-right text-xs text-slate-400">
+              {message.length}/5000
+            </div>
+          </>
+        )}
       </form>
     </section>
   );

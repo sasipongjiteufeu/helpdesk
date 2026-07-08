@@ -17,7 +17,7 @@ import { hasRole } from 'src/auth/role.utile';
 import { CreateTicketMessageDto } from './dto/create-ticket-message.dto';
 import { ListTicketMessagesDto } from './dto/list-ticket-messages.dto';
 import { ListMessageAttachmentsDto } from './dto/list-message-attachments.dto';
-import { canAccessTicket } from './ticket-permissions';
+import { canAccessTicket, canActOnTicket } from './ticket-permissions';
 import { AppCacheService } from 'src/cache/app-cache.service';
 
 @Injectable()
@@ -119,6 +119,14 @@ export class TicketMessageService {
     };
   }
 
+  private async getTicketForAct(user: User, ticketId: number) {
+    const ticket = await this.getTicketForAccess(user, ticketId);
+    if (!canActOnTicket(user, ticket)) {
+      throw new ForbiddenException('You do not have permission to act on this ticket');
+    }
+    return ticket;
+  }
+
   async listForTicket(
     user: User,
     ticketId: number,
@@ -172,7 +180,7 @@ export class TicketMessageService {
     dto: CreateTicketMessageDto,
     files?: Express.Multer.File[],
   ) {
-    const ticket = await this.getTicketForAccess(user, ticketId);
+    const ticket = await this.getTicketForAct(user, ticketId);
     const text = dto.message?.trim() || null;
 
     if (!text && !files?.length) {
