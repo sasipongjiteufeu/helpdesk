@@ -16,7 +16,7 @@
 - ตรวจ signature ไฟล์ PNG/JPEG/GIF/WebP; SVG/HTML ไม่ผ่านในช่องรูปภาพ ส่วนไฟล์แนบอื่นจำกัด PDF/ZIP/text ตามเงื่อนไขที่กำหนด
 - ไฟล์ที่ไม่ใช่รูปภาพ รวมถึงไฟล์เก่าที่เป็น HTML/SVG จะถูกส่งแบบดาวน์โหลด พร้อม sandbox CSP, nosniff และ no-store
 - จำกัด upload ต่อไฟล์ 5 MB, จำนวนสูงสุด 10 ไฟล์, จำกัด fields/parts และลบไฟล์ใหม่เมื่อ validation หรือ service operation ล้มเหลว
-- Public GET/POST ใช้นโยบายเดียวกัน คืนเลขคำร้อง/status/วันที่และข้อความทั่วไป ไม่คืนหัวข้อ/รายละเอียดจริง
+- Public GET/POST ใช้นโยบายเดียวกัน แสดงเลขคำร้อง หัวข้อ รายละเอียด สถานะ และวันที่จริง ตามที่ผู้ใช้ยืนยันให้ทุกคนเห็นงานค้าง/คิว โดยไม่คืนข้อมูลบัญชี เบอร์โทร หรือไฟล์แนบผ่านรายการสาธารณะ
 - เพิ่ม rate limits สำหรับ API และ OAuth; cache มีขนาดสูงสุดและลบ expired entries เมื่อเขียน
 - เพิ่ม security headers ฝั่ง API และ frontend รวม CSP/frame protection/nosniff/referrer policy
 - MySQL/phpMyAdmin ของ local bind ที่ 127.0.0.1 แล้ว ไม่เปิดทุก network interface
@@ -28,7 +28,7 @@
 - Backend suite: 20 suites / 55 tests ผ่าน รวม regression tests ของ role authorization, ticket permissions, OAuth state/PKCE, Origin checks, logout, file validation และ mail transport แบบไม่ส่งเมลจริง
 - ปรับ test fixtures เก่าที่ขาด dependency mocks และ assertions ของ filter ที่ยังอิงพฤติกรรมเก่า โดยไม่ย้อนแก้ production filter ให้ตาม tests เก่า
 - Backend และ frontend build ผ่าน; frontend navigation checks ผ่าน
-- `node scripts/check-local-security.mjs` ผ่านกับ Docker local: anonymous role APIs ถูกปฏิเสธ, callback state ผิดถูกปฏิเสธ, CSRF checks, POST logout, cookie expiry, debug 404, redacted public data, invalid pagination 400 และ security headers
+- `node scripts/check-local-security.mjs` ตรวจ Docker local: anonymous role APIs ถูกปฏิเสธ, callback state ผิดถูกปฏิเสธ, CSRF checks, POST logout, cookie expiry, debug 404, public data ตามรายการฟิลด์ที่อนุญาต, invalid pagination 400 และ security headers
 - Docker Compose local และ server configs ผ่าน `config --quiet`
 
 ## ผล dependency audit หลังอัปเดต

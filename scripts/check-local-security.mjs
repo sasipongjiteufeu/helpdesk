@@ -41,9 +41,11 @@ for (const method of ['GET', 'POST']) {
   assert(response.ok);
   const data = await response.json();
   for (const item of data.items) {
-    assert.equal(item.title, `คำร้อง #${item.id}`);
-    assert.equal(item.detail, 'เข้าสู่ระบบเพื่อติดตามคำร้องของคุณ');
+    assert.equal(typeof item.title, 'string');
+    assert.equal(typeof item.detail, 'string');
     assert(!('createdBy' in item));
+    assert(!('tel' in item));
+    assert(!('images' in item));
   }
 }
 assert.equal((await fetch(`${api}/tickets/public?limit=invalid`)).status, 400);

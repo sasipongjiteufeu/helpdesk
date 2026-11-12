@@ -404,8 +404,8 @@ export class TicketService {
     .createQueryBuilder('t')
     .select([
       't.id',
-
-
+      't.title',
+      't.detail',
       't.status',
       't.createdAt',
       't.updatedAt',
@@ -433,7 +433,18 @@ export class TicketService {
 
   const [items, total] = await qb.getManyAndCount();
 
-  return { items: items.map(item => ({ id: item.id, title: `คำร้อง #${item.id}`, detail: "เข้าสู่ระบบเพื่อติดตามคำร้องของคุณ", status: item.status, createdAt: item.createdAt, updatedAt: item.updatedAt, resolvedAt: item.resolvedAt })), total, page, limit };
+  return {
+    items: items.map(item => ({
+      id: item.id,
+      title: item.title,
+      detail: item.detail,
+      status: item.status,
+      createdAt: item.createdAt,
+      updatedAt: item.updatedAt,
+      resolvedAt: item.resolvedAt,
+    })),
+    total, page, limit,
+  };
   });
 
 }
