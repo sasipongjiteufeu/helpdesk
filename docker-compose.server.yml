@@ -6,6 +6,8 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+    volumes:
+      - ./storage/uploads:/app/uploads
     container_name: helpdesk-backend
     # ให้รับ request แค่จากเครื่อง host (Nginx จะมาเรียก)
     #ports:
@@ -17,32 +19,35 @@ services:
       - FRONTEND_URL=https://itsupport.sru.ac.th
 
       # === Google OAuth ===
-      - GOOGLE_CLIENT_ID=587858471059-3higpfbv1pnrdiok0ds0v0459n30btei.apps.googleusercontent.com
-      - GOOGLE_CLIENT_SECRET=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
+      - GOOGLE_CLIENT_ID=${PROD_GOOGLE_CLIENT_ID:?Set PROD_GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${PROD_GOOGLE_CLIENT_SECRET:?Set PROD_GOOGLE_CLIENT_SECRET}
       - GOOGLE_CALLBACK_URL=https://itsupport.sru.ac.th/auth/google/redirect
       # GOOGLE_CALLBACK_URL=http://localhost:3000/auth/google/redirect
 
       - NODE_ENV=production
-      - COOKIE_SECURE=false
-      - JWT_SECRET=CCISRUCOM
+      - COOKIE_SECURE=true
+      - SESSION_SECRET=${PROD_SESSION_SECRET:?Set PROD_SESSION_SECRET}
+      - TRUST_PROXY=loopback
+      - HOST=127.0.0.1
+      - JWT_SECRET=${PROD_JWT_SECRET:?Set PROD_JWT_SECRET}
       - JWT_EXPIRES_IN=7d
 
       # DB connection (ใช้ service name db)
       - DATABASE_HOST=127.0.0.1
       - DATABASE_PORT=3306
       - DATABASE_USER=itsupport_user
-      - DATABASE_PASSWORD=OLSsQ_D}u6w=?u}#
+      - DATABASE_PASSWORD=${PROD_DATABASE_PASSWORD:?Set PROD_DATABASE_PASSWORD}
       - DATABASE_NAME=itsupport_db
 
       # === SMTP Email ===
       - SMTP_HOST=smtp.gmail.com
       - SMTP_PORT=465
       - SMTP_USER=software.dev@sru.ac.th
-      - SMTP_PASS=clhvrageredavkpr
+      - SMTP_PASS=${PROD_SMTP_PASS:?Set PROD_SMTP_PASS}
       - SMTP_FROM=software.dev@sru.ac.th
 
       # === Telegram ===
-      - TELEGRAM_BOT_TOKEN=8350312225:AAEaJ0eZeJ1Oxy7EubTON27ZIPodRxTzCnA
+      - TELEGRAM_BOT_TOKEN=${PROD_TELEGRAM_BOT_TOKEN:?Set PROD_TELEGRAM_BOT_TOKEN}
       - TELEGRAM_CHAT_ID=-4828646624
 
     restart: unless-stopped
@@ -51,17 +56,17 @@ services:
         node dist/seeds/seed-roles.js &&
         node dist/main.js
       "
-    networks:                # 👈 เพิ่มตรงนี้
-      - helpdesk-net
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: https://itsupport.sru.ac.th/api
     container_name: helpdesk-frontend
     # เปิดให้ Nginx บน host ยิงเข้าเท่านั้น
     ports:
-      - "8082:80"
+      - "127.0.0.1:8082:80"
     environment:
       - NODE_ENV=production
     depends_on:

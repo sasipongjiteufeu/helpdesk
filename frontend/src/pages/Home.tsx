@@ -1,6 +1,6 @@
+import ServiceAnnouncement from "../components/ServiceAnnouncement";
 // src/pages/Home.tsx
 import { useEffect, useMemo, useState } from "react";
-import { FaUserShield } from "react-icons/fa";
 import AppHeaderBackend from "../components/AppHeaderBackend";
 import { useRequireAuth } from "../hooks/useRequireAuth";
 import { API_BASE, cachedJsonFetch } from "../lib/api";
@@ -155,22 +155,10 @@ export default function Home() {
                 ติดตามสถานะ Ticket ที่เปิดอยู่และงานที่กำลังดำเนินการในระบบ Helpdesk
               </p>
             </div>
-
-            {user?.roles && user.roles.length > 1 && (
-              <div className="flex flex-wrap gap-2 lg:justify-end">
-                <button
-                  type="button"
-                  onClick={() => (window.location.href = "/choose-role")}
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-blue-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 active:scale-[0.98]"
-                >
-                  <FaUserShield className="text-lg" />
-                  <span>เลือกบทบาท</span>
-                </button>
-              </div>
-            )}
           </div>
         </section>
 
+        <ServiceAnnouncement />
         <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           <div className="rounded-2xl border border-blue-100 bg-white p-4 shadow-sm sm:p-5">
             <p className="m-0 text-sm font-semibold text-slate-500">กำลังดำเนินการวันนี้</p>

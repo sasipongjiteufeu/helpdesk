@@ -25,7 +25,7 @@ import { AppCacheModule } from './cache/app-cache.module';
       // Use class-based entities OR a safe glob
       // entities: [User, Role],
       entities: [__dirname + '/**/*.entity.{js,ts}'],
-      synchronize: true, // dev only
+      synchronize: process.env.NODE_ENV !== 'production' && process.env.DB_SYNCHRONIZE === 'true',
     }), AppCacheModule, TicketModule, RoleModule, UserModule, AuthModule, AdminModule, TelegramNotifyModule],
   controllers: [AppController],
   providers: [AppService],

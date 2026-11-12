@@ -1,6 +1,8 @@
-import { Controller, Get, Req, Res, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Header, Req, Res, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { UserService } from 'src/user/user.service';
+import { GoogleLoginGuard } from './google-login.guard';
+import { SESSION_COOKIE_NAME, sessionCookieOptions } from './session-cookie';
 
 @Controller('auth')
 export class AuthController {
@@ -8,10 +10,11 @@ export class AuthController {
 
   // GET /auth/google  -> start OAuth
   @Get('google')
-  @UseGuards(AuthGuard('google'))
+  @UseGuards(GoogleLoginGuard)
   googleAuth() {}
 
   @Get('me')
+  @Header('Cache-Control', 'no-store')
   getMe(@Req() req: any) {
     if (!req.user) {
       return { authenticated: false };
@@ -26,15 +29,6 @@ export class AuthController {
       name: name ?? null,
       avatarUrl: avatarUrl ?? null,
       roles,
-    };
-  }
-
-  @Get('debug/session')
-  debugSession(@Req() req) {
-    return {
-      isAuthenticated: !!req.isAuthenticated?.() && !!req.user,
-      session: req.session,
-      user: req.user,
     };
   }
 
@@ -92,17 +86,22 @@ export class AuthController {
     }
   }
 
-  @Get('logout')
+  @Post('logout')
+  @Header('Cache-Control', 'no-store')
   logout(@Req() req, @Res() res) {
     req.logout((err) => {
       if (err) {
-        return res.status(500).json({ error: err.message });
+        return res.status(500).json({ error: 'ไม่สามารถออกจากระบบได้ กรุณาลองใหม่' });
       }
 
-      req.session.destroy(() => {
-        res.clearCookie('__host.sid');
+      req.session.destroy((destroyError) => {
+        res.clearCookie(SESSION_COOKIE_NAME, sessionCookieOptions());
 
-        return res.json({ message: '�,-�,-�,?�,^�,��,?�,��,��,s�,s' });
+        if (destroyError) {
+          return res.status(500).json({ error: 'ไม่สามารถล้างเซสชันได้ กรุณาลองใหม่' });
+        }
+
+        return res.json({ message: 'ออกจากระบบสำเร็จ' });
       });
     });
   }

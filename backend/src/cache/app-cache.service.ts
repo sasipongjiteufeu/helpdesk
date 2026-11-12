@@ -27,6 +27,13 @@ export class AppCacheService {
 
   set<T>(key: string, value: T, ttlSeconds: number): T {
     if (!this.enabled || ttlSeconds <= 0) return value;
+    const now = Date.now();
+    for (const [existingKey, entry] of this.store) {
+      if (entry.expiresAt <= now) this.store.delete(existingKey);
+    }
+    if (this.store.size >= 500 && !this.store.has(key)) {
+      this.store.delete(this.store.keys().next().value!);
+    }
 
     this.store.set(key, {
       value,

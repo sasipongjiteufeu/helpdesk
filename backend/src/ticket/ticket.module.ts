@@ -4,6 +4,7 @@ import { MulterModule } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import * as fs from 'fs';
 import * as path from 'path';
+import { randomUUID } from 'crypto';
 import { Ticket } from './entities/ticket.entity';
 import { User } from 'src/user/entities/user.entity';
 import { TicketService } from './ticket.service';
@@ -40,12 +41,12 @@ import { TicketRating } from './entities/ticket-rating.entity';
           cb(null, uploadPath);
         },
         filename: (req, file, cb) => {
-          const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+          const unique = randomUUID();
           const ext = path.extname(file.originalname);
           cb(null, `${unique}${ext}`);
         },
       }),
-      limits: { fileSize: 5 * 1024 * 1024 }, // 5MB max; adjust as needed
+      limits: { fileSize: 5 * 1024 * 1024, files: 10, fields: 20, fieldSize: 64 * 1024, parts: 30 },
     }),TelegramNotifyModule
   ],
   controllers: [TicketController],

@@ -1,7 +1,8 @@
+import { Link } from "react-router-dom";
 export default function Welcome() {
   return (
-    <div style={{minHeight:'100dvh',display:'grid',placeItems:'center'}}>
-      <h2>Welcome 🎉</h2>
+    <div className="utility-page">
+      <div className="utility-card"><p>SRU HELPDESK</p><h1>ยินดีต้อนรับสู่ศูนย์บริการ IT</h1><p>แจ้งปัญหาและติดตามสถานะการดำเนินงานของคุณ</p><Link to="/">เข้าสู่พื้นที่การทำงาน</Link></div>
     </div>
   );
 }

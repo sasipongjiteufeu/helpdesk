@@ -4,13 +4,7 @@ describe('TicketService', () => {
   let service: TicketService;
 
   beforeEach(() => {
-    service = new TicketService(
-      {} as any,
-      {} as any,
-      {} as any,
-      {} as any,
-      {} as any,
-    );
+    service = Reflect.construct(TicketService, Array.from({ length: 12 }, () => ({})));
   });
 
   it('should be defined', () => {
@@ -79,17 +73,17 @@ describe('TicketService', () => {
 
     expect(qb.andWhere).toHaveBeenCalledTimes(1);
     expect(qb.andWhere).toHaveBeenCalledWith(
-      '(t.status = :openStatus OR t.status = :inProgressStatus)',
+      '(t.status = :openStatus0 OR t.status = :inProgressStatus1)',
       {
-        openStatus: 'OPEN',
-        inProgressStatus: 'IN_PROGRESS',
+        openStatus0: 'OPEN',
+        inProgressStatus1: 'IN_PROGRESS',
       },
     );
   });
 
-  it('maps FINISHED_BY_ME to the COMMIT filter for backward compatibility', () => {
+  it('keeps FINISHED_BY_ME distinct from in-progress assignments', () => {
     expect((service as any).normalizeFilters(['FINISHED_BY_ME'])).toEqual([
-      'COMMIT',
+      'FINISHED_BY_ME',
     ]);
   });
 
@@ -106,10 +100,10 @@ describe('TicketService', () => {
 
     expect(qb.andWhere).toHaveBeenCalledTimes(1);
     expect(qb.andWhere).toHaveBeenCalledWith(
-      '((t.status = :commitStatus AND assignedTo.id = :me))',
+      '((t.status = :commitStatus0 AND (assignedTo.id = :commitUser0 OR (participantAgent.id = :commitUser0 AND participants.isActive = true))))',
       {
-        commitStatus: 'IN_PROGRESS',
-        me: 'agent-1',
+        commitStatus0: 'IN_PROGRESS',
+        commitUser0: 'agent-1',
       },
     );
   });
@@ -123,11 +117,11 @@ describe('TicketService', () => {
 
     expect(qb.andWhere).toHaveBeenCalledTimes(1);
     expect(qb.andWhere).toHaveBeenCalledWith(
-      '(t.status = :openStatus OR (t.status = :commitStatus AND assignedTo.id = :me))',
+      '(t.status = :openStatus0 OR (t.status = :commitStatus1 AND (assignedTo.id = :commitUser1 OR (participantAgent.id = :commitUser1 AND participants.isActive = true))))',
       {
-        openStatus: 'OPEN',
-        commitStatus: 'IN_PROGRESS',
-        me: 'agent-1',
+        openStatus0: 'OPEN',
+        commitStatus1: 'IN_PROGRESS',
+        commitUser1: 'agent-1',
       },
     );
   });

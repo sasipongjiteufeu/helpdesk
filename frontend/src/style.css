@@ -1,4 +1,4 @@
-/* ------------------ Role choose page ------------------ */
+/* Shared helpdesk design */
 
 @import "tailwindcss";
 
@@ -8,5 +8,83 @@ body {
   line-height: 1.6;
   background: #f7fafc;
   color: #1f2937;
+}
+
+body { margin: 0; background: #eef2f7; color: #172b4d; font-size: 16px; }
+button:not(:disabled), select { cursor: pointer; }
+:where(a, button, input, textarea, select):focus-visible { outline: 3px solid #3b82f6; outline-offset: 3px; }
+.helpdesk-app { min-height: 100dvh; }
+.helpdesk-app:has(.app-sidebar) { padding-left: 248px; }
+.helpdesk-app > .min-h-screen { background: #eef2f7; padding: 24px; }
+.helpdesk-app > .min-h-screen:has(.app-header) { display: block; }
+.helpdesk-app > .min-h-screen:has(.app-header) > div { width: 100%; max-width: 1560px; margin-inline: auto; }
+.helpdesk-app > .min-h-screen > .container:has(.app-header) { padding: 0; background: transparent; box-shadow: none; }
+.app-header { margin-bottom: 22px; border-radius: 12px; border-color: #dce4ef; box-shadow: 0 2px 4px #172b4d04; }
+.app-header h1 { white-space: normal; }
+.app-sidebar { position: fixed; inset: 0 auto auto 0; width: 248px; height: 100dvh; margin: 0; box-sizing: border-box; z-index: 30; display: flex; flex-direction: column; padding: 24px 16px 20px; background: #122747; color: #d6e2f3; overflow: hidden; }
+.app-sidebar > :not(nav) { flex-shrink: 0; }
+.app-sidebar > nav { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: #526889 #122747; }
+.sidebar-brand { display: flex; align-items: center; gap: 10px; color: white; text-decoration: none; padding: 0 4px 26px; border-bottom: 1px solid #ffffff18; }
+.sidebar-brand img { width: 38px; height: 52px; object-fit: contain; }
+.sidebar-brand strong { display: block; font-size: 16px; letter-spacing: .035em; }
+.sidebar-brand span { display: block; margin-top: 3px; font-size: 10px; color: #b4c5dd; }
+.sidebar-caption { margin: 28px 12px 10px; font-size: 11px; color: #96accb; }
+.sidebar-link { display: flex; align-items: center; gap: 12px; margin: 5px 0; padding: 13px 14px; border-radius: 9px; color: #c3d1e5; font-size: 14px; text-decoration: none; transition: background .15s; }
+.sidebar-link svg { font-size: 21px; flex-shrink: 0; }
+.sidebar-link:hover { background: #ffffff0c; color: white; }
+.sidebar-link.is-active { background: #2563eb; color: white; box-shadow: 0 4px 12px #0002; }
+.sidebar-help { margin-top: 16px; padding: 16px 12px 0; border-top: 1px solid #ffffff18; }
+.sidebar-help > span { font-size: 10px; letter-spacing: .15em; color: #8eb6ff; }
+.sidebar-help strong { display: block; margin-top: 10px; font-size: 18px; line-height: 1.7; color: white; }
+.sidebar-help p { margin-top: 16px; font-size: 10px; color: #96accb; }
+.mobile-navigation { display: none; }
+.service-announcement { display: flex; align-items: flex-start; gap: 14px; margin-block: 20px; padding: 18px 20px; background: #fff9eb; border: 1px solid #f0dca5; border-left: 4px solid #e4a324; border-radius: 12px; color: #715021; }
+.announcement-icon { display: grid; place-items: center; flex-shrink: 0; width: 36px; height: 36px; border-radius: 10px; background: #ffedbd; font-size: 20px; }
+.service-announcement h2 { margin: 0 0 5px; font-size: 15px; font-weight: 700; color: #714311; }
+.service-announcement p { margin: 0; font-size: 14px; line-height: 1.85; }
+.service-announcement a { color: #82500a; text-decoration: underline; text-underline-offset: 3px; white-space: nowrap; }
+.helpdesk-app section.rounded-2xl { border-radius: 12px; box-shadow: 0 2px 5px #172b4d04; }
+.helpdesk-app section:has(> div > div > h2) { border-top: 3px solid #2563eb; }
+.helpdesk-app table thead { background: #edf3fa; color: #516680; }
+.helpdesk-app table th { padding-block: 14px; font-weight: 600; }
+.helpdesk-app table tbody tr:hover { background: #f3f7fd; }
+.helpdesk-app input:not([type=checkbox]):not([type=radio]):not([type=file]), .helpdesk-app textarea, .helpdesk-app select { border-color: #ced9e6; border-radius: 8px; }
+.helpdesk-app input:focus, .helpdesk-app textarea:focus, .helpdesk-app select:focus { border-color: #2563eb; }
+.helpdesk-app .grid > div:has(> p + div > strong) { border-top-width: 3px; }
+.helpdesk-app > .min-h-screen:not(:has(.app-header)) { position: relative; background: #eaf0f8; }
+.helpdesk-app > .min-h-screen:not(:has(.app-header)) > .absolute { display: none; }
+.helpdesk-app > .min-h-screen:not(:has(.app-header)) > .text-center { border-top: 4px solid #2563eb; }
+.utility-page { min-height: 100dvh; display: grid; place-items: center; padding: 24px; background: #eaf0f8; }
+.utility-card { width: 100%; max-width: 520px; background: white; padding: 40px; border-radius: 16px; border: 1px solid #dce4ef; border-top: 4px solid #2563eb; text-align: center; box-shadow: 0 12px 40px #172b4d0a; }
+.utility-card h1 { font-size: 26px; font-weight: 700; margin: 16px 0; }
+.utility-card p { color: #64748b; }
+.utility-card a { display: inline-flex; background: #2563eb; color: white; border-radius: 8px; padding: 10px 22px; margin-top: 22px; text-decoration: none; }
+@media (max-width: 1023px) {
+  .helpdesk-app:has(.app-sidebar) { padding-left: 0; padding-top: 58px; }
+  .mobile-navigation { position: fixed; inset: 0 0 auto; height: 58px; margin: 0; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; background: #122747; color: white; z-index: 40; font-size: 14px; letter-spacing: .06em; }
+  .mobile-navigation button { display: grid; place-items: center; width: 40px; height: 40px; font-size: 25px; border-radius: 8px; background: #ffffff12; }
+  .app-sidebar { display: none; top: 58px; height: calc(100dvh - 58px); width: min(320px, 100%); box-shadow: 16px 0 40px #12274730; }
+  .app-sidebar.is-open { display: flex; }
+  .helpdesk-app > .min-h-screen { padding: 18px; }
+}
+@media (max-height: 600px) {
+  .sidebar-help { display: none; }
+  .sidebar-brand { padding-bottom: 12px; }
+  .sidebar-caption { margin-top: 12px; }
+}
+@media (max-width: 639px) {
+  .helpdesk-app > .min-h-screen { padding: 12px; }
+  .service-announcement { padding: 14px; gap: 10px; }
+  .announcement-icon { width: 26px; height: 28px; font-size: 16px; }
+  .service-announcement p { font-size: 13px; }
+  .app-header h1 { font-size: 17px; }
+  .utility-card { padding: 28px 20px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .helpdesk-app *, .helpdesk-app *::before, .helpdesk-app *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
+@media print {
+  .app-sidebar, .mobile-navigation { display: none !important; }
+  .helpdesk-app:has(.app-sidebar) { padding: 0; }
 }
 

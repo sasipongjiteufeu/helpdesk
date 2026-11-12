@@ -2,7 +2,7 @@
 FROM node:20 AS base
 WORKDIR /app
 COPY package*.json ./
-RUN npm install
+RUN npm ci
 
 # ---- build: compile typescript ----
 FROM base AS build
@@ -15,6 +15,7 @@ WORKDIR /app
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/package*.json ./
+RUN npm prune --omit=dev
 
 EXPOSE 3000
-CMD ["node", "dist/main.js"] 
+CMD ["node", "dist/main.js"]

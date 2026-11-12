@@ -1,4 +1,4 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 
 
 import Home from "./pages/Home";
@@ -9,7 +9,6 @@ import Forbidden from "./pages/Forbidden";
 import AgentTicketsPage from "./pages/AgentTicketPage";
 
 import User from "./pages/User";
-import ChooseRole from "./pages/ChooseRole";
 import UserCreateTicketPage from "./pages/UserCreateTicketPage";
 import UserTicketInfoPage from "./pages/UserTicketInfoPage";
 import AdminPage from "./pages/Admin";
@@ -18,6 +17,7 @@ import AdminStatsPage from "./pages/AdminStatsPage";
 
 export default function App() {
   return (
+    <div className="helpdesk-app">
     <Routes>
       {/* Make the agent dashboard the first page */}
       <Route path="/" element={<Home/>} />
@@ -37,8 +37,9 @@ export default function App() {
       <Route path="/agent" element={<AgentTicketsPage />} />
       <Route path="/agent/ticket/:id" element={<AgentTicketInfoPage />} />
 
-      {/* multi-role choose page */}
-      <Route path="/choose-role" element={<ChooseRole />} />
+      {/* Keep old bookmarks and OAuth redirects working without a role picker. */}
+      <Route path="/choose-role" element={<Navigate to="/" replace />} />
     </Routes>
+    </div>
   );
 }

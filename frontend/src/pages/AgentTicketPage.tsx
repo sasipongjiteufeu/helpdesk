@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { MdHome, MdInfo, MdRefresh } from "react-icons/md";
-import { FaUserShield } from "react-icons/fa";
 import AppHeaderBackend from "../components/AppHeaderBackend";
 import { useRequireAuth } from "../hooks/useRequireAuth";
 import { API_BASE, cachedJsonFetch, invalidateFrontendCache } from "../lib/api";
@@ -286,15 +285,6 @@ export default function AgentTicketsPage() {
               >
                 <MdHome /> หน้าสาธารณะ
               </button>
-              {user.roles && user.roles.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() => (window.location.href = "/choose-role")}
-                  className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100"
-                >
-                  <FaUserShield /> เลือกบทบาท
-                </button>
-              )}
               <button
                 type="button"
                 onClick={refresh}

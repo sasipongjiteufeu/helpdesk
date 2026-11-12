@@ -1,9 +1,10 @@
+import ServiceAnnouncement from "../components/ServiceAnnouncement";
 // src/pages/User.tsx
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
 import { MdDelete, MdHome, MdOutlineAddCircle, MdRefresh } from "react-icons/md";
-import { FaCircleInfo, FaUserShield } from "react-icons/fa6";
+import { FaCircleInfo } from "react-icons/fa6";
 import { FaStar } from "react-icons/fa";
 import AppHeaderBackend from "../components/AppHeaderBackend";
 import { useRequireAuth } from "../hooks/useRequireAuth";
@@ -299,16 +300,6 @@ export default function UserTicketsPage() {
                 <MdHome className="text-lg" /> หน้าสาธารณะ
               </button>
 
-              {user?.roles && user.roles.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() => (window.location.href = "/choose-role")}
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-4 text-sm font-semibold text-blue-700 transition hover:bg-blue-100"
-                >
-                  <FaUserShield className="text-lg" /> เลือกบทบาท
-                </button>
-              )}
-
               <Link
                 to="/user/create"
                 className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-emerald-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700"
@@ -319,6 +310,7 @@ export default function UserTicketsPage() {
           </div>
         </section>
 
+        <ServiceAnnouncement />
         <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
             <p className="m-0 text-sm font-semibold text-slate-500">คำร้องทั้งหมด</p>

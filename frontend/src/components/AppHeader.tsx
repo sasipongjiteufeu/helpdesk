@@ -56,7 +56,13 @@ export function AppHeader({ user, title }: Props) {
 
         <button
           type="button"
-          onClick={() => (window.location.href = `${API_BASE}/auth/logout`)}
+          onClick={async () => {
+            try {
+              const response = await fetch(`${API_BASE}/auth/logout`, { method: 'POST', credentials: 'include' });
+              if (!response.ok) throw new Error('Logout failed');
+              window.location.replace('/');
+            } catch { window.alert('ออกจากระบบไม่สำเร็จ กรุณาลองใหม่'); }
+          }}
           style={{
             padding: '6px 14px',
             borderRadius: '999px',

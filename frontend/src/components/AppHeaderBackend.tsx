@@ -1,12 +1,13 @@
 import axios from "axios";
-import { useNavigate } from "react-router-dom";
 import { MdOutlineLogout } from "react-icons/md";
 import Swal from "sweetalert2";
 import logoSRU from "../assets/logo-sru-png.png";
 import { API_BASE } from "../lib/api";
+import AppSidebar from "./AppSidebar";
 
 interface User {
   email?: string;
+  roles?: { name?: string }[];
 }
 
 interface AppHeaderBackendProps {
@@ -15,7 +16,6 @@ interface AppHeaderBackendProps {
 }
 
 export default function AppHeaderBackend({ user, title }: AppHeaderBackendProps) {
-  const navigate = useNavigate();
 
   const handleLogin = () => {
     window.location.href = `${API_BASE}/auth/google`;
@@ -36,21 +36,30 @@ export default function AppHeaderBackend({ user, title }: AppHeaderBackendProps)
 
       if (!result.isConfirmed) return;
 
-      await axios.get(`${API_BASE}/auth/logout`, { withCredentials: true });
+      await axios.post(`${API_BASE}/auth/logout`, {}, { withCredentials: true });
       await Swal.fire({
         title: "ออกจากระบบแล้ว",
         text: "คุณออกจากระบบสำเร็จ",
         icon: "success",
         confirmButtonText: "ตกลง",
       });
-      navigate("/");
+      // Reset user state and in-memory API caches, including logout on the home route.
+      window.location.replace("/");
     } catch (error) {
       console.error(error);
+      await Swal.fire({
+        title: "ออกจากระบบไม่สำเร็จ",
+        text: "กรุณาลองอีกครั้ง ระบบยังไม่ยืนยันการออกจากระบบ",
+        icon: "error",
+        confirmButtonText: "ตกลง",
+      });
     }
   };
 
   return (
-    <header className="rounded-2xl border border-slate-200 bg-white/95 px-4 py-3 shadow-sm">
+    <>
+    <AppSidebar user={user} />
+    <header className="app-header rounded-2xl border border-slate-200 bg-white/95 px-4 py-3 shadow-sm">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex min-w-0 items-center gap-3">
           <img src={logoSRU} alt="SRU Logo" className="h-12 w-auto shrink-0" />
@@ -91,5 +100,6 @@ export default function AppHeaderBackend({ user, title }: AppHeaderBackendProps)
         </div>
       </div>
     </header>
+    </>
   );
 }

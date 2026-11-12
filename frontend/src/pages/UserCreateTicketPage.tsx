@@ -1,3 +1,4 @@
+import ServiceAnnouncement from "../components/ServiceAnnouncement";
 // src/pages/UserCreateTicketPage.tsx
 import { FormEvent, ChangeEvent, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
@@ -114,6 +115,7 @@ export default function UserCreateTicketPage() {
       <div className=" container mx-auto bg-white rounded-2xl shadow-2xl p-5">
         {/* Header */}
         <AppHeaderBackend user={user} title={"USER"} />
+        <ServiceAnnouncement />
 
         {/* Content card */}
         <div className="mt-4 rounded-xl border border-gray-200 bg-gray-50 p-5">

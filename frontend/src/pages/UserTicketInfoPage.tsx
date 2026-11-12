@@ -1,3 +1,4 @@
+import ServiceAnnouncement from "../components/ServiceAnnouncement";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { MdArrowBack } from "react-icons/md";
@@ -84,6 +85,7 @@ export default function UserTicketInfoPage() {
     <div className="min-h-screen bg-slate-100 px-4 py-4 text-slate-900 sm:px-6 lg:px-8 xl:px-10">
       <div className="mx-auto w-full max-w-[1800px] space-y-5">
         <AppHeaderBackend user={user} title="USER" />
+        <ServiceAnnouncement />
 
         <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
           <div>

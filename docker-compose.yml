@@ -16,7 +16,7 @@ services:
     networks:
       - helpdesk-net
     ports:
-      - "3306:3306"      
+      - "127.0.0.1:3306:3306"
   phpmyadmin:
     image: phpmyadmin:5
     container_name: helpdesk-phpmyadmin
@@ -28,7 +28,7 @@ services:
       PMA_PORT: 3306
       UPLOAD_LIMIT: 64M
     ports:
-      - "8081:80"
+      - "127.0.0.1:8081:80"
     networks:
       - helpdesk-net
 
@@ -36,6 +36,8 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+    volumes:
+      - ./storage/uploads:/app/uploads
     container_name: helpdesk-backend
     ports:
       - "3000:3000"
@@ -48,10 +50,11 @@ services:
       # === Google OAuth ===
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID_ENV} # 👈 ใช้จาก .env
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET_ENV} # 👈 ใช้จาก .env
-      - GOOGLE_CALLBACK_URL=http://localhost:3000/auth/google/redirect
+      - GOOGLE_CALLBACK_URL=http://localhost:3000/api/auth/google/redirect
 
       - NODE_ENV=production
       - COOKIE_SECURE=false
+      - SESSION_SECRET=${SESSION_SECRET:?Set SESSION_SECRET}
       - JWT_SECRET=${JWT_SECRET_ENV} # 👈 ใช้จาก .env
       - JWT_EXPIRES_IN=7d
 
@@ -59,7 +62,7 @@ services:
       - DATABASE_HOST=db
       - DATABASE_PORT=3306
       - DATABASE_USER=helpdesk_user
-      - DATABASE_PASSWORD=your_strong_user_password
+      - DATABASE_PASSWORD=${LOCAL_DATABASE_PASSWORD:?Set LOCAL_DATABASE_PASSWORD}
       - DATABASE_NAME=helpdesk_db
 
       # === SMTP Email ===

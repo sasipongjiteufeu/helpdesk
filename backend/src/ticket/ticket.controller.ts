@@ -23,6 +23,10 @@ import { RoleEnum } from 'src/role/entities/role.enum';
 import * as path from 'path';
 import * as fs from 'fs';
 import { FilterTicketDto } from './dto/filter-ticket.dto';
+import { UpdateTicketDto } from './dto/update-ticket.dto';
+import { AssignTicketDto, ChangeTicketStatusDto } from './dto/ticket-mutations.dto';
+import { ListTicketTagsDto as PaginationDto } from './dto/list-ticket-tags.dto';
+import { UploadSafetyInterceptor, safeFileHeaders } from './upload-safety';
 
 @Controller('tickets')
 
@@ -37,7 +41,7 @@ export class TicketController {
   @Post()
   @UseGuards(AuthenticatedGuard, RolesGuard)
   @Roles(RoleEnum.USER, RoleEnum.AGENT, RoleEnum.ADMIN)
-  @UseInterceptors(FilesInterceptor('pictures', 10)) // 👈 matches form field "pictures"
+  @UseInterceptors(FilesInterceptor('pictures', 10), UploadSafetyInterceptor)
   create(
     @Body() dto: CreateTicketDto,
     @UploadedFiles() files: Express.Multer.File[],
@@ -50,16 +54,13 @@ export class TicketController {
   @Get()
   @UseGuards(AuthenticatedGuard, RolesGuard)
   @Roles(RoleEnum.USER, RoleEnum.AGENT, RoleEnum.ADMIN)
-  findAll(@Req() req: any, @Query('page') page?: string, @Query('limit') limit?: string) {
-    return this.svc.findAllFor(req.user, {
-      page: page ? parseInt(page, 10) : 1,
-      limit: limit ? parseInt(limit, 10) : 20,
-    });
+  findAll(@Req() req: any, @Query() query: PaginationDto) {
+    return this.svc.findAllFor(req.user, { page: query.page ?? 1, limit: query.limit ?? 20 });
   }
   
 @Post('public')
 findAllPublicPost(
-  @Body() body: { page?: number; limit?: number },
+  @Body() body: PaginationDto,
 ) {
   const page = body.page ?? 1;
   const limit = body.limit ?? 20;
@@ -67,11 +68,8 @@ findAllPublicPost(
 }
   // Public list (no auth) for landing page
   @Get('public')
-  findAllPublic(@Query('page') page?: string, @Query('limit') limit?: string) {
-    return this.svc.findAllPublic({
-      page: page ? parseInt(page, 10) : 1,
-      limit: limit ? parseInt(limit, 10) : 20,
-    });
+  findAllPublic(@Query() query: PaginationDto) {
+    return this.svc.findAllPublic({ page: query.page ?? 1, limit: query.limit ?? 20 });
   }
 
   // Filter (server-side) to reduce client load
@@ -86,7 +84,7 @@ findAllPublicPost(
   @Post('mine')
   @UseGuards(AuthenticatedGuard, RolesGuard)
   @Roles(RoleEnum.USER, RoleEnum.AGENT, RoleEnum.ADMIN)
-  findAllMine(@Req() req: any, @Body() body: { page?: number; limit?: number }) {
+  findAllMine(@Req() req: any, @Body() body: PaginationDto) {
     const page = body.page ?? 1;
     const limit = body.limit ?? 20;
     return this.svc.findAllMine(req.user, { page, limit });
@@ -217,8 +215,7 @@ findAllPublicPost(
       : path.join(process.cwd(), firstImage.path);
     if (!fs.existsSync(absPath)) return res.status(204).send();
 
-    res.setHeader('Content-Type', firstImage.mimeType || 'application/octet-stream');
-    res.setHeader('Cache-Control', 'private, max-age=86400');
+    safeFileHeaders(res, firstImage.mimeType, firstImage.filename || 'attachment');
     return res.sendFile(absPath);
   }
   // === NEW: get one image's bytes ===
@@ -242,8 +239,7 @@ findAllPublicPost(
       return res.status(204).send();
     }
 
-    res.setHeader('Content-Type', img.mimeType || 'application/octet-stream');
-    res.setHeader('Cache-Control', 'private, max-age=86400');
+    safeFileHeaders(res, img.mimeType, img.filename || 'attachment');
     return res.sendFile(absPath);
   }
   // === NEW: list all images metadata for a ticket ===
@@ -285,7 +281,7 @@ findAllPublicPost(
 
       cb(null, true);
     },
-  }))
+  }), UploadSafetyInterceptor)
   createMessage(
     @Param('ticketId') ticketId: number,
     @Body() dto: CreateTicketMessageDto,
@@ -326,12 +322,7 @@ findAllPublicPost(
       return res.status(404).send();
     }
 
-    res.setHeader('Content-Type', attachment.mimeType || 'application/octet-stream');
-    res.setHeader('Cache-Control', 'private, max-age=86400');
-    res.setHeader(
-      'Content-Disposition',
-      `inline; filename="${encodeURIComponent(attachment.originalName)}"`,
-    );
+    safeFileHeaders(res, attachment.mimeType, attachment.originalName);
     return res.sendFile(absPath);
   }
 
@@ -368,10 +359,10 @@ findAllPublicPost(
   @Patch(':id')
   @UseGuards(AuthenticatedGuard, RolesGuard)
   @Roles(RoleEnum.USER, RoleEnum.AGENT, RoleEnum.ADMIN)
-  @UseInterceptors(FilesInterceptor('pictures'))
+  @UseInterceptors(FilesInterceptor('pictures', 10), UploadSafetyInterceptor)
   update(
     @Param('id') id: number,
-    @Body() dto: CreateTicketDto,
+    @Body() dto: UpdateTicketDto,
     @UploadedFiles() files: Express.Multer.File[],
     @Req() req: any,
   ) {
@@ -382,15 +373,15 @@ findAllPublicPost(
   @Patch(':id/assign')
   @UseGuards(AuthenticatedGuard, RolesGuard)
   @Roles(RoleEnum.AGENT, RoleEnum.ADMIN)
-  assign(@Param('id') id: number, @Body() dto: CreateTicketDto) {
-    return this.svc.assign(id, dto);
+  assign(@Param('id') id: number, @Body() dto: AssignTicketDto, @Req() req: any) {
+    return this.svc.assign(id, dto, req.user);
   }
 
   // Change status (staff only)
   @UseGuards(AuthenticatedGuard, RolesGuard)
   @Patch(':id/status')
   @Roles(RoleEnum.AGENT, RoleEnum.ADMIN)
-  changeStatus(@Param('id') id: number, @Body() dto: CreateTicketDto, @Req() req,) {
+  changeStatus(@Param('id') id: number, @Body() dto: ChangeTicketStatusDto, @Req() req,) {
     return this.svc.changeStatusFor(id, req.user, dto);
   }
 

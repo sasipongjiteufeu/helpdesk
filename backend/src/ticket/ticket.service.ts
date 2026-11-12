@@ -10,6 +10,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, FindOptionsWhere } from 'typeorm';
 import { Ticket, TicketStatus } from './entities/ticket.entity';
 import { CreateTicketDto } from './dto/create-ticket.dto';
+import { UpdateTicketDto } from './dto/update-ticket.dto';
+import { AssignTicketDto, ChangeTicketStatusDto } from './dto/ticket-mutations.dto';
 import { User } from 'src/user/entities/user.entity';
 import { RoleEnum } from 'src/role/entities/role.enum';
 import { hasAnyRole, hasRole } from 'src/auth/role.utile';
@@ -402,8 +404,8 @@ export class TicketService {
     .createQueryBuilder('t')
     .select([
       't.id',
-      't.title',
-      't.detail',
+
+
       't.status',
       't.createdAt',
       't.updatedAt',
@@ -431,35 +433,12 @@ export class TicketService {
 
   const [items, total] = await qb.getManyAndCount();
 
-  return { items, total, page, limit };
+  return { items: items.map(item => ({ id: item.id, title: `คำร้อง #${item.id}`, detail: "เข้าสู่ระบบเพื่อติดตามคำร้องของคุณ", status: item.status, createdAt: item.createdAt, updatedAt: item.updatedAt, resolvedAt: item.resolvedAt })), total, page, limit };
   });
 
 }
 /*Note it not use anymore because it was GET. it will slow that facth data*/
-  async findAllPublic(opts?: { page?: number; limit?: number }) {
-    const page = Math.max(1, opts?.page ?? 1);
-    const limit = Math.min(100, Math.max(1, opts?.limit ?? 20));
-
-    const qb = this.repo
-      .createQueryBuilder('t')
-      .select([
-        't.id',
-        't.title',
-        't.detail',
-        't.status',
-        't.createdAt',
-        't.updatedAt',
-      ])
-      .orderBy('t.createdAt', 'DESC')
-      .take(limit)
-      .skip((page - 1) * limit);
-
-    const [items, total] = await qb.getManyAndCount();
-
-    return { items, total, page, limit };
-  }
-/*end here*/
-
+  async findAllPublic(opts?: { page?: number; limit?: number }) { return this.findAllPublicPost(opts); }
 async findAllMine(user: User, opts?: { page?: number; limit?: number }) {
   const page = Math.max(1, opts?.page ?? 1);
   const limit = Math.min(100, Math.max(1, opts?.limit ?? 20));
@@ -854,18 +833,16 @@ async findAllMine(user: User, opts?: { page?: number; limit?: number }) {
   async updateFor(
     user: User,
     id: number,
-    dto: CreateTicketDto,
+    dto: UpdateTicketDto,
     files?: Express.Multer.File[],
   ) {
     const t = await this.repo.findOne({
       where: { id },
-      relations: ['createdBy', 'images'],
+      relations: ['createdBy', 'images', 'assignedTo', 'participants', 'participants.agent'],
     });
     if (!t) throw new NotFoundException('Ticket not found');
 
-    const isStaff = hasAnyRole(user, [RoleEnum.AGENT, RoleEnum.ADMIN]);
-    const isOwner = t.createdBy.id === user.id;
-    if (!isOwner && !isStaff) throw new ForbiddenException();
+    if (!canActOnTicket(user, t)) throw new ForbiddenException();
 
     if (dto.title !== undefined) t.title = dto.title;
     if (dto.detail !== undefined) t.detail = dto.detail;
@@ -898,13 +875,20 @@ async findAllMine(user: User, opts?: { page?: number; limit?: number }) {
     return saved;
   }
 
-  async assign(id: number, dto: CreateTicketDto) {
-    const t = await this.repo.findOne({ where: { id } });
+  async assign(id: number, dto: AssignTicketDto, actor: User) {
+    const t = await this.repo.findOne({ where: { id }, relations: ['assignedTo'] });
     if (!t) throw new NotFoundException('Ticket not found');
+    const admin = hasRole(actor, RoleEnum.ADMIN);
+    const primary = isTicketAssignedAgent(actor, t);
+    const selfClaim = !t.assignedTo && t.status === TicketStatus.OPEN && dto.userId === actor.id;
+    if (!admin && !(hasRole(actor, RoleEnum.AGENT) && (primary || selfClaim))) {
+      throw new ForbiddenException('Only the assigned agent or admin can reassign a ticket');
+    }
 
     if (!dto.userId) throw new NotFoundException('userId is required');
-    const assignee = await this.users.findOne({ where: { id: dto.userId } });
+    const assignee = await this.users.findOne({ where: { id: dto.userId }, relations: ['roles'] });
     if (!assignee) throw new NotFoundException('Assignee not found');
+    if (!hasRole(assignee, RoleEnum.AGENT)) throw new BadRequestException('Assignee must have AGENT role');
 
     t.assignedTo = assignee;
     const saved = await this.repo.save(t);
@@ -1244,7 +1228,7 @@ async findAllMine(user: User, opts?: { page?: number; limit?: number }) {
   async changeStatusFor(
     id: number,
     user: User,
-    dto: CreateTicketDto,
+    dto: ChangeTicketStatusDto,
   ) {
     const t = await this.repo.findOne({
       where: { id },
